@@ -11,6 +11,7 @@
       --card: #ffffff;
       --text: #1e293b;
       --border: #e2e8f0;
+      --danger: #ef4444;
     }
     * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
     body { background: var(--bg); color: var(--text); padding: 16px; max-width: 650px; margin: 0 auto; }
@@ -19,6 +20,8 @@
     select, input, button { width: 100%; padding: 10px; margin-top: 6px; margin-bottom: 12px; border: 1px solid var(--border); border-radius: 8px; font-size: 1rem; }
     button { background: var(--primary); color: white; font-weight: bold; border: none; cursor: pointer; }
     button.secondary { background: #64748b; }
+    button.danger { background: var(--danger); }
+    .btn-small { width: auto; padding: 4px 10px; font-size: 0.75rem; margin: 0; }
     .card { background: var(--card); padding: 16px; border-radius: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); margin-bottom: 16px; }
     .tabs { display: flex; gap: 8px; margin-bottom: 16px; }
     .tab-btn { flex: 1; padding: 8px; background: #e2e8f0; color: var(--text); border-radius: 6px; font-weight: bold; border: none; font-size: 0.85rem; }
@@ -29,6 +32,7 @@
     .badge { display: inline-block; padding: 2px 8px; font-size: 0.75rem; border-radius: 4px; background: #dbeafe; color: #1e40af; font-weight: bold; }
     .badge-gray { background: #f1f5f9; color: #64748b; }
     .flex { display: flex; gap: 8px; }
+    .actions { display: flex; gap: 6px; margin-top: 6px; }
     .checkbox-container { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; margin-top: 4px; }
     .checkbox-container input { width: auto; margin: 0; }
     .stat-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin-bottom: 12px; }
@@ -90,8 +94,9 @@
   <!-- FUEL SECTION -->
   <div id="fuelSection" class="hidden">
     <div class="card">
-      <h3>Add Fuel Fill-up</h3>
+      <h3 id="fuelFormTitle">Add Fuel Fill-up</h3>
       <form id="fuelForm" onsubmit="saveFuel(event)">
+        <input type="hidden" id="fuelEditIndex" value="-1">
         <label>Date</label>
         <input type="date" id="fuelDate" required>
         <div class="flex">
@@ -120,7 +125,8 @@
           <label for="isFullTank"><b>Full Tank Fill-up?</b> (Required for accurate mileage calculation)</label>
         </div>
 
-        <button type="submit">Save Fuel Log</button>
+        <button type="submit" id="fuelSubmitBtn">Save Fuel Log</button>
+        <button type="button" id="fuelCancelBtn" class="secondary hidden" onclick="cancelFuelEdit()">Cancel Edit</button>
       </form>
     </div>
 
@@ -133,8 +139,9 @@
   <!-- SERVICE SECTION -->
   <div id="serviceSection" class="hidden">
     <div class="card">
-      <h3>Add Service Record</h3>
+      <h3 id="serviceFormTitle">Add Service Record</h3>
       <form id="serviceForm" onsubmit="saveService(event)">
+        <input type="hidden" id="serviceEditIndex" value="-1">
         <label>Date</label>
         <input type="date" id="serviceDate" required>
         <div class="flex">
@@ -151,7 +158,8 @@
         <input type="text" id="serviceType" placeholder="e.g. Engine Oil Change" required>
         <label>Attach Bill / Receipt (Image)</label>
         <input type="file" id="serviceBill" accept="image/*">
-        <button type="submit">Save Service Log</button>
+        <button type="submit" id="serviceSubmitBtn">Save Service Log</button>
+        <button type="button" id="serviceCancelBtn" class="secondary hidden" onclick="cancelServiceEdit()">Cancel Edit</button>
       </form>
     </div>
 
@@ -167,8 +175,8 @@
 
   <script>
     let db = JSON.parse(localStorage.getItem('garage_db')) || {
-      vehicles: ['Vehicle 1', 'Vehicle 2'],
-      activeVehicle: 'Vehicle 1',
+      vehicles: [],
+      activeVehicle: '',
       fuel: {},
       service: {}
     };
@@ -177,6 +185,15 @@
       const today = new Date().toISOString().split('T')[0];
       document.getElementById('fuelDate').value = today;
       document.getElementById('serviceDate').value = today;
+
+      if (!db.vehicles || db.vehicles.length === 0) {
+        const name = prompt("Welcome! Please enter your first vehicle name/number:");
+        if (name) {
+          db.vehicles = [name];
+          db.activeVehicle = name;
+          saveData();
+        }
+      }
 
       renderVehicleDropdown();
       renderDashboard();
@@ -190,7 +207,7 @@
     function renderVehicleDropdown() {
       const select = document.getElementById('vehicleSelect');
       select.innerHTML = '';
-      db.vehicles.forEach(v => {
+      (db.vehicles || []).forEach(v => {
         const opt = document.createElement('option');
         opt.value = v;
         opt.textContent = v;
@@ -202,19 +219,24 @@
     function switchVehicle() {
       db.activeVehicle = document.getElementById('vehicleSelect').value;
       saveData();
+      cancelFuelEdit();
+      cancelServiceEdit();
       renderDashboard();
       renderLogs();
     }
 
     function addVehicle() {
       const name = prompt("Enter new vehicle name/registration:");
-      if (name && !db.vehicles.includes(name)) {
-        db.vehicles.push(name);
-        db.activeVehicle = name;
-        saveData();
-        renderVehicleDropdown();
-        renderDashboard();
-        renderLogs();
+      if (name) {
+        if (!db.vehicles) db.vehicles = [];
+        if (!db.vehicles.includes(name)) {
+          db.vehicles.push(name);
+          db.activeVehicle = name;
+          saveData();
+          renderVehicleDropdown();
+          renderDashboard();
+          renderLogs();
+        }
       }
     }
 
@@ -249,7 +271,10 @@
     function saveFuel(e) {
       e.preventDefault();
       const v = db.activeVehicle;
+      if (!v) return alert('Please add a vehicle first!');
       if (!db.fuel[v]) db.fuel[v] = [];
+
+      const editIndex = parseInt(document.getElementById('fuelEditIndex').value);
 
       const newLog = {
         date: document.getElementById('fuelDate').value,
@@ -260,32 +285,85 @@
         fullTank: document.getElementById('isFullTank').checked
       };
 
-      db.fuel[v].push(newLog);
+      if (editIndex >= 0) {
+        db.fuel[v][editIndex] = newLog;
+      } else {
+        db.fuel[v].push(newLog);
+      }
+
       db.fuel[v].sort((a,b) => b.odo - a.odo);
       saveData();
-      document.getElementById('fuelForm').reset();
+      cancelFuelEdit();
       init();
+    }
+
+    function editFuel(index) {
+      const v = db.activeVehicle;
+      const item = db.fuel[v][index];
+      if (!item) return;
+
+      document.getElementById('fuelEditIndex').value = index;
+      document.getElementById('fuelDate').value = item.date;
+      document.getElementById('fuelOdo').value = item.odo;
+      document.getElementById('fuelLiters').value = item.liters;
+      document.getElementById('fuelCost').value = item.cost;
+      document.getElementById('fuelUnitPrice').value = item.unitPrice || '';
+      document.getElementById('isFullTank').checked = item.fullTank !== false;
+
+      document.getElementById('fuelFormTitle').textContent = '✏️ Edit Fuel Fill-up';
+      document.getElementById('fuelSubmitBtn').textContent = 'Update Fuel Log';
+      document.getElementById('fuelCancelBtn').classList.remove('hidden');
+
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    function cancelFuelEdit() {
+      document.getElementById('fuelForm').reset();
+      document.getElementById('fuelEditIndex').value = "-1";
+      document.getElementById('fuelFormTitle').textContent = 'Add Fuel Fill-up';
+      document.getElementById('fuelSubmitBtn').textContent = 'Save Fuel Log';
+      document.getElementById('fuelCancelBtn').classList.add('hidden');
+      document.getElementById('fuelDate').value = new Date().toISOString().split('T')[0];
+    }
+
+    function deleteFuel(index) {
+      const v = db.activeVehicle;
+      if (confirm("Are you sure you want to delete this fuel record?")) {
+        db.fuel[v].splice(index, 1);
+        saveData();
+        renderDashboard();
+        renderLogs();
+      }
     }
 
     function saveService(e) {
       e.preventDefault();
       const v = db.activeVehicle;
+      if (!v) return alert('Please add a vehicle first!');
       if (!db.service[v]) db.service[v] = [];
 
+      const editIndex = parseInt(document.getElementById('serviceEditIndex').value);
       const fileInput = document.getElementById('serviceBill');
+
       const processSave = (billDataUrl = '') => {
+        const existingBill = editIndex >= 0 ? (db.service[v][editIndex].bill || '') : '';
         const newLog = {
           date: document.getElementById('serviceDate').value,
           odo: parseFloat(document.getElementById('serviceOdo').value),
           cost: parseFloat(document.getElementById('serviceCost').value),
           type: document.getElementById('serviceType').value,
-          bill: billDataUrl
+          bill: billDataUrl || existingBill
         };
 
-        db.service[v].push(newLog);
+        if (editIndex >= 0) {
+          db.service[v][editIndex] = newLog;
+        } else {
+          db.service[v].push(newLog);
+        }
+
         db.service[v].sort((a,b) => b.odo - a.odo);
         saveData();
-        document.getElementById('serviceForm').reset();
+        cancelServiceEdit();
         init();
       };
 
@@ -298,11 +376,46 @@
       }
     }
 
-    // Mileage calculation logic accounting for partial fills
+    function editService(index) {
+      const v = db.activeVehicle;
+      const item = db.service[v][index];
+      if (!item) return;
+
+      document.getElementById('serviceEditIndex').value = index;
+      document.getElementById('serviceDate').value = item.date;
+      document.getElementById('serviceOdo').value = item.odo;
+      document.getElementById('serviceCost').value = item.cost;
+      document.getElementById('serviceType').value = item.type;
+
+      document.getElementById('serviceFormTitle').textContent = '✏️ Edit Service Record';
+      document.getElementById('serviceSubmitBtn').textContent = 'Update Service Log';
+      document.getElementById('serviceCancelBtn').classList.remove('hidden');
+
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    function cancelServiceEdit() {
+      document.getElementById('serviceForm').reset();
+      document.getElementById('serviceEditIndex').value = "-1";
+      document.getElementById('serviceFormTitle').textContent = 'Add Service Record';
+      document.getElementById('serviceSubmitBtn').textContent = 'Save Service Log';
+      document.getElementById('serviceCancelBtn').classList.add('hidden');
+      document.getElementById('serviceDate').value = new Date().toISOString().split('T')[0];
+    }
+
+    function deleteService(index) {
+      const v = db.activeVehicle;
+      if (confirm("Are you sure you want to delete this service record?")) {
+        db.service[v].splice(index, 1);
+        saveData();
+        renderDashboard();
+        renderLogs();
+      }
+    }
+
     function calculateMileages(fuelList) {
-      // Create chronological copy (oldest first)
       const sorted = [...fuelList].sort((a,b) => a.odo - b.odo);
-      const results = {}; // Map odo -> kmL
+      const results = {};
 
       let lastFullOdo = null;
       let accumulatedLiters = 0;
@@ -331,6 +444,8 @@
 
     function renderDashboard() {
       const v = db.activeVehicle;
+      if (!v) return;
+
       const fuels = db.fuel[v] || [];
       const services = db.service[v] || [];
 
@@ -398,6 +513,7 @@
 
     function renderLogs() {
       const v = db.activeVehicle;
+      if (!v) return;
       
       // Render Fuel Logs
       const fuelList = db.fuel[v] || [];
@@ -407,7 +523,7 @@
       if (fuelList.length === 0) {
         fuelContainer.innerHTML = '<p style="color:#64748b">No fuel entries yet.</p>';
       } else {
-        fuelContainer.innerHTML = fuelList.map((item) => {
+        fuelContainer.innerHTML = fuelList.map((item, index) => {
           const kmL = mileages[item.odo];
           const mileageBadge = kmL ? `<span class="badge">${kmL} Km/L</span>` : (item.fullTank ? `<span class="badge badge-gray">Full Tank</span>` : `<span class="badge badge-gray">Partial Fill</span>`);
 
@@ -419,6 +535,10 @@
               </div>
               <small>Odometer: ${item.odo} Km | ${item.liters} L @ ₹${item.unitPrice || '--'}/L</small><br>
               <small><b>Total Cost: ₹${item.cost}</b></small>
+              <div class="actions">
+                <button class="secondary btn-small" onclick="editFuel(${index})">✏️ Edit</button>
+                <button class="danger btn-small" onclick="deleteFuel(${index})">🗑️ Delete</button>
+              </div>
             </div>
           `;
         }).join('');
@@ -430,7 +550,7 @@
       if (serviceList.length === 0) {
         serviceContainer.innerHTML = '<p style="color:#64748b">No service entries yet.</p>';
       } else {
-        serviceContainer.innerHTML = serviceList.map(item => `
+        serviceContainer.innerHTML = serviceList.map((item, index) => `
           <div class="log-item">
             <div style="display:flex; justify-content:space-between;">
               <b>${item.type}</b>
@@ -438,16 +558,19 @@
             </div>
             <small>Date: ${item.date} | Odometer: ${item.odo} Km</small>
             ${item.bill ? `<br><a href="${item.bill}" target="_blank"><img src="${item.bill}" class="preview" alt="Bill Receipt"></a>` : ''}
+            <div class="actions">
+              <button class="secondary btn-small" onclick="editService(${index})">✏️ Edit</button>
+              <button class="danger btn-small" onclick="deleteService(${index})">🗑️ Delete</button>
+            </div>
           </div>
         `).join('');
       }
     }
 
-    // Export Data directly as Excel-compatible CSV
     function exportCSV() {
       let csvContent = "data:text/csv;charset=utf-8,";
       
-      db.vehicles.forEach(v => {
+      (db.vehicles || []).forEach(v => {
         csvContent += `=== VEHICLE: ${v} ===\n`;
         csvContent += "Type,Date,Odometer (Km),Liters,Price/L,Total Cost (INR),Full Tank,Service Details\n";
         
