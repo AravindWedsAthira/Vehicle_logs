@@ -1,0 +1,274 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Vehicle Expense & Service Tracker</title>
+  <style>
+    :root {
+      --primary: #2563eb;
+      --bg: #f8fafc;
+      --card: #ffffff;
+      --text: #1e293b;
+      --border: #e2e8f0;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+    body { background: var(--bg); color: var(--text); padding: 16px; max-width: 600px; margin: 0 auto; }
+    header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
+    h1 { font-size: 1.25rem; }
+    select, input, button { width: 100%; padding: 10px; margin-top: 6px; margin-bottom: 12px; border: 1px solid var(--border); border-radius: 8px; font-size: 1rem; }
+    button { background: var(--primary); color: white; font-weight: bold; border: none; cursor: pointer; }
+    button.secondary { background: #64748b; }
+    .card { background: var(--card); padding: 16px; border-radius: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); margin-bottom: 16px; }
+    .tabs { display: flex; gap: 8px; margin-bottom: 16px; }
+    .tab-btn { flex: 1; padding: 8px; background: #e2e8f0; color: var(--text); border-radius: 6px; font-weight: bold; border: none; }
+    .tab-btn.active { background: var(--primary); color: white; }
+    .hidden { display: none; }
+    .log-item { border-bottom: 1px solid var(--border); padding: 8px 0; }
+    .log-item:last-child { border-bottom: none; }
+    .badge { display: inline-block; padding: 2px 8px; font-size: 0.75rem; border-radius: 4px; background: #dbeafe; color: #1e40af; }
+    .flex { display: flex; gap: 8px; }
+  </style>
+</head>
+<body>
+
+  <header>
+    <h1>🚗 Garage Tracker</h1>
+    <button class="secondary" style="width: auto; padding: 6px 12px;" onclick="addVehicle()">+ New Vehicle</button>
+  </header>
+
+  <div class="card">
+    <label><b>Active Vehicle</b></label>
+    <select id="vehicleSelect" onchange="switchVehicle()"></select>
+  </div>
+
+  <div class="tabs">
+    <button class="tab-btn active" id="fuelTabBtn" onclick="showTab('fuel')">⛽ Fuel Log</button>
+    <button class="tab-btn" id="serviceTabBtn" onclick="showTab('service')">🔧 Service Log</button>
+  </div>
+
+  <!-- FUEL SECTION -->
+  <div id="fuelSection">
+    <div class="card">
+      <h3>Add Fuel Fill-up</h3>
+      <form id="fuelForm" onsubmit="saveFuel(event)">
+        <label>Date</label>
+        <input type="date" id="fuelDate" required>
+        <div class="flex">
+          <div>
+            <label>Odometer (Km)</label>
+            <input type="number" id="fuelOdo" placeholder="e.g. 15200" required>
+          </div>
+          <div>
+            <label>Fuel (Liters)</label>
+            <input type="number" step="0.01" id="fuelLiters" placeholder="e.g. 35.5" required>
+          </div>
+        </div>
+        <div class="flex">
+          <div>
+            <label>Total Cost (₹)</label>
+            <input type="number" step="0.01" id="fuelCost" placeholder="e.g. 3500" required>
+          </div>
+        </div>
+        <button type="submit">Save Fuel Log</button>
+      </form>
+    </div>
+
+    <div class="card">
+      <h3>Fuel History</h3>
+      <div id="fuelHistory"></div>
+    </div>
+  </div>
+
+  <!-- SERVICE SECTION -->
+  <div id="serviceSection" class="hidden">
+    <div class="card">
+      <h3>Add Service Record</h3>
+      <form id="serviceForm" onsubmit="saveService(event)">
+        <label>Date</label>
+        <input type="date" id="serviceDate" required>
+        <div class="flex">
+          <div>
+            <label>Odometer (Km)</label>
+            <input type="number" id="serviceOdo" placeholder="e.g. 15000" required>
+          </div>
+          <div>
+            <label>Cost (₹)</label>
+            <input type="number" step="0.01" id="serviceCost" placeholder="e.g. 2500" required>
+          </div>
+        </div>
+        <label>Service Type / Details</label>
+        <input type="text" id="serviceType" placeholder="e.g. Engine Oil Change, Spark Plugs" required>
+        <button type="submit">Save Service Log</button>
+      </form>
+    </div>
+
+    <div class="card">
+      <h3>Service History</h3>
+      <div id="serviceHistory"></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <button class="secondary" onclick="exportData()">📥 Backup Data (JSON)</button>
+  </div>
+
+  <script>
+    let db = JSON.parse(localStorage.getItem('garage_db')) || {
+      vehicles: ['Vehicle 1', 'Vehicle 2'],
+      activeVehicle: 'Vehicle 1',
+      fuel: {},
+      service: {}
+    };
+
+    function init() {
+      // Set today's date in form fields
+      const today = new Date().toISOString().split('T')[0];
+      document.getElementById('fuelDate').value = today;
+      document.getElementById('serviceDate').value = today;
+
+      renderVehicleDropdown();
+      renderLogs();
+    }
+
+    function saveData() {
+      localStorage.setItem('garage_db', JSON.stringify(db));
+    }
+
+    function renderVehicleDropdown() {
+      const select = document.getElementById('vehicleSelect');
+      select.innerHTML = '';
+      db.vehicles.forEach(v => {
+        const opt = document.createElement('option');
+        opt.value = v;
+        opt.textContent = v;
+        if (v === db.activeVehicle) opt.selected = true;
+        select.appendChild(opt);
+      });
+    }
+
+    function switchVehicle() {
+      db.activeVehicle = document.getElementById('vehicleSelect').value;
+      saveData();
+      renderLogs();
+    }
+
+    function addVehicle() {
+      const name = prompt("Enter new vehicle name/registration:");
+      if (name && !db.vehicles.includes(name)) {
+        db.vehicles.push(name);
+        db.activeVehicle = name;
+        saveData();
+        renderVehicleDropdown();
+        renderLogs();
+      }
+    }
+
+    function showTab(tab) {
+      document.getElementById('fuelSection').classList.toggle('hidden', tab !== 'fuel');
+      document.getElementById('serviceSection').classList.toggle('hidden', tab !== 'service');
+      document.getElementById('fuelTabBtn').classList.toggle('active', tab === 'fuel');
+      document.getElementById('serviceTabBtn').classList.toggle('active', tab === 'service');
+    }
+
+    function saveFuel(e) {
+      e.preventDefault();
+      const vehicle = db.activeVehicle;
+      if (!db.fuel[vehicle]) db.fuel[vehicle] = [];
+
+      const newLog = {
+        date: document.getElementById('fuelDate').value,
+        odo: parseFloat(document.getElementById('fuelOdo').value),
+        liters: parseFloat(document.getElementById('fuelLiters').value),
+        cost: parseFloat(document.getElementById('fuelCost').value)
+      };
+
+      db.fuel[vehicle].push(newLog);
+      db.fuel[vehicle].sort((a,b) => b.odo - a.odo); // sort newest first
+      saveData();
+      document.getElementById('fuelForm').reset();
+      init();
+    }
+
+    function saveService(e) {
+      e.preventDefault();
+      const vehicle = db.activeVehicle;
+      if (!db.service[vehicle]) db.service[vehicle] = [];
+
+      const newLog = {
+        date: document.getElementById('serviceDate').value,
+        odo: parseFloat(document.getElementById('serviceOdo').value),
+        cost: parseFloat(document.getElementById('serviceCost').value),
+        type: document.getElementById('serviceType').value
+      };
+
+      db.service[vehicle].push(newLog);
+      db.service[vehicle].sort((a,b) => b.odo - a.odo);
+      saveData();
+      document.getElementById('serviceForm').reset();
+      init();
+    }
+
+    function renderLogs() {
+      const v = db.activeVehicle;
+      
+      // Render Fuel
+      const fuelList = db.fuel[v] || [];
+      const fuelContainer = document.getElementById('fuelHistory');
+      if (fuelList.length === 0) {
+        fuelContainer.innerHTML = '<p style="color:#64748b">No fuel entries yet.</p>';
+      } else {
+        fuelContainer.innerHTML = fuelList.map((item, index) => {
+          let mileageText = '';
+          if (index < fuelList.length - 1) {
+            const prevItem = fuelList[index + 1];
+            const dist = item.odo - prevItem.odo;
+            if (dist > 0 && item.liters > 0) {
+              const kmL = (dist / item.liters).toFixed(2);
+              mileageText = `<span class="badge">${kmL} Km/L</span>`;
+            }
+          }
+          return `
+            <div class="log-item">
+              <div style="display:flex; justify-content:space-between; align-items:center;">
+                <b>${item.date}</b>
+                ${mileageText}
+              </div>
+              <small>Odometer: ${item.odo} Km | Liters: ${item.liters} L | Cost: ₹${item.cost}</small>
+            </div>
+          `;
+        }).join('');
+      }
+
+      // Render Service
+      const serviceList = db.service[v] || [];
+      const serviceContainer = document.getElementById('serviceHistory');
+      if (serviceList.length === 0) {
+        serviceContainer.innerHTML = '<p style="color:#64748b">No service entries yet.</p>';
+      } else {
+        serviceContainer.innerHTML = serviceList.map(item => `
+          <div class="log-item">
+            <div style="display:flex; justify-content:space-between;">
+              <b>${item.type}</b>
+              <b>₹${item.cost}</b>
+            </div>
+            <small>Date: ${item.date} | Odometer: ${item.odo} Km</small>
+          </div>
+        `).join('');
+      }
+    }
+
+    function exportData() {
+      const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(db));
+      const downloadAnchor = document.createElement('a');
+      downloadAnchor.setAttribute("href", dataStr);
+      downloadAnchor.setAttribute("download", `garage_backup_${new Date().toISOString().split('T')[0]}.json`);
+      document.body.appendChild(downloadAnchor);
+      downloadAnchor.click();
+      downloadAnchor.remove();
+    }
+
+    init();
+  </script>
+</body>
+</html>
