@@ -31,7 +31,7 @@
     .tabs { display: flex; gap: 8px; margin-bottom: 16px; }
     .tab-btn { flex: 1; padding: 8px; background: #e2e8f0; color: var(--text); border-radius: 6px; font-weight: bold; border: none; font-size: 0.85rem; }
     .tab-btn.active { background: var(--primary); color: white; }
-    .hidden { display: none; }
+    .hidden { display: none !important; }
     .log-item { border-bottom: 1px solid var(--border); padding: 10px 0; }
     .log-item:last-child { border-bottom: none; }
     .badge { display: inline-block; padding: 2px 8px; font-size: 0.75rem; border-radius: 4px; background: #dbeafe; color: #1e40af; font-weight: bold; }
@@ -90,7 +90,7 @@
 
         <div id="loginError" style="color: var(--danger); font-size: 0.8rem; text-align: center; margin-bottom: 8px; min-height: 18px;"></div>
 
-        <button type="submit" style="padding: 12px; margin-top: 4px;">Unlock Garage</button>
+        <button type="submit" id="unlockBtn" style="padding: 12px; margin-top: 4px;">Unlock Garage</button>
       </form>
     </div>
   </div>
@@ -300,9 +300,13 @@
       const name = rawName.toLowerCase().replace(/[^a-z0-9]/g, '_');
       const pin = document.getElementById('loginPin').value.trim();
       const errDiv = document.getElementById('loginError');
+      const btn = document.getElementById('unlockBtn');
+      
       errDiv.textContent = '';
-
       if (!name || !pin) return;
+
+      btn.textContent = "Unlocking...";
+      btn.disabled = true;
 
       try {
         const snapshot = await realtimeDb.ref('garages/' + name).once('value');
@@ -310,11 +314,13 @@
           const cloudData = snapshot.val();
           if (cloudData.pin !== pin) {
             errDiv.textContent = '❌ Incorrect PIN for this Garage Name!';
+            btn.textContent = "Unlock Garage";
+            btn.disabled = false;
             return;
           }
-          db = cloudData.data || db;
+          if (cloudData.data) db = cloudData.data;
         } else {
-          // Register initial setup
+          // New garage setup
           await realtimeDb.ref('garages/' + name).set({ pin: pin, data: db });
         }
 
@@ -326,6 +332,9 @@
       } catch (err) {
         console.error('Firebase Error:', err);
         errDiv.textContent = 'Connection error. Please try again.';
+      } finally {
+        btn.textContent = "Unlock Garage";
+        btn.disabled = false;
       }
     }
 
@@ -343,6 +352,7 @@
       document.getElementById('loginPin').value = '';
       document.getElementById('loginModal').classList.remove('hidden');
       document.getElementById('appInterface').classList.add('hidden');
+      hideVehicleModal();
     }
 
     function listenForLiveSync() {
@@ -387,6 +397,9 @@
           db.activeVehicle = db.vehicles[0] || '';
         }
       }
+
+      // Only open the modal if the app is actually unlocked and visible
+      if (!activeGarageName) return;
 
       if (!db.vehicles || db.vehicles.length === 0) {
         openVehicleModal('add');
