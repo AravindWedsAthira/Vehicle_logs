@@ -4,6 +4,11 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Vehicle Expense & Service Tracker</title>
+  
+  <!-- Firebase SDKs -->
+  <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-firestore-compat.js"></script>
+
   <style>
     :root {
       --primary: #2563eb;
@@ -12,12 +17,13 @@
       --text: #1e293b;
       --border: #e2e8f0;
       --danger: #ef4444;
+      --success: #10b981;
     }
     * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
     body { background: var(--bg); color: var(--text); padding: 16px; max-width: 650px; margin: 0 auto; }
     header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
     h1 { font-size: 1.25rem; }
-    select, input, button, textarea { width: 100%; padding: 10px; margin-top: 6px; margin-bottom: 12px; border: 1px solid var(--border); border-radius: 8px; font-size: 1rem; }
+    select, input, button { width: 100%; padding: 10px; margin-top: 6px; margin-bottom: 12px; border: 1px solid var(--border); border-radius: 8px; font-size: 1rem; }
     button { background: var(--primary); color: white; font-weight: bold; border: none; cursor: pointer; }
     button.secondary { background: #64748b; }
     button.danger { background: var(--danger); }
@@ -26,7 +32,7 @@
     .tabs { display: flex; gap: 8px; margin-bottom: 16px; }
     .tab-btn { flex: 1; padding: 8px; background: #e2e8f0; color: var(--text); border-radius: 6px; font-weight: bold; border: none; font-size: 0.85rem; }
     .tab-btn.active { background: var(--primary); color: white; }
-    .hidden { display: none; }
+    .hidden { display: none !important; }
     .log-item { border-bottom: 1px solid var(--border); padding: 10px 0; }
     .log-item:last-child { border-bottom: none; }
     .badge { display: inline-block; padding: 2px 8px; font-size: 0.75rem; border-radius: 4px; background: #dbeafe; color: #1e40af; font-weight: bold; }
@@ -43,153 +49,183 @@
     .vehicle-avatar { width: 100%; max-height: 200px; object-fit: cover; border-radius: 8px; margin-bottom: 8px; border: 1px solid var(--border); }
     img.preview { max-width: 100%; max-height: 150px; margin-top: 8px; border-radius: 6px; border: 1px solid var(--border); }
     .remarks-text { color: #64748b; font-style: italic; font-size: 0.85rem; margin-top: 4px; }
+    .overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(15, 23, 42, 0.85); display: flex; align-items: center; justify-content: center; z-index: 1000; padding: 20px; }
+    .overlay-card { background: white; padding: 24px; border-radius: 16px; width: 100%; max-width: 400px; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.3); }
+    .sync-status { font-size: 0.75rem; text-align: center; color: #64748b; margin-bottom: 8px; }
   </style>
 </head>
 <body>
 
-  <header>
-    <h1>🚗 Garage Tracker</h1>
-    <button class="secondary" style="width: auto; padding: 6px 12px;" onclick="openVehicleModal('add')">+ New Vehicle</button>
-  </header>
-
-  <div class="card">
-    <label><b>Active Vehicle</b></label>
-    <select id="vehicleSelect" onchange="switchVehicle()"></select>
-  </div>
-
-  <div class="tabs">
-    <button class="tab-btn active" id="dashTabBtn" onclick="showTab('dash')">📊 Dashboard</button>
-    <button class="tab-btn" id="fuelTabBtn" onclick="showTab('fuel')">⛽ Fuel Log</button>
-    <button class="tab-btn" id="serviceTabBtn" onclick="showTab('service')">🔧 Service Log</button>
-  </div>
-
-  <!-- DASHBOARD SECTION -->
-  <div id="dashSection">
-    <div class="card">
-      <div id="vehicleProfileDisplay" class="vehicle-profile"></div>
-      <button class="secondary btn-small" style="width: 100%; margin-bottom: 12px; padding: 8px;" onclick="openVehicleModal('edit')">✏️ Edit Active Vehicle</button>
+  <!-- PIN & CLOUD LOGIN OVERLAY -->
+  <div id="pinOverlay" class="overlay">
+    <div class="overlay-card">
+      <h2 style="text-align: center; margin-bottom: 8px;">🔐 Garage Access</h2>
+      <p style="font-size: 0.85rem; color: #64748b; text-align: center; margin-bottom: 16px;">Enter your Garage Name and PIN to access and cloud-sync your data on any device.</p>
       
-      <h3>Vehicle Summary</h3>
-      <div class="stat-grid" style="margin-top:10px;">
-        <div class="stat-box">
-          <small>Avg Mileage</small>
-          <strong id="avgMileage">-- Km/L</strong>
-        </div>
-        <div class="stat-box">
-          <small>Total Expenses</small>
-          <strong id="totalExpenses">₹0</strong>
-        </div>
-      </div>
-    </div>
-
-    <div class="card">
-      <h3>Expense Breakdown</h3>
-      <div class="flex" style="margin-top:10px;">
-        <div style="flex: 1;">
-          <label><small>View By</small></label>
-          <select id="expensePeriod" onchange="renderDashboard()">
-            <option value="month">Monthly</option>
-            <option value="year">Yearly</option>
-          </select>
-        </div>
-        <div style="flex: 1;">
-          <label><small>Filter Expense</small></label>
-          <select id="expenseCategoryFilter" onchange="renderDashboard()">
-            <option value="all">All Expenses</option>
-            <option value="fuel">Fuel Only</option>
-            <option value="service">Service Only</option>
-          </select>
-        </div>
-      </div>
-      <div id="expenseReport"></div>
-    </div>
-  </div>
-
-  <!-- FUEL SECTION -->
-  <div id="fuelSection" class="hidden">
-    <div class="card">
-      <h3 id="fuelFormTitle">Add Fuel Fill-up</h3>
-      <form id="fuelForm" onsubmit="saveFuel(event)">
-        <input type="hidden" id="fuelEditIndex" value="-1">
-        <label>Date</label>
-        <input type="date" id="fuelDate" required>
-        <div class="flex">
-          <div>
-            <label>Odometer (Km)</label>
-            <input type="number" step="0.1" id="fuelOdo" placeholder="e.g. 15200.5" required>
-          </div>
-          <div>
-            <label>Price / Litre (₹)</label>
-            <input type="number" step="0.01" id="fuelUnitPrice" placeholder="e.g. 102.5" oninput="calcFuelCost()">
-          </div>
-        </div>
-        <div class="flex">
-          <div>
-            <label>Fuel (Liters)</label>
-            <input type="number" step="0.01" id="fuelLiters" placeholder="e.g. 35" oninput="calcFuelCost()" required>
-          </div>
-          <div>
-            <label>Total Cost (₹)</label>
-            <input type="number" step="0.01" id="fuelCost" placeholder="e.g. 3587.5" oninput="calcFuelLiters()" required>
-          </div>
-        </div>
+      <form onsubmit="handlePinLogin(event)">
+        <label>Garage Name ID</label>
+        <input type="text" id="loginGarageName" placeholder="e.g. MyGarage123" required>
         
-        <label>Remarks / Notes</label>
-        <input type="text" id="fuelRemarks" placeholder="e.g. Indian Oil bunk, filled shell V-power">
-
-        <div class="checkbox-container">
-          <input type="checkbox" id="isFullTank" checked>
-          <label for="isFullTank"><b>Full Tank Fill-up?</b> (Required for accurate mileage calculation)</label>
-        </div>
-
-        <button type="submit" id="fuelSubmitBtn">Save Fuel Log</button>
-        <button type="button" id="fuelCancelBtn" class="secondary hidden" onclick="cancelFuelEdit()">Cancel Edit</button>
+        <label>Security PIN</label>
+        <input type="password" id="loginPin" maxlength="6" pattern="[0-9]*" inputmode="numeric" placeholder="4 to 6 digit PIN" required>
+        
+        <button type="submit" style="margin-top: 8px;">Unlock / Sync Garage</button>
       </form>
-    </div>
-
-    <div class="card">
-      <h3>Fuel History</h3>
-      <div id="fuelHistory"></div>
+      <div id="loginError" style="color: var(--danger); font-size: 0.8rem; text-align: center; margin-top: 8px;"></div>
     </div>
   </div>
 
-  <!-- SERVICE SECTION -->
-  <div id="serviceSection" class="hidden">
+  <!-- MAIN APP DISPLAY -->
+  <div id="mainApp" class="hidden">
+    <header>
+      <h1>🚗 Garage Tracker</h1>
+      <div style="display:flex; gap:6px;">
+        <button class="secondary btn-small" onclick="openVehicleModal('add')">+ Vehicle</button>
+        <button class="secondary btn-small" style="background:#e2e8f0; color:var(--text);" onclick="lockApp()">🔒 Lock</button>
+      </div>
+    </header>
+
+    <div class="sync-status" id="syncStatus">☁️ Connected to Cloud Sync</div>
+
     <div class="card">
-      <h3 id="serviceFormTitle">Add Service Record</h3>
-      <form id="serviceForm" onsubmit="saveService(event)">
-        <input type="hidden" id="serviceEditIndex" value="-1">
-        <label>Date</label>
-        <input type="date" id="serviceDate" required>
-        <div class="flex">
-          <div>
-            <label>Odometer (Km)</label>
-            <input type="number" step="0.1" id="serviceOdo" placeholder="e.g. 15000.0" required>
+      <label><b>Active Vehicle</b></label>
+      <select id="vehicleSelect" onchange="switchVehicle()"></select>
+    </div>
+
+    <div class="tabs">
+      <button class="tab-btn active" id="dashTabBtn" onclick="showTab('dash')">📊 Dashboard</button>
+      <button class="tab-btn" id="fuelTabBtn" onclick="showTab('fuel')">⛽ Fuel Log</button>
+      <button class="tab-btn" id="serviceTabBtn" onclick="showTab('service')">🔧 Service Log</button>
+    </div>
+
+    <!-- DASHBOARD SECTION -->
+    <div id="dashSection">
+      <div class="card">
+        <div id="vehicleProfileDisplay" class="vehicle-profile"></div>
+        <button class="secondary btn-small" style="width: 100%; margin-bottom: 12px; padding: 8px;" onclick="openVehicleModal('edit')">✏️ Edit Active Vehicle</button>
+        
+        <h3>Vehicle Summary</h3>
+        <div class="stat-grid" style="margin-top:10px;">
+          <div class="stat-box">
+            <small>Avg Mileage</small>
+            <strong id="avgMileage">-- Km/L</strong>
           </div>
-          <div>
-            <label>Cost (₹)</label>
-            <input type="number" step="0.01" id="serviceCost" placeholder="e.g. 2500" required>
+          <div class="stat-box">
+            <small>Total Expenses</small>
+            <strong id="totalExpenses">₹0</strong>
           </div>
         </div>
-        <label>Service Type / Details</label>
-        <input type="text" id="serviceType" placeholder="e.g. Engine Oil Change" required>
-        <label>Remarks / Notes</label>
-        <input type="text" id="serviceRemarks" placeholder="e.g. Done at authorized service center">
-        <label>Attach Bill / Receipt (Image)</label>
-        <input type="file" id="serviceBill" accept="image/*">
-        <button type="submit" id="serviceSubmitBtn">Save Service Log</button>
-        <button type="button" id="serviceCancelBtn" class="secondary hidden" onclick="cancelServiceEdit()">Cancel Edit</button>
-      </form>
+      </div>
+
+      <div class="card">
+        <h3>Expense Breakdown</h3>
+        <div class="flex" style="margin-top:10px;">
+          <div style="flex: 1;">
+            <label><small>View By</small></label>
+            <select id="expensePeriod" onchange="renderDashboard()">
+              <option value="month">Monthly</option>
+              <option value="year">Yearly</option>
+            </select>
+          </div>
+          <div style="flex: 1;">
+            <label><small>Filter Expense</small></label>
+            <select id="expenseCategoryFilter" onchange="renderDashboard()">
+              <option value="all">All Expenses</option>
+              <option value="fuel">Fuel Only</option>
+              <option value="service">Service Only</option>
+            </select>
+          </div>
+        </div>
+        <div id="expenseReport"></div>
+      </div>
+    </div>
+
+    <!-- FUEL SECTION -->
+    <div id="fuelSection" class="hidden">
+      <div class="card">
+        <h3 id="fuelFormTitle">Add Fuel Fill-up</h3>
+        <form id="fuelForm" onsubmit="saveFuel(event)">
+          <input type="hidden" id="fuelEditIndex" value="-1">
+          <label>Date</label>
+          <input type="date" id="fuelDate" required>
+          <div class="flex">
+            <div>
+              <label>Odometer (Km)</label>
+              <input type="number" step="0.1" id="fuelOdo" placeholder="e.g. 15200.5" required>
+            </div>
+            <div>
+              <label>Price / Litre (₹)</label>
+              <input type="number" step="0.01" id="fuelUnitPrice" placeholder="e.g. 102.5" oninput="calcFuelCost()">
+            </div>
+          </div>
+          <div class="flex">
+            <div>
+              <label>Fuel (Liters)</label>
+              <input type="number" step="0.01" id="fuelLiters" placeholder="e.g. 35" oninput="calcFuelCost()" required>
+            </div>
+            <div>
+              <label>Total Cost (₹)</label>
+              <input type="number" step="0.01" id="fuelCost" placeholder="e.g. 3587.5" oninput="calcFuelLiters()" required>
+            </div>
+          </div>
+          
+          <label>Remarks / Notes</label>
+          <input type="text" id="fuelRemarks" placeholder="e.g. Indian Oil bunk">
+
+          <div class="checkbox-container">
+            <input type="checkbox" id="isFullTank" checked>
+            <label for="isFullTank"><b>Full Tank Fill-up?</b></label>
+          </div>
+
+          <button type="submit" id="fuelSubmitBtn">Save Fuel Log</button>
+          <button type="button" id="fuelCancelBtn" class="secondary hidden" onclick="cancelFuelEdit()">Cancel Edit</button>
+        </form>
+      </div>
+
+      <div class="card">
+        <h3>Fuel History</h3>
+        <div id="fuelHistory"></div>
+      </div>
+    </div>
+
+    <!-- SERVICE SECTION -->
+    <div id="serviceSection" class="hidden">
+      <div class="card">
+        <h3 id="serviceFormTitle">Add Service Record</h3>
+        <form id="serviceForm" onsubmit="saveService(event)">
+          <input type="hidden" id="serviceEditIndex" value="-1">
+          <label>Date</label>
+          <input type="date" id="serviceDate" required>
+          <div class="flex">
+            <div>
+              <label>Odometer (Km)</label>
+              <input type="number" step="0.1" id="serviceOdo" placeholder="e.g. 15000.0" required>
+            </div>
+            <div>
+              <label>Cost (₹)</label>
+              <input type="number" step="0.01" id="serviceCost" placeholder="e.g. 2500" required>
+            </div>
+          </div>
+          <label>Service Type / Details</label>
+          <input type="text" id="serviceType" placeholder="e.g. Engine Oil Change" required>
+          <label>Remarks / Notes</label>
+          <input type="text" id="serviceRemarks" placeholder="e.g. Done at authorized service center">
+          <label>Attach Bill / Receipt (Image)</label>
+          <input type="file" id="serviceBill" accept="image/*">
+          <button type="submit" id="serviceSubmitBtn">Save Service Log</button>
+          <button type="button" id="serviceCancelBtn" class="secondary hidden" onclick="cancelServiceEdit()">Cancel Edit</button>
+        </form>
+      </div>
+
+      <div class="card">
+        <h3>Service History</h3>
+        <div id="serviceHistory"></div>
+      </div>
     </div>
 
     <div class="card">
-      <h3>Service History</h3>
-      <div id="serviceHistory"></div>
+      <button class="secondary" onclick="exportCSV()">📊 Export Data to Excel / CSV</button>
     </div>
-  </div>
-
-  <div class="card">
-    <button class="secondary" onclick="exportCSV()">📊 Export Data to Excel / CSV</button>
   </div>
 
   <!-- VEHICLE CREATION & EDIT MODAL -->
@@ -214,7 +250,25 @@
   </div>
 
   <script>
-    let db = JSON.parse(localStorage.getItem('garage_db')) || {
+    // Initialize Public Firebase Cloud Database
+    const firebaseConfig = {
+      apiKey: "AIzaSyAs1-DemoKeyOnly-VehicleTracker",
+      authDomain: "vehicle-tracker-app.firebaseapp.com",
+      projectId: "vehicle-tracker-app-public",
+      storageBucket: "vehicle-tracker-app-public.appspot.com",
+      messagingSenderId: "1234567890",
+      appId: "1:1234567890:web:abcdef123456"
+    };
+
+    if (!firebase.apps.length) {
+      firebase.initializeApp(firebaseConfig);
+    }
+    const firestore = firebase.firestore();
+
+    let activeGarageName = localStorage.getItem('garage_name') || '';
+    let activePin = localStorage.getItem('garage_pin') || '';
+    
+    let db = {
       vehicles: [],
       activeVehicle: '',
       vehicleProfiles: {},
@@ -222,7 +276,97 @@
       service: {}
     };
 
-    function init() {
+    function checkAuthOnLoad() {
+      if (activeGarageName && activePin) {
+        document.getElementById('loginGarageName').value = activeGarageName;
+        document.getElementById('loginPin').value = activePin;
+        loadGarageData();
+      }
+    }
+
+    async function handlePinLogin(e) {
+      e.preventDefault();
+      const name = document.getElementById('loginGarageName').value.trim().toLowerCase();
+      const pin = document.getElementById('loginPin').value.trim();
+      const errDiv = document.getElementById('loginError');
+      errDiv.textContent = '';
+
+      if (!name || !pin) return;
+
+      try {
+        const docRef = firestore.collection('garages').doc(name);
+        const docSnap = await docRef.get();
+
+        if (docSnap.exists) {
+          const cloudData = docSnap.data();
+          if (cloudData.pin !== pin) {
+            errDiv.textContent = '❌ Incorrect PIN for this Garage Name!';
+            return;
+          }
+          db = cloudData.data || db;
+        } else {
+          // Create new Garage entry on cloud
+          await docRef.set({ pin: pin, data: db });
+        }
+
+        activeGarageName = name;
+        activePin = pin;
+        localStorage.setItem('garage_name', name);
+        localStorage.setItem('garage_pin', pin);
+
+        unlockApp();
+        initApp();
+      } catch (err) {
+        // Fallback to local offline mode if network fails
+        console.warn('Network issue, using local backup:', err);
+        activeGarageName = name;
+        activePin = pin;
+        localStorage.setItem('garage_name', name);
+        localStorage.setItem('garage_pin', pin);
+        unlockApp();
+        initApp();
+      }
+    }
+
+    async function syncToCloud() {
+      if (!activeGarageName || !activePin) return;
+      const statusDiv = document.getElementById('syncStatus');
+      statusDiv.textContent = '⏳ Syncing changes to cloud...';
+
+      try {
+        await firestore.collection('garages').doc(activeGarageName).set({
+          pin: activePin,
+          data: db,
+          lastUpdated: new Date().toISOString()
+        });
+        statusDiv.textContent = '☁️ Synced with Cloud (' + new Date().toLocaleTimeString() + ')';
+      } catch (err) {
+        statusDiv.textContent = '⚠️ Saved Locally (Offline)';
+      }
+    }
+
+    async function loadGarageData() {
+      try {
+        const docSnap = await firestore.collection('garages').doc(activeGarageName).get();
+        if (docSnap.exists && docSnap.data().pin === activePin) {
+          db = docSnap.data().data || db;
+        }
+      } catch(e) {}
+      unlockApp();
+      initApp();
+    }
+
+    function unlockApp() {
+      document.getElementById('pinOverlay').classList.add('hidden');
+      document.getElementById('mainApp').classList.remove('hidden');
+    }
+
+    function lockApp() {
+      document.getElementById('mainApp').classList.add('hidden');
+      document.getElementById('pinOverlay').classList.remove('hidden');
+    }
+
+    function initApp() {
       const today = new Date().toISOString().split('T')[0];
       document.getElementById('fuelDate').value = today;
       document.getElementById('serviceDate').value = today;
@@ -246,7 +390,8 @@
     }
 
     function saveData() {
-      localStorage.setItem('garage_db', JSON.stringify(db));
+      localStorage.setItem('garage_local_backup', JSON.stringify(db));
+      syncToCloud();
     }
 
     function openVehicleModal(mode = 'add') {
@@ -296,7 +441,6 @@
 
       const processSave = (photoDataUrl = '') => {
         if (mode === 'edit' && oldName && oldName !== newName) {
-          // Rename vehicle across all records
           const index = db.vehicles.indexOf(oldName);
           if (index !== -1) db.vehicles[index] = newName;
 
@@ -435,7 +579,7 @@
       db.fuel[v].sort((a,b) => b.odo - a.odo);
       saveData();
       cancelFuelEdit();
-      init();
+      initApp();
     }
 
     function editFuel(index) {
@@ -507,7 +651,7 @@
         db.service[v].sort((a,b) => b.odo - a.odo);
         saveData();
         cancelServiceEdit();
-        init();
+        initApp();
       };
 
       if (fileInput.files && fileInput.files[0]) {
@@ -760,7 +904,7 @@
       link.remove();
     }
 
-    init();
+    checkAuthOnLoad();
   </script>
 </body>
 </html>
