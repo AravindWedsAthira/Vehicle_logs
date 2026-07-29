@@ -13,7 +13,7 @@
       --border: #e2e8f0;
     }
     * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
-    body { background: var(--bg); color: var(--text); padding: 16px; max-width: 600px; margin: 0 auto; }
+    body { background: var(--bg); color: var(--text); padding: 16px; max-width: 650px; margin: 0 auto; }
     header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
     h1 { font-size: 1.25rem; }
     select, input, button { width: 100%; padding: 10px; margin-top: 6px; margin-bottom: 12px; border: 1px solid var(--border); border-radius: 8px; font-size: 1rem; }
@@ -21,13 +21,18 @@
     button.secondary { background: #64748b; }
     .card { background: var(--card); padding: 16px; border-radius: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); margin-bottom: 16px; }
     .tabs { display: flex; gap: 8px; margin-bottom: 16px; }
-    .tab-btn { flex: 1; padding: 8px; background: #e2e8f0; color: var(--text); border-radius: 6px; font-weight: bold; border: none; }
+    .tab-btn { flex: 1; padding: 8px; background: #e2e8f0; color: var(--text); border-radius: 6px; font-weight: bold; border: none; font-size: 0.85rem; }
     .tab-btn.active { background: var(--primary); color: white; }
     .hidden { display: none; }
-    .log-item { border-bottom: 1px solid var(--border); padding: 8px 0; }
+    .log-item { border-bottom: 1px solid var(--border); padding: 10px 0; }
     .log-item:last-child { border-bottom: none; }
-    .badge { display: inline-block; padding: 2px 8px; font-size: 0.75rem; border-radius: 4px; background: #dbeafe; color: #1e40af; }
+    .badge { display: inline-block; padding: 2px 8px; font-size: 0.75rem; border-radius: 4px; background: #dbeafe; color: #1e40af; font-weight: bold; }
     .flex { display: flex; gap: 8px; }
+    .stat-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin-bottom: 12px; }
+    .stat-box { background: #f1f5f9; padding: 12px; border-radius: 8px; text-align: center; }
+    .stat-box small { color: #64748b; display: block; font-size: 0.75rem; }
+    .stat-box strong { font-size: 1.1rem; color: var(--primary); }
+    img.preview { max-width: 100%; max-height: 150px; margin-top: 8px; border-radius: 6px; border: 1px solid var(--border); }
   </style>
 </head>
 <body>
@@ -43,12 +48,44 @@
   </div>
 
   <div class="tabs">
-    <button class="tab-btn active" id="fuelTabBtn" onclick="showTab('fuel')">⛽ Fuel Log</button>
+    <button class="tab-btn active" id="dashTabBtn" onclick="showTab('dash')">📊 Dashboard</button>
+    <button class="tab-btn" id="fuelTabBtn" onclick="showTab('fuel')">⛽ Fuel Log</button>
     <button class="tab-btn" id="serviceTabBtn" onclick="showTab('service')">🔧 Service Log</button>
   </div>
 
+  <!-- DASHBOARD SECTION -->
+  <div id="dashSection">
+    <div class="card">
+      <h3>Vehicle Summary</h3>
+      <div class="stat-grid" style="margin-top:10px;">
+        <div class="stat-box">
+          <small>Avg Mileage</small>
+          <strong id="avgMileage">-- Km/L</strong>
+        </div>
+        <div class="stat-box">
+          <small>Total Expenses</small>
+          <strong id="totalExpenses">₹0</strong>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>Expense Breakdown</h3>
+      <div class="flex" style="margin-top:10px;">
+        <div>
+          <label>View By</label>
+          <select id="expensePeriod" onchange="renderDashboard()">
+            <option value="month">Monthly</option>
+            <option value="year">Yearly</option>
+          </select>
+        </div>
+      </div>
+      <div id="expenseReport"></div>
+    </div>
+  </div>
+
   <!-- FUEL SECTION -->
-  <div id="fuelSection">
+  <div id="fuelSection" class="hidden">
     <div class="card">
       <h3>Add Fuel Fill-up</h3>
       <form id="fuelForm" onsubmit="saveFuel(event)">
@@ -60,14 +97,18 @@
             <input type="number" id="fuelOdo" placeholder="e.g. 15200" required>
           </div>
           <div>
-            <label>Fuel (Liters)</label>
-            <input type="number" step="0.01" id="fuelLiters" placeholder="e.g. 35.5" required>
+            <label>Price / Litre (₹)</label>
+            <input type="number" step="0.01" id="fuelUnitPrice" placeholder="e.g. 102.5" oninput="calcFuelCost()">
           </div>
         </div>
         <div class="flex">
           <div>
+            <label>Fuel (Liters)</label>
+            <input type="number" step="0.01" id="fuelLiters" placeholder="e.g. 35" oninput="calcFuelCost()" required>
+          </div>
+          <div>
             <label>Total Cost (₹)</label>
-            <input type="number" step="0.01" id="fuelCost" placeholder="e.g. 3500" required>
+            <input type="number" step="0.01" id="fuelCost" placeholder="e.g. 3587.5" oninput="calcFuelLiters()" required>
           </div>
         </div>
         <button type="submit">Save Fuel Log</button>
@@ -98,7 +139,9 @@
           </div>
         </div>
         <label>Service Type / Details</label>
-        <input type="text" id="serviceType" placeholder="e.g. Engine Oil Change, Spark Plugs" required>
+        <input type="text" id="serviceType" placeholder="e.g. Engine Oil Change" required>
+        <label>Attach Bill / Receipt (Image)</label>
+        <input type="file" id="serviceBill" accept="image/*">
         <button type="submit">Save Service Log</button>
       </form>
     </div>
@@ -122,12 +165,12 @@
     };
 
     function init() {
-      // Set today's date in form fields
       const today = new Date().toISOString().split('T')[0];
       document.getElementById('fuelDate').value = today;
       document.getElementById('serviceDate').value = today;
 
       renderVehicleDropdown();
+      renderDashboard();
       renderLogs();
     }
 
@@ -150,6 +193,7 @@
     function switchVehicle() {
       db.activeVehicle = document.getElementById('vehicleSelect').value;
       saveData();
+      renderDashboard();
       renderLogs();
     }
 
@@ -160,31 +204,55 @@
         db.activeVehicle = name;
         saveData();
         renderVehicleDropdown();
+        renderDashboard();
         renderLogs();
       }
     }
 
     function showTab(tab) {
+      document.getElementById('dashSection').classList.toggle('hidden', tab !== 'dash');
       document.getElementById('fuelSection').classList.toggle('hidden', tab !== 'fuel');
       document.getElementById('serviceSection').classList.toggle('hidden', tab !== 'service');
+      
+      document.getElementById('dashTabBtn').classList.toggle('active', tab === 'dash');
       document.getElementById('fuelTabBtn').classList.toggle('active', tab === 'fuel');
       document.getElementById('serviceTabBtn').classList.toggle('active', tab === 'service');
+
+      if (tab === 'dash') renderDashboard();
+    }
+
+    // Auto-calculate Fuel Form fields
+    function calcFuelCost() {
+      const unit = parseFloat(document.getElementById('fuelUnitPrice').value);
+      const liters = parseFloat(document.getElementById('fuelLiters').value);
+      if (unit && liters) {
+        document.getElementById('fuelCost').value = (unit * liters).toFixed(2);
+      }
+    }
+
+    function calcFuelLiters() {
+      const unit = parseFloat(document.getElementById('fuelUnitPrice').value);
+      const cost = parseFloat(document.getElementById('fuelCost').value);
+      if (unit && cost) {
+        document.getElementById('fuelLiters').value = (cost / unit).toFixed(2);
+      }
     }
 
     function saveFuel(e) {
       e.preventDefault();
-      const vehicle = db.activeVehicle;
-      if (!db.fuel[vehicle]) db.fuel[vehicle] = [];
+      const v = db.activeVehicle;
+      if (!db.fuel[v]) db.fuel[v] = [];
 
       const newLog = {
         date: document.getElementById('fuelDate').value,
         odo: parseFloat(document.getElementById('fuelOdo').value),
         liters: parseFloat(document.getElementById('fuelLiters').value),
-        cost: parseFloat(document.getElementById('fuelCost').value)
+        cost: parseFloat(document.getElementById('fuelCost').value),
+        unitPrice: parseFloat(document.getElementById('fuelUnitPrice').value) || 0
       };
 
-      db.fuel[vehicle].push(newLog);
-      db.fuel[vehicle].sort((a,b) => b.odo - a.odo); // sort newest first
+      db.fuel[v].push(newLog);
+      db.fuel[v].sort((a,b) => b.odo - a.odo);
       saveData();
       document.getElementById('fuelForm').reset();
       init();
@@ -192,27 +260,110 @@
 
     function saveService(e) {
       e.preventDefault();
-      const vehicle = db.activeVehicle;
-      if (!db.service[vehicle]) db.service[vehicle] = [];
+      const v = db.activeVehicle;
+      if (!db.service[v]) db.service[v] = [];
 
-      const newLog = {
-        date: document.getElementById('serviceDate').value,
-        odo: parseFloat(document.getElementById('serviceOdo').value),
-        cost: parseFloat(document.getElementById('serviceCost').value),
-        type: document.getElementById('serviceType').value
+      const fileInput = document.getElementById('serviceBill');
+      const processSave = (billDataUrl = '') => {
+        const newLog = {
+          date: document.getElementById('serviceDate').value,
+          odo: parseFloat(document.getElementById('serviceOdo').value),
+          cost: parseFloat(document.getElementById('serviceCost').value),
+          type: document.getElementById('serviceType').value,
+          bill: billDataUrl
+        };
+
+        db.service[v].push(newLog);
+        db.service[v].sort((a,b) => b.odo - a.odo);
+        saveData();
+        document.getElementById('serviceForm').reset();
+        init();
       };
 
-      db.service[vehicle].push(newLog);
-      db.service[vehicle].sort((a,b) => b.odo - a.odo);
-      saveData();
-      document.getElementById('serviceForm').reset();
-      init();
+      if (fileInput.files && fileInput.files[0]) {
+        const reader = new FileReader();
+        reader.onload = function(evt) { processSave(evt.target.result); };
+        reader.readAsDataURL(fileInput.files[0]);
+      } else {
+        processSave('');
+      }
+    }
+
+    function renderDashboard() {
+      const v = db.activeVehicle;
+      const fuels = db.fuel[v] || [];
+      const services = db.service[v] || [];
+
+      // Calculate Average Mileage
+      let totalDist = 0;
+      let totalLitersForMileage = 0;
+      if (fuels.length > 1) {
+        for (let i = 0; i < fuels.length - 1; i++) {
+          totalDist += (fuels[i].odo - fuels[i+1].odo);
+          totalLitersForMileage += fuels[i].liters;
+        }
+      }
+
+      const avgKmL = totalLitersForMileage > 0 ? (totalDist / totalLitersForMileage).toFixed(2) : '--';
+      document.getElementById('avgMileage').textContent = avgKmL !== '--' ? `${avgKmL} Km/L` : '-- Km/L';
+
+      // Group Expenses
+      const period = document.getElementById('expensePeriod').value;
+      const expenses = {};
+      let overallTotal = 0;
+
+      fuels.forEach(item => {
+        const key = period === 'month' ? item.date.substring(0, 7) : item.date.substring(0, 4);
+        if (!expenses[key]) expenses[key] = { fuel: 0, service: 0 };
+        expenses[key].fuel += item.cost;
+        overallTotal += item.cost;
+      });
+
+      services.forEach(item => {
+        const key = period === 'month' ? item.date.substring(0, 7) : item.date.substring(0, 4);
+        if (!expenses[key]) expenses[key] = { fuel: 0, service: 0 };
+        expenses[key].service += item.cost;
+        overallTotal += item.cost;
+      });
+
+      document.getElementById('totalExpenses').textContent = `₹${overallTotal.toLocaleString()}`;
+
+      // Render Expense Report Table
+      const sortedKeys = Object.keys(expenses).sort().reverse();
+      const reportContainer = document.getElementById('expenseReport');
+      
+      if (sortedKeys.length === 0) {
+        reportContainer.innerHTML = '<p style="color:#64748b; margin-top:10px;">No expense records found.</p>';
+      } else {
+        reportContainer.innerHTML = `
+          <table style="width:100%; border-collapse:collapse; margin-top:10px; font-size:0.9rem;">
+            <thead>
+              <tr style="border-bottom:2px solid var(--border); text-align:left;">
+                <th style="padding:6px;">${period === 'month' ? 'Month' : 'Year'}</th>
+                <th style="padding:6px;">Fuel</th>
+                <th style="padding:6px;">Service</th>
+                <th style="padding:6px;">Total</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${sortedKeys.map(k => `
+                <tr style="border-bottom:1px solid var(--border);">
+                  <td style="padding:6px;"><b>${k}</b></td>
+                  <td style="padding:6px;">₹${expenses[k].fuel.toFixed(0)}</td>
+                  <td style="padding:6px;">₹${expenses[k].service.toFixed(0)}</td>
+                  <td style="padding:6px;"><b>₹${(expenses[k].fuel + expenses[k].service).toFixed(0)}</b></td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+        `;
+      }
     }
 
     function renderLogs() {
       const v = db.activeVehicle;
       
-      // Render Fuel
+      // Render Fuel Logs
       const fuelList = db.fuel[v] || [];
       const fuelContainer = document.getElementById('fuelHistory');
       if (fuelList.length === 0) {
@@ -234,13 +385,14 @@
                 <b>${item.date}</b>
                 ${mileageText}
               </div>
-              <small>Odometer: ${item.odo} Km | Liters: ${item.liters} L | Cost: ₹${item.cost}</small>
+              <small>Odometer: ${item.odo} Km | ${item.liters} L @ ₹${item.unitPrice || '--'}/L</small><br>
+              <small><b>Total Cost: ₹${item.cost}</b></small>
             </div>
           `;
         }).join('');
       }
 
-      // Render Service
+      // Render Service Logs
       const serviceList = db.service[v] || [];
       const serviceContainer = document.getElementById('serviceHistory');
       if (serviceList.length === 0) {
@@ -253,6 +405,7 @@
               <b>₹${item.cost}</b>
             </div>
             <small>Date: ${item.date} | Odometer: ${item.odo} Km</small>
+            ${item.bill ? `<br><a href="${item.bill}" target="_blank"><img src="${item.bill}" class="preview" alt="Bill Receipt"></a>` : ''}
           </div>
         `).join('');
       }
