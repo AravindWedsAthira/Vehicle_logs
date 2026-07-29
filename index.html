@@ -36,9 +36,10 @@
     .log-item:last-child { border-bottom: none; }
     .badge { display: inline-block; padding: 2px 8px; font-size: 0.75rem; border-radius: 4px; background: #dbeafe; color: #1e40af; font-weight: bold; }
     .badge-gray { background: #f1f5f9; color: #64748b; }
+    .badge-warning { background: #fef3c7; color: #92400e; }
     .flex { display: flex; gap: 8px; }
     .actions { display: flex; gap: 6px; margin-top: 6px; }
-    .checkbox-container { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; margin-top: 4px; }
+    .checkbox-container { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; margin-top: 4px; }
     .checkbox-container input { width: auto; margin: 0; }
     .stat-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin-bottom: 12px; }
     .stat-box { background: #f1f5f9; padding: 12px; border-radius: 8px; text-align: center; }
@@ -196,7 +197,12 @@
 
           <div class="checkbox-container">
             <input type="checkbox" id="isFullTank" checked>
-            <label for="isFullTank"><b>Full Tank Fill-up?</b> (Required for accurate mileage calculation)</label>
+            <label for="isFullTank"><b>Full Tank Fill-up?</b> (Required for mileage calculation)</label>
+          </div>
+
+          <div class="checkbox-container">
+            <input type="checkbox" id="missedPrevious">
+            <label for="missedPrevious" style="color: #92400e;"><b>Missed Previous Fueling?</b> (Skips mileage for this tank to avoid false spikes)</label>
           </div>
 
           <button type="submit" id="fuelSubmitBtn">Save Fuel Log</button>
@@ -638,7 +644,8 @@
         cost: parseFloat(document.getElementById('fuelCost').value),
         unitPrice: parseFloat(document.getElementById('fuelUnitPrice').value) || 0,
         remarks: document.getElementById('fuelRemarks').value.trim(),
-        fullTank: document.getElementById('isFullTank').checked
+        fullTank: document.getElementById('isFullTank').checked,
+        missedPrevious: document.getElementById('missedPrevious').checked
       };
 
       if (editIndex >= 0) {
@@ -666,6 +673,7 @@
       document.getElementById('fuelUnitPrice').value = item.unitPrice || '';
       document.getElementById('fuelRemarks').value = item.remarks || '';
       document.getElementById('isFullTank').checked = item.fullTank !== false;
+      document.getElementById('missedPrevious').checked = item.missedPrevious === true;
 
       document.getElementById('fuelFormTitle').textContent = '✏️ Edit Fuel Fill-up';
       document.getElementById('fuelSubmitBtn').textContent = 'Update Fuel Log';
@@ -843,6 +851,14 @@
 
       for (let i = 0; i < sorted.length; i++) {
         const entry = sorted[i];
+
+        // If user flagged that a previous fill-up was missed, reset the baseline chain
+        if (entry.missedPrevious) {
+          lastFullOdo = entry.fullTank ? entry.odo : null;
+          accumulatedLiters = 0;
+          continue;
+        }
+
         if (lastFullOdo !== null) {
           accumulatedLiters += entry.liters;
           if (entry.fullTank) {
@@ -964,7 +980,15 @@
       } else {
         fuelContainer.innerHTML = fuelList.map((item, index) => {
           const kmL = mileages[item.odo];
-          const mileageBadge = kmL ? `<span class="badge">${kmL} Km/L</span>` : (item.fullTank ? `<span class="badge badge-gray">Full Tank</span>` : `<span class="badge badge-gray">Partial Fill</span>`);
+          let mileageBadge = '';
+
+          if (item.missedPrevious) {
+            mileageBadge = `<span class="badge badge-warning">Missed Previous</span>`;
+          } else if (kmL) {
+            mileageBadge = `<span class="badge">${kmL} Km/L</span>`;
+          } else {
+            mileageBadge = item.fullTank ? `<span class="badge badge-gray">Full Tank</span>` : `<span class="badge badge-gray">Partial Fill</span>`;
+          }
 
           return `
             <div class="log-item">
@@ -1041,10 +1065,10 @@
         csvContent += `=== VEHICLE: ${v} (${profile.model || 'N/A'}) ===\n`;
         
         csvContent += "--- FUEL LOGS ---\n";
-        csvContent += "Type,Date,Odometer (Km),Liters,Price/L,Total Cost (INR),Full Tank,Remarks\n";
+        csvContent += "Type,Date,Odometer (Km),Liters,Price/L,Total Cost (INR),Full Tank,Missed Prev Fueling,Remarks\n";
         const fuels = db.fuel[v] || [];
         fuels.forEach(f => {
-          csvContent += `Fuel,${f.date},${f.odo},${f.liters},${f.unitPrice || ''},${f.cost},${f.fullTank ? 'Yes' : 'No'},"${(f.remarks || '').replace(/"/g, '""')}"\n`;
+          csvContent += `Fuel,${f.date},${f.odo},${f.liters},${f.unitPrice || ''},${f.cost},${f.fullTank ? 'Yes' : 'No'},${f.missedPrevious ? 'Yes' : 'No'},"${(f.remarks || '').replace(/"/g, '""')}"\n`;
         });
 
         csvContent += "\n--- TYRE PRESSURE LOGS ---\n";
