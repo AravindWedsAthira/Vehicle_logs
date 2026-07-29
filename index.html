@@ -1,264 +1,91 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Vehicle Expense & Service Tracker</title>
-  
-  <!-- Firebase Realtime Database SDKs -->
-  <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-database-compat.js"></script>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>My Garage Tracker</title>
+
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <!-- Firebase JS SDKs (v8 compatibility mode) -->
+  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
 
   <style>
-    :root {
-      --primary: #2563eb;
-      --bg: #f8fafc;
-      --card: #ffffff;
-      --text: #1e293b;
-      --border: #e2e8f0;
-      --danger: #ef4444;
-      --success: #10b981;
+    body {
+      background-color: #0f172a;
+      color: #f8fafc;
+      font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
     }
-    * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
-    body { background: var(--bg); color: var(--text); padding: 16px; max-width: 650px; margin: 0 auto; }
-    header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
-    h1 { font-size: 1.25rem; }
-    select, input, button { width: 100%; padding: 10px; margin-top: 6px; margin-bottom: 12px; border: 1px solid var(--border); border-radius: 8px; font-size: 1rem; }
-    button { background: var(--primary); color: white; font-weight: bold; border: none; cursor: pointer; }
-    button.secondary { background: #64748b; }
-    button.danger { background: var(--danger); }
-    .btn-small { width: auto; padding: 4px 10px; font-size: 0.75rem; margin: 0; }
-    .card { background: var(--card); padding: 16px; border-radius: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); margin-bottom: 16px; }
-    .tabs { display: flex; gap: 8px; margin-bottom: 16px; }
-    .tab-btn { flex: 1; padding: 8px; background: #e2e8f0; color: var(--text); border-radius: 6px; font-weight: bold; border: none; font-size: 0.85rem; }
-    .tab-btn.active { background: var(--primary); color: white; }
-    .hidden { display: none !important; }
-    .log-item { border-bottom: 1px solid var(--border); padding: 10px 0; }
-    .log-item:last-child { border-bottom: none; }
-    .badge { display: inline-block; padding: 2px 8px; font-size: 0.75rem; border-radius: 4px; background: #dbeafe; color: #1e40af; font-weight: bold; }
-    .badge-gray { background: #f1f5f9; color: #64748b; }
-    .flex { display: flex; gap: 8px; }
-    .actions { display: flex; gap: 6px; margin-top: 6px; }
-    .checkbox-container { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; margin-top: 4px; }
-    .checkbox-container input { width: auto; margin: 0; }
-    .stat-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin-bottom: 12px; }
-    .stat-box { background: #f1f5f9; padding: 12px; border-radius: 8px; text-align: center; }
-    .stat-box small { color: #64748b; display: block; font-size: 0.75rem; }
-    .stat-box strong { font-size: 1.1rem; color: var(--primary); }
-    .vehicle-profile { text-align: center; margin-bottom: 12px; }
-    .vehicle-avatar { width: 100%; max-height: 200px; object-fit: cover; border-radius: 8px; margin-bottom: 8px; border: 1px solid var(--border); }
-    img.preview { max-width: 100%; max-height: 150px; margin-top: 8px; border-radius: 6px; border: 1px solid var(--border); }
-    .remarks-text { color: #64748b; font-style: italic; font-size: 0.85rem; margin-top: 4px; }
-    .overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(15, 23, 42, 0.85); display: flex; align-items: center; justify-content: center; z-index: 1000; padding: 20px; }
-    .overlay-card { background: white; padding: 24px; border-radius: 16px; width: 100%; max-width: 400px; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.3); }
-    .sync-status { font-size: 0.75rem; text-align: center; color: #64748b; margin-bottom: 8px; }
   </style>
 </head>
-<body>
+<body class="min-h-screen pb-12">
 
-  <!-- PIN & CLOUD LOGIN OVERLAY -->
-  <div id="pinOverlay" class="overlay">
-    <div class="overlay-card">
-      <h2 style="text-align: center; margin-bottom: 8px;">🔐 Garage Access</h2>
-      <p style="font-size: 0.85rem; color: #64748b; text-align: center; margin-bottom: 16px;">Enter your Garage Name and PIN to access and cloud-sync your data on any device.</p>
-      
-      <form onsubmit="handlePinLogin(event)">
-        <label>Garage Name ID</label>
-        <input type="text" id="loginGarageName" placeholder="e.g. MyGarage123" required>
-        
-        <label>Security PIN</label>
-        <input type="password" id="loginPin" maxlength="6" pattern="[0-9]*" inputmode="numeric" placeholder="4 to 6 digit PIN" required>
-        
-        <button type="submit" style="margin-top: 8px;">Unlock / Sync Garage</button>
+  <!-- ================= AUTH / LOGIN OVERLAY ================= -->
+  <div id="loginModal" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-950 bg-opacity-95 p-4">
+    <div class="w-full max-w-md bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-2xl">
+      <div class="text-center mb-6">
+        <div class="inline-block p-3 bg-indigo-600/20 text-indigo-400 rounded-2xl mb-3">
+          🚗
+        </div>
+        <h2 class="text-2xl font-bold text-white">Garage Login & Sync</h2>
+        <p class="text-sm text-slate-400 mt-1">Enter a Garage ID and PIN to access or create your cloud sync.</p>
+      </div>
+
+      <form id="loginForm" onsubmit="handlePinLogin(event)" class="space-y-4">
+        <div>
+          <label class="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1">Garage Name / ID</label>
+          <input type="text" id="loginGarageName" required placeholder="e.g. MyGarage" class="w-full bg-slate-800 border border-slate-700 text-white rounded-xl px-4 py-3 focus:outline-none focus:border-indigo-500" />
+        </div>
+
+        <div>
+          <label class="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1">4-Digit Security PIN</label>
+          <input type="password" id="loginPin" required maxlength="6" placeholder="****" class="w-full bg-slate-800 border border-slate-700 text-white rounded-xl px-4 py-3 focus:outline-none focus:border-indigo-500 text-center tracking-widest text-lg" />
+        </div>
+
+        <div id="loginError" class="text-xs text-rose-400 text-center font-medium"></div>
+
+        <button type="submit" class="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-semibold py-3 rounded-xl transition shadow-lg shadow-indigo-600/30">
+          Unlock / Sync Garage
+        </button>
       </form>
-      <div id="loginError" style="color: var(--danger); font-size: 0.8rem; text-align: center; margin-top: 8px;"></div>
     </div>
   </div>
 
-  <!-- MAIN APP DISPLAY -->
-  <div id="mainApp" class="hidden">
-    <header>
-      <h1>🚗 Garage Tracker</h1>
-      <div style="display:flex; gap:6px;">
-        <button class="secondary btn-small" onclick="openVehicleModal('add')">+ Vehicle</button>
-        <button class="secondary btn-small" style="background:#e2e8f0; color:var(--text);" onclick="lockApp()">🔒 Lock</button>
+  <!-- ================= MAIN APP WRAPPER ================= -->
+  <div id="appContent" class="hidden max-w-2xl mx-auto px-4 pt-6">
+
+    <!-- Header Section -->
+    <header class="flex justify-between items-center mb-6 bg-slate-900 border border-slate-800 p-4 rounded-2xl">
+      <div>
+        <h1 class="text-xl font-bold text-white flex items-center gap-2">
+          <span>🚗</span> Garage Dashboard
+        </h1>
+        <p class="text-xs text-slate-400">Synced to: <span id="activeGarageLabel" class="text-indigo-400 font-semibold">--</span></p>
       </div>
+      <button onclick="lockApp()" class="text-xs bg-slate-800 hover:bg-slate-700 text-slate-300 px-3 py-2 rounded-lg border border-slate-700 transition">
+        🔒 Lock
+      </button>
     </header>
 
-    <div class="sync-status" id="syncStatus">☁️ Connected to Realtime Cloud Sync</div>
-
-    <div class="card">
-      <label><b>Active Vehicle</b></label>
-      <select id="vehicleSelect" onchange="switchVehicle()"></select>
-    </div>
-
-    <div class="tabs">
-      <button class="tab-btn active" id="dashTabBtn" onclick="showTab('dash')">📊 Dashboard</button>
-      <button class="tab-btn" id="fuelTabBtn" onclick="showTab('fuel')">⛽ Fuel Log</button>
-      <button class="tab-btn" id="serviceTabBtn" onclick="showTab('service')">🔧 Service Log</button>
-    </div>
-
-    <!-- DASHBOARD SECTION -->
-    <div id="dashSection">
-      <div class="card">
-        <div id="vehicleProfileDisplay" class="vehicle-profile"></div>
-        <button class="secondary btn-small" style="width: 100%; margin-bottom: 12px; padding: 8px;" onclick="openVehicleModal('edit')">✏️ Edit Active Vehicle</button>
-        
-        <h3>Vehicle Summary</h3>
-        <div class="stat-grid" style="margin-top:10px;">
-          <div class="stat-box">
-            <small>Avg Mileage</small>
-            <strong id="avgMileage">-- Km/L</strong>
-          </div>
-          <div class="stat-box">
-            <small>Total Expenses</small>
-            <strong id="totalExpenses">₹0</strong>
-          </div>
-        </div>
+    <!-- App Actions / Content Placeholder -->
+    <main class="space-y-6">
+      <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5">
+        <h2 class="text-lg font-semibold text-white mb-2">Welcome to your Garage!</h2>
+        <p class="text-sm text-slate-400">Your database is active and connected to Firebase Realtime Database. Any changes made here will sync automatically across all devices logging into this garage name.</p>
       </div>
+    </main>
 
-      <div class="card">
-        <h3>Expense Breakdown</h3>
-        <div class="flex" style="margin-top:10px;">
-          <div style="flex: 1;">
-            <label><small>View By</small></label>
-            <select id="expensePeriod" onchange="renderDashboard()">
-              <option value="month">Monthly</option>
-              <option value="year">Yearly</option>
-            </select>
-          </div>
-          <div style="flex: 1;">
-            <label><small>Filter Expense</small></label>
-            <select id="expenseCategoryFilter" onchange="renderDashboard()">
-              <option value="all">All Expenses</option>
-              <option value="fuel">Fuel Only</option>
-              <option value="service">Service Only</option>
-            </select>
-          </div>
-        </div>
-        <div id="expenseReport"></div>
-      </div>
-    </div>
-
-    <!-- FUEL SECTION -->
-    <div id="fuelSection" class="hidden">
-      <div class="card">
-        <h3 id="fuelFormTitle">Add Fuel Fill-up</h3>
-        <form id="fuelForm" onsubmit="saveFuel(event)">
-          <input type="hidden" id="fuelEditIndex" value="-1">
-          <label>Date</label>
-          <input type="date" id="fuelDate" required>
-          <div class="flex">
-            <div>
-              <label>Odometer (Km)</label>
-              <input type="number" step="0.1" id="fuelOdo" placeholder="e.g. 15200.5" required>
-            </div>
-            <div>
-              <label>Price / Litre (₹)</label>
-              <input type="number" step="0.01" id="fuelUnitPrice" placeholder="e.g. 102.5" oninput="calcFuelCost()">
-            </div>
-          </div>
-          <div class="flex">
-            <div>
-              <label>Fuel (Liters)</label>
-              <input type="number" step="0.01" id="fuelLiters" placeholder="e.g. 35" oninput="calcFuelCost()" required>
-            </div>
-            <div>
-              <label>Total Cost (₹)</label>
-              <input type="number" step="0.01" id="fuelCost" placeholder="e.g. 3587.5" oninput="calcFuelLiters()" required>
-            </div>
-          </div>
-          
-          <label>Remarks / Notes</label>
-          <input type="text" id="fuelRemarks" placeholder="e.g. Indian Oil bunk">
-
-          <div class="checkbox-container">
-            <input type="checkbox" id="isFullTank" checked>
-            <label for="isFullTank"><b>Full Tank Fill-up?</b></label>
-          </div>
-
-          <button type="submit" id="fuelSubmitBtn">Save Fuel Log</button>
-          <button type="button" id="fuelCancelBtn" class="secondary hidden" onclick="cancelFuelEdit()">Cancel Edit</button>
-        </form>
-      </div>
-
-      <div class="card">
-        <h3>Fuel History</h3>
-        <div id="fuelHistory"></div>
-      </div>
-    </div>
-
-    <!-- SERVICE SECTION -->
-    <div id="serviceSection" class="hidden">
-      <div class="card">
-        <h3 id="serviceFormTitle">Add Service Record</h3>
-        <form id="serviceForm" onsubmit="saveService(event)">
-          <input type="hidden" id="serviceEditIndex" value="-1">
-          <label>Date</label>
-          <input type="date" id="serviceDate" required>
-          <div class="flex">
-            <div>
-              <label>Odometer (Km)</label>
-              <input type="number" step="0.1" id="serviceOdo" placeholder="e.g. 15000.0" required>
-            </div>
-            <div>
-              <label>Cost (₹)</label>
-              <input type="number" step="0.01" id="serviceCost" placeholder="e.g. 2500" required>
-            </div>
-          </div>
-          <label>Service Type / Details</label>
-          <input type="text" id="serviceType" placeholder="e.g. Engine Oil Change" required>
-          <label>Remarks / Notes</label>
-          <input type="text" id="serviceRemarks" placeholder="e.g. Done at authorized service center">
-          <label>Attach Bill / Receipt (Image)</label>
-          <input type="file" id="serviceBill" accept="image/*">
-          <button type="submit" id="serviceSubmitBtn">Save Service Log</button>
-          <button type="button" id="serviceCancelBtn" class="secondary hidden" onclick="cancelServiceEdit()">Cancel Edit</button>
-        </form>
-      </div>
-
-      <div class="card">
-        <h3>Service History</h3>
-        <div id="serviceHistory"></div>
-      </div>
-    </div>
-
-    <div class="card">
-      <button class="secondary" onclick="exportCSV()">📊 Export Data to Excel / CSV</button>
-    </div>
   </div>
 
-  <!-- VEHICLE CREATION & EDIT MODAL -->
-  <div id="vehicleModal" class="hidden card" style="position:fixed; top:10%; left:5%; right:5%; z-index:100; box-shadow:0 10px 25px rgba(0,0,0,0.3); max-width:550px; margin:0 auto;">
-    <h3 id="modalTitle">Add Vehicle</h3>
-    <form id="vehicleForm" onsubmit="saveVehicleProfile(event)">
-      <input type="hidden" id="modalMode" value="add">
-      <label>Vehicle Name / Reg Number</label>
-      <input type="text" id="modalVehicleName" placeholder="e.g. Kia Sonet (TN-45-AB-1234)" required>
-      <label>Upload / Change Vehicle Photo</label>
-      <input type="file" id="modalVehiclePhoto" accept="image/*">
-      
-      <div id="modalPhotoPreviewContainer"></div>
-
-      <button type="submit">Save Vehicle</button>
-      
-      <div class="flex">
-        <button type="button" class="secondary" onclick="hideVehicleModal()">Cancel</button>
-        <button type="button" id="modalDeleteBtn" class="danger hidden" onclick="deleteCurrentVehicle()">🗑️ Delete Vehicle</button>
-      </div>
-    </form>
-  </div>
-
+  <!-- ================= JAVASCRIPT LOGIC ================= -->
   <script>
-    // Configured Realtime Database Keys
+    // ----------------------------------------------------
+    // 1. FIREBASE INITIALIZATION
+    // ----------------------------------------------------
     const firebaseConfig = {
-      apiKey: "AIzaSyCxF7ys5GHGfBoCmOiooopekG6pBIn0T8Q",
-      authDomain: "mygaragetracker.firebaseapp.com",
-      databaseURL: "https://mygaragetracker-default-rtdb.asia-southeast1.firebasedatabase.app",
-      projectId: "mygaragetracker",
-      storageBucket: "mygaragetracker.firebasestorage.app",
-      messagingSenderId: "1027295590069",
-      appId: "1:1027295590069:web:916b7a444c52c58744b0fc"
+      databaseURL: "https://mygaragetracker-default-rtdb.asia-southeast1.firebasedatabase.app"
     };
 
     if (!firebase.apps.length) {
@@ -266,34 +93,28 @@
     }
     const realtimeDb = firebase.database();
 
-    let activeGarageName = localStorage.getItem('garage_name') || '';
-    let activePin = localStorage.getItem('garage_pin') || '';
-    
-    let db = {
-      vehicles: [],
-      activeVehicle: '',
-      vehicleProfiles: {},
-      fuel: {},
-      service: {}
-    };
+    // App State Variables
+    let db = { vehicles: [], logs: [] };
+    let activeGarageName = '';
+    let activePin = '';
 
-    function checkAuthOnLoad() {
-      if (activeGarageName && activePin) {
-        document.getElementById('loginGarageName').value = activeGarageName;
-        document.getElementById('loginPin').value = activePin;
-        loadGarageData();
-      }
-    }
-
+    // ----------------------------------------------------
+    // 2. AUTH & LOGIN LOGIC
+    // ----------------------------------------------------
     async function handlePinLogin(e) {
       e.preventDefault();
+      
       const rawName = document.getElementById('loginGarageName').value.trim();
+      // Sanitize garage name so spaces/special characters won't break Firebase keys
       const name = rawName.toLowerCase().replace(/[^a-z0-9]/g, '_');
       const pin = document.getElementById('loginPin').value.trim();
       const errDiv = document.getElementById('loginError');
       errDiv.textContent = '';
 
-      if (!name || !pin) return;
+      if (!name || !pin) {
+        errDiv.textContent = 'Please enter both Garage Name and PIN.';
+        return;
+      }
 
       try {
         const snapshot = await realtimeDb.ref('garages/' + name).once('value');
@@ -305,6 +126,7 @@
           }
           db = cloudData.data || db;
         } else {
+          // Automatic entry creation on first attempt
           await realtimeDb.ref('garages/' + name).set({ pin: pin, data: db });
         }
 
@@ -317,7 +139,8 @@
         initApp();
         listenForLiveSync();
       } catch (err) {
-        console.warn('Network issue or DB error, using local backup:', err);
+        console.error('Firebase Sync Error:', err);
+        // Local fallback in case of connection drop
         activeGarageName = name;
         activePin = pin;
         localStorage.setItem('garage_name', name);
@@ -327,21 +150,17 @@
       }
     }
 
-    async function syncToCloud() {
-      if (!activeGarageName || !activePin) return;
-      const statusDiv = document.getElementById('syncStatus');
-      statusDiv.textContent = '⏳ Syncing changes...';
+    function unlockApp() {
+      document.getElementById('loginModal').classList.add('hidden');
+      document.getElementById('appContent').classList.remove('hidden');
+      document.getElementById('activeGarageLabel').textContent = activeGarageName;
+    }
 
-      try {
-        await realtimeDb.ref('garages/' + activeGarageName).set({
-          pin: activePin,
-          data: db,
-          lastUpdated: new Date().toISOString()
-        });
-        statusDiv.textContent = '☁️ Synced with Cloud (' + new Date().toLocaleTimeString() + ')';
-      } catch (err) {
-        statusDiv.textContent = '⚠️ Saved Locally (Offline)';
-      }
+    function lockApp() {
+      localStorage.removeItem('garage_name');
+      localStorage.removeItem('garage_pin');
+      document.getElementById('loginModal').classList.remove('hidden');
+      document.getElementById('appContent').classList.add('hidden');
     }
 
     function listenForLiveSync() {
@@ -349,147 +168,34 @@
       realtimeDb.ref('garages/' + activeGarageName + '/data').on('value', (snapshot) => {
         if (snapshot.exists()) {
           db = snapshot.val();
-          initApp();
+          renderUI();
         }
       });
     }
 
-    async function loadGarageData() {
-      try {
-        const snapshot = await realtimeDb.ref('garages/' + activeGarageName).once('value');
-        if (snapshot.exists() && snapshot.val().pin === activePin) {
-          db = snapshot.val().data || db;
-        }
-      } catch(e) {}
-      unlockApp();
-      initApp();
-      listenForLiveSync();
-    }
-
-    function unlockApp() {
-      document.getElementById('pinOverlay').classList.add('hidden');
-      document.getElementById('mainApp').classList.remove('hidden');
-    }
-
-    function lockApp() {
-      document.getElementById('mainApp').classList.add('hidden');
-      document.getElementById('pinOverlay').classList.remove('hidden');
+    function saveData() {
+      if (!activeGarageName) return;
+      realtimeDb.ref('garages/' + activeGarageName + '/data').set(db);
     }
 
     function initApp() {
-      const today = new Date().toISOString().split('T')[0];
-      document.getElementById('fuelDate').value = today;
-      document.getElementById('serviceDate').value = today;
+      renderUI();
+    }
 
-      if (!db.vehicleProfiles) db.vehicleProfiles = {};
+    function renderUI() {
+      // Re-render UI components as needed
+    }
 
-      if (db.vehicles && db.vehicles.length > 0) {
-        if (!db.vehicles.includes(db.activeVehicle)) {
-          db.activeVehicle = db.vehicles[0] || '';
-        }
+    // Auto-login if credentials exist in local storage
+    window.addEventListener('DOMContentLoaded', () => {
+      const savedName = localStorage.getItem('garage_name');
+      const savedPin = localStorage.getItem('garage_pin');
+      if (savedName && savedPin) {
+        document.getElementById('loginGarageName').value = savedName;
+        document.getElementById('loginPin').value = savedPin;
+        handlePinLogin(new Event('submit'));
       }
-
-      if (!db.vehicles || db.vehicles.length === 0) {
-        openVehicleModal('add');
-      } else {
-        renderVehicleDropdown();
-        renderDashboard();
-        renderLogs();
-      }
-    }
-
-    function saveData() {
-      localStorage.setItem('garage_local_backup', JSON.stringify(db));
-      syncToCloud();
-    }
-
-    function openVehicleModal(mode = 'add') {
-      const modal = document.getElementById('vehicleModal');
-      const title = document.getElementById('modalTitle');
-      const modeInput = document.getElementById('modalMode');
-      const deleteBtn = document.getElementById('modalDeleteBtn');
-      const nameInput = document.getElementById('modalVehicleName');
-      const previewContainer = document.getElementById('modalPhotoPreviewContainer');
-
-      modeInput.value = mode;
-
-      if (mode === 'edit' && db.activeVehicle) {
-        title.textContent = '✏️ Edit Vehicle Details';
-        nameInput.value = db.activeVehicle;
-        deleteBtn.classList.remove('hidden');
-
-        const profile = db.vehicleProfiles[db.activeVehicle] || {};
-        if (profile.photo) {
-          previewContainer.innerHTML = `<p style="font-size:0.8rem; margin-top:4px;">Current Photo:</p><img src="${profile.photo}" style="max-height:80px; border-radius:6px; margin-bottom:8px;">`;
-        } else {
-          previewContainer.innerHTML = '';
-        }
-      } else {
-        title.textContent = '🚗 Add New Vehicle';
-        nameInput.value = '';
-        deleteBtn.classList.add('hidden');
-        previewContainer.innerHTML = '';
-      }
-
-      modal.classList.remove('hidden');
-    }
-
-    function hideVehicleModal() {
-      document.getElementById('vehicleModal').classList.add('hidden');
-      document.getElementById('vehicleForm').reset();
-    }
-
-    function saveVehicleProfile(e) {
-      e.preventDefault();
-      const newName = document.getElementById('modalVehicleName').value.trim();
-      const photoInput = document.getElementById('modalVehiclePhoto');
-      const mode = document.getElementById('modalMode').value;
-      const oldName = db.activeVehicle;
-
-      if (!newName) return;
-
-      const processSave = (photoDataUrl = '') => {
-        if (!db.vehicles) db.vehicles = [];
-        if (!db.fuel) db.fuel = {};
-        if (!db.service) db.service = {};
-
-        if (mode === 'edit' && oldName && oldName !== newName) {
-          const index = db.vehicles.indexOf(oldName);
-          if (index !== -1) db.vehicles[index] = newName;
-
-          db.fuel[newName] = db.fuel[oldName] || [];
-          delete db.fuel[oldName];
-
-          db.service[newName] = db.service[oldName] || [];
-          delete db.service[oldName];
-
-          db.vehicleProfiles[newName] = db.vehicleProfiles[oldName] || {};
-          delete db.vehicleProfiles[oldName];
-        } else if (mode === 'add' && !db.vehicles.includes(newName)) {
-          db.vehicles.push(newName);
-        }
-
-        db.activeVehicle = newName;
-        if (!db.vehicleProfiles[newName]) db.vehicleProfiles[newName] = {};
-
-        if (photoDataUrl) {
-          db.vehicleProfiles[newName].photo = photoDataUrl;
-        }
-
-        saveData();
-        hideVehicleModal();
-        renderVehicleDropdown();
-        renderDashboard();
-        renderLogs();
-      };
-
-      if (photoInput.files && photoInput.files[0]) {
-        const reader = new FileReader();
-        reader.onload = function(evt) { processSave(evt.target.result); };
-        reader.readAsDataURL(photoInput.files[0]);
-      } else {
-        processSave('');
-      }
-    }
-
-    function deleteC
+    });
+  </script>
+</body>
+</html>
