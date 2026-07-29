@@ -1,148 +1,277 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>My Garage Tracker</title>
-
-  <!-- Tailwind CSS CDN -->
-  <script src="https://cdn.tailwindcss.com"></script>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Vehicle Expense & Service Tracker</title>
 
   <!-- Firebase JS SDKs -->
   <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
   <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
 
   <style>
-    body {
-      background-color: #0b1120;
-      color: #f8fafc;
-      font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    :root {
+      --primary: #2563eb;
+      --bg: #f8fafc;
+      --card: #ffffff;
+      --text: #1e293b;
+      --border: #e2e8f0;
+      --danger: #ef4444;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+    body { background: var(--bg); color: var(--text); padding: 16px; max-width: 650px; margin: 0 auto; }
+    header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
+    h1 { font-size: 1.25rem; }
+    select, input, button, textarea { width: 100%; padding: 10px; margin-top: 6px; margin-bottom: 12px; border: 1px solid var(--border); border-radius: 8px; font-size: 1rem; }
+    button { background: var(--primary); color: white; font-weight: bold; border: none; cursor: pointer; }
+    button.secondary { background: #64748b; }
+    button.danger { background: var(--danger); }
+    .btn-small { width: auto; padding: 4px 10px; font-size: 0.75rem; margin: 0; }
+    .card { background: var(--card); padding: 16px; border-radius: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); margin-bottom: 16px; }
+    .tabs { display: flex; gap: 8px; margin-bottom: 16px; }
+    .tab-btn { flex: 1; padding: 8px; background: #e2e8f0; color: var(--text); border-radius: 6px; font-weight: bold; border: none; font-size: 0.85rem; }
+    .tab-btn.active { background: var(--primary); color: white; }
+    .hidden { display: none; }
+    .log-item { border-bottom: 1px solid var(--border); padding: 10px 0; }
+    .log-item:last-child { border-bottom: none; }
+    .badge { display: inline-block; padding: 2px 8px; font-size: 0.75rem; border-radius: 4px; background: #dbeafe; color: #1e40af; font-weight: bold; }
+    .badge-gray { background: #f1f5f9; color: #64748b; }
+    .flex { display: flex; gap: 8px; }
+    .actions { display: flex; gap: 6px; margin-top: 6px; }
+    .checkbox-container { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; margin-top: 4px; }
+    .checkbox-container input { width: auto; margin: 0; }
+    .stat-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin-bottom: 12px; }
+    .stat-box { background: #f1f5f9; padding: 12px; border-radius: 8px; text-align: center; }
+    .stat-box small { color: #64748b; display: block; font-size: 0.75rem; }
+    .stat-box strong { font-size: 1.1rem; color: var(--primary); }
+    .vehicle-profile { text-align: center; margin-bottom: 12px; }
+    .vehicle-avatar { width: 100%; max-height: 200px; object-fit: cover; border-radius: 8px; margin-bottom: 8px; border: 1px solid var(--border); }
+    img.preview { max-width: 100%; max-height: 150px; margin-top: 8px; border-radius: 6px; border: 1px solid var(--border); }
+    .remarks-text { color: #64748b; font-style: italic; font-size: 0.85rem; margin-top: 4px; }
+
+    /* Auth Modal Styling */
+    #loginModal {
+      position: fixed;
+      inset: 0;
+      background: rgba(15, 23, 42, 0.85);
+      backdrop-filter: blur(4px);
+      z-index: 1000;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 16px;
+    }
+    .auth-card {
+      background: #ffffff;
+      padding: 24px;
+      border-radius: 16px;
+      width: 100%;
+      max-width: 380px;
+      box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
     }
   </style>
 </head>
-<body class="min-h-screen pb-16">
+<body>
 
-  <!-- ================= AUTH / LOGIN OVERLAY ================= -->
-  <div id="loginModal" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-950 bg-opacity-95 p-4">
-    <div class="w-full max-w-md bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-2xl">
-      <div class="text-center mb-6">
-        <div class="inline-block p-3 bg-indigo-600/20 text-indigo-400 rounded-2xl mb-3 text-2xl">
-          🚗
-        </div>
-        <h2 class="text-2xl font-bold text-white">Garage Login & Sync</h2>
-        <p class="text-sm text-slate-400 mt-1">Enter your Garage Name and PIN to unlock your dashboard.</p>
+  <!-- ================= FIREBASE LOGIN / AUTH MODAL ================= -->
+  <div id="loginModal">
+    <div class="auth-card">
+      <div style="text-align: center; margin-bottom: 20px;">
+        <span style="font-size: 2.5rem;">🚗</span>
+        <h2 style="font-size: 1.25rem; margin-top: 8px; color: var(--text);">Garage Login & Sync</h2>
+        <p style="font-size: 0.8rem; color: #64748b; margin-top: 4px;">Enter your Garage Name and PIN to unlock.</p>
       </div>
+      <form id="loginForm" onsubmit="handlePinLogin(event)">
+        <label style="font-size: 0.75rem; font-weight: bold; text-transform: uppercase; color: #64748b;">Garage ID / Name</label>
+        <input type="text" id="loginGarageName" required placeholder="e.g. MyGarage" style="margin-top: 4px;" />
+        
+        <label style="font-size: 0.75rem; font-weight: bold; text-transform: uppercase; color: #64748b;">Security PIN</label>
+        <input type="password" id="loginPin" required maxlength="6" placeholder="****" style="text-align: center; letter-spacing: 4px; font-weight: bold; margin-top: 4px;" />
 
-      <form id="loginForm" onsubmit="handlePinLogin(event)" class="space-y-4">
-        <div>
-          <label class="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1">Garage Name / ID</label>
-          <input type="text" id="loginGarageName" required placeholder="e.g. MyGarage" class="w-full bg-slate-800 border border-slate-700 text-white rounded-xl px-4 py-3 focus:outline-none focus:border-indigo-500" />
-        </div>
+        <div id="loginError" style="color: var(--danger); font-size: 0.8rem; text-align: center; margin-bottom: 8px; min-height: 18px;"></div>
 
-        <div>
-          <label class="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1">4-Digit Security PIN</label>
-          <input type="password" id="loginPin" required maxlength="6" placeholder="****" class="w-full bg-slate-800 border border-slate-700 text-white rounded-xl px-4 py-3 focus:outline-none focus:border-indigo-500 text-center tracking-widest text-lg" />
-        </div>
-
-        <div id="loginError" class="text-xs text-rose-400 text-center font-medium"></div>
-
-        <button type="submit" class="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-semibold py-3 rounded-xl transition shadow-lg shadow-indigo-600/30">
-          Unlock / Sync Garage
-        </button>
+        <button type="submit" style="padding: 12px; margin-top: 4px;">Unlock Garage</button>
       </form>
     </div>
   </div>
 
-  <!-- ================= MAIN DASHBOARD ================= -->
-  <div id="appContent" class="hidden max-w-3xl mx-auto px-4 pt-6 space-y-6">
-
-    <!-- Top Header -->
-    <header class="flex justify-between items-center bg-slate-900 border border-slate-800 p-4 rounded-2xl">
+  <!-- ================= MAIN APP INTERFACE ================= -->
+  <div id="appInterface" class="hidden">
+    <header>
       <div>
-        <h1 class="text-xl font-bold text-white flex items-center gap-2">
-          <span>🚗</span> Garage Dashboard
-        </h1>
-        <p class="text-xs text-slate-400">Synced to: <span id="activeGarageLabel" class="text-indigo-400 font-semibold">--</span></p>
+        <h1>🚗 Garage Tracker</h1>
+        <small style="color: #64748b; font-size: 0.75rem;">Garage ID: <b id="activeGarageLabel" style="color: var(--primary);">--</b></small>
       </div>
-      <button onclick="lockApp()" class="text-xs bg-slate-800 hover:bg-slate-700 text-slate-300 px-3 py-2 rounded-lg border border-slate-700 transition">
-        🔒 Lock Garage
-      </button>
+      <div style="display: flex; gap: 6px;">
+        <button class="secondary" style="width: auto; padding: 6px 10px; font-size: 0.8rem;" onclick="lockApp()">🔒 Lock</button>
+        <button class="secondary" style="width: auto; padding: 6px 12px;" onclick="openVehicleModal('add')">+ New Vehicle</button>
+      </div>
     </header>
 
-    <!-- Quick Stats Cards -->
-    <div class="grid grid-cols-2 md:grid-cols-3 gap-4">
-      <div class="bg-slate-900 border border-slate-800 p-4 rounded-xl">
-        <p class="text-xs text-slate-400">Total Vehicles</p>
-        <p id="statTotalVehicles" class="text-2xl font-bold text-white mt-1">0</p>
+    <div class="card">
+      <label><b>Active Vehicle</b></label>
+      <select id="vehicleSelect" onchange="switchVehicle()"></select>
+    </div>
+
+    <div class="tabs">
+      <button class="tab-btn active" id="dashTabBtn" onclick="showTab('dash')">📊 Dashboard</button>
+      <button class="tab-btn" id="fuelTabBtn" onclick="showTab('fuel')">⛽ Fuel Log</button>
+      <button class="tab-btn" id="serviceTabBtn" onclick="showTab('service')">🔧 Service Log</button>
+    </div>
+
+    <!-- DASHBOARD SECTION -->
+    <div id="dashSection">
+      <div class="card">
+        <div id="vehicleProfileDisplay" class="vehicle-profile"></div>
+        <button class="secondary btn-small" style="width: 100%; margin-bottom: 12px; padding: 8px;" onclick="openVehicleModal('edit')">✏️ Edit Active Vehicle</button>
+        
+        <h3>Vehicle Summary</h3>
+        <div class="stat-grid" style="margin-top:10px;">
+          <div class="stat-box">
+            <small>Avg Mileage</small>
+            <strong id="avgMileage">-- Km/L</strong>
+          </div>
+          <div class="stat-box">
+            <small>Total Expenses</small>
+            <strong id="totalExpenses">₹0</strong>
+          </div>
+        </div>
       </div>
-      <div class="bg-slate-900 border border-slate-800 p-4 rounded-xl">
-        <p class="text-xs text-slate-400">Total Logs</p>
-        <p id="statTotalLogs" class="text-2xl font-bold text-indigo-400 mt-1">0</p>
-      </div>
-      <div class="bg-slate-900 border border-slate-800 p-4 rounded-xl col-span-2 md:col-span-1">
-        <p class="text-xs text-slate-400">Total Spent</p>
-        <p id="statTotalSpent" class="text-2xl font-bold text-emerald-400 mt-1">₹0</p>
+
+      <div class="card">
+        <h3>Expense Breakdown</h3>
+        <div class="flex" style="margin-top:10px;">
+          <div style="flex: 1;">
+            <label><small>View By</small></label>
+            <select id="expensePeriod" onchange="renderDashboard()">
+              <option value="month">Monthly</option>
+              <option value="year">Yearly</option>
+            </select>
+          </div>
+          <div style="flex: 1;">
+            <label><small>Filter Expense</small></label>
+            <select id="expenseCategoryFilter" onchange="renderDashboard()">
+              <option value="all">All Expenses</option>
+              <option value="fuel">Fuel Only</option>
+              <option value="service">Service Only</option>
+            </select>
+          </div>
+        </div>
+        <div id="expenseReport"></div>
       </div>
     </div>
 
-    <!-- Add Vehicle Form -->
-    <section class="bg-slate-900 border border-slate-800 p-5 rounded-2xl">
-      <h2 class="text-lg font-semibold text-white mb-4 flex items-center gap-2">
-        <span>➕</span> Add New Vehicle
-      </h2>
-      <form onsubmit="addVehicle(event)" class="grid grid-cols-1 sm:grid-cols-3 gap-3">
-        <input type="text" id="vehName" required placeholder="Vehicle Name (e.g. Sonet)" class="bg-slate-800 border border-slate-700 text-white rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-indigo-500" />
-        <input type="text" id="vehReg" placeholder="Reg No (e.g. TN 45 AA 1234)" class="bg-slate-800 border border-slate-700 text-white rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-indigo-500" />
-        <button type="submit" class="bg-indigo-600 hover:bg-indigo-500 text-white font-medium py-2 rounded-xl text-sm transition">
-          Add Vehicle
-        </button>
-      </form>
-    </section>
+    <!-- FUEL SECTION -->
+    <div id="fuelSection" class="hidden">
+      <div class="card">
+        <h3 id="fuelFormTitle">Add Fuel Fill-up</h3>
+        <form id="fuelForm" onsubmit="saveFuel(event)">
+          <input type="hidden" id="fuelEditIndex" value="-1">
+          <label>Date</label>
+          <input type="date" id="fuelDate" required>
+          <div class="flex">
+            <div>
+              <label>Odometer (Km)</label>
+              <input type="number" step="0.1" id="fuelOdo" placeholder="e.g. 15200.5" required>
+            </div>
+            <div>
+              <label>Price / Litre (₹)</label>
+              <input type="number" step="0.01" id="fuelUnitPrice" placeholder="e.g. 102.5" oninput="calcFuelCost()">
+            </div>
+          </div>
+          <div class="flex">
+            <div>
+              <label>Fuel (Liters)</label>
+              <input type="number" step="0.01" id="fuelLiters" placeholder="e.g. 35" oninput="calcFuelCost()" required>
+            </div>
+            <div>
+              <label>Total Cost (₹)</label>
+              <input type="number" step="0.01" id="fuelCost" placeholder="e.g. 3587.5" oninput="calcFuelLiters()" required>
+            </div>
+          </div>
+          
+          <label>Remarks / Notes</label>
+          <input type="text" id="fuelRemarks" placeholder="e.g. Indian Oil bunk, filled shell V-power">
 
-    <!-- Add Log Entry Form -->
-    <section class="bg-slate-900 border border-slate-800 p-5 rounded-2xl">
-      <h2 class="text-lg font-semibold text-white mb-4 flex items-center gap-2">
-        <span>📝</span> Add Service / Fuel Log
-      </h2>
-      <form onsubmit="addLog(event)" class="space-y-3">
-        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          <select id="logVehicleSelect" required class="bg-slate-800 border border-slate-700 text-white rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-indigo-500">
-            <option value="">Select Vehicle</option>
-          </select>
-          <select id="logCategory" required class="bg-slate-800 border border-slate-700 text-white rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-indigo-500">
-            <option value="Fuel">Fuel</option>
-            <option value="Service">Service / Maintenance</option>
-            <option value="Insurance">Insurance / Pollution</option>
-            <option value="Other">Other Expense</option>
-          </select>
-        </div>
-        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
-          <input type="number" id="logOdometer" placeholder="Odometer (km)" class="bg-slate-800 border border-slate-700 text-white rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-indigo-500" />
-          <input type="number" id="logCost" step="0.01" required placeholder="Cost (₹)" class="bg-slate-800 border border-slate-700 text-white rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-indigo-500" />
-          <input type="date" id="logDate" required class="bg-slate-800 border border-slate-700 text-white rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-indigo-500" />
-        </div>
-        <input type="text" id="logNotes" placeholder="Notes (e.g. Engine Oil replaced, 35L Petrol)" class="w-full bg-slate-800 border border-slate-700 text-white rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-indigo-500" />
-        <button type="submit" class="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-medium py-2.5 rounded-xl text-sm transition">
-          Save Entry
-        </button>
-      </form>
-    </section>
+          <div class="checkbox-container">
+            <input type="checkbox" id="isFullTank" checked>
+            <label for="isFullTank"><b>Full Tank Fill-up?</b> (Required for accurate mileage calculation)</label>
+          </div>
 
-    <!-- Logs History -->
-    <section class="bg-slate-900 border border-slate-800 p-5 rounded-2xl">
-      <h2 class="text-lg font-semibold text-white mb-4 flex items-center gap-2">
-        <span>📋</span> Service & Fuel History
-      </h2>
-      <div id="logsContainer" class="space-y-3">
-        <p class="text-sm text-slate-500 text-center py-4">No service records added yet.</p>
+          <button type="submit" id="fuelSubmitBtn">Save Fuel Log</button>
+          <button type="button" id="fuelCancelBtn" class="secondary hidden" onclick="cancelFuelEdit()">Cancel Edit</button>
+        </form>
       </div>
-    </section>
 
+      <div class="card">
+        <h3>Fuel History</h3>
+        <div id="fuelHistory"></div>
+      </div>
+    </div>
+
+    <!-- SERVICE SECTION -->
+    <div id="serviceSection" class="hidden">
+      <div class="card">
+        <h3 id="serviceFormTitle">Add Service Record</h3>
+        <form id="serviceForm" onsubmit="saveService(event)">
+          <input type="hidden" id="serviceEditIndex" value="-1">
+          <label>Date</label>
+          <input type="date" id="serviceDate" required>
+          <div class="flex">
+            <div>
+              <label>Odometer (Km)</label>
+              <input type="number" step="0.1" id="serviceOdo" placeholder="e.g. 15000.0" required>
+            </div>
+            <div>
+              <label>Cost (₹)</label>
+              <input type="number" step="0.01" id="serviceCost" placeholder="e.g. 2500" required>
+            </div>
+          </div>
+          <label>Service Type / Details</label>
+          <input type="text" id="serviceType" placeholder="e.g. Engine Oil Change" required>
+          <label>Remarks / Notes</label>
+          <input type="text" id="serviceRemarks" placeholder="e.g. Done at authorized service center">
+          <label>Attach Bill / Receipt (Image)</label>
+          <input type="file" id="serviceBill" accept="image/*">
+          <button type="submit" id="serviceSubmitBtn">Save Service Log</button>
+          <button type="button" id="serviceCancelBtn" class="secondary hidden" onclick="cancelServiceEdit()">Cancel Edit</button>
+        </form>
+      </div>
+
+      <div class="card">
+        <h3>Service History</h3>
+        <div id="serviceHistory"></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <button class="secondary" onclick="exportCSV()">📊 Export Data to Excel / CSV</button>
+    </div>
+
+    <!-- VEHICLE CREATION & EDIT MODAL -->
+    <div id="vehicleModal" class="hidden card" style="position:fixed; top:10%; left:5%; right:5%; z-index:100; box-shadow:0 10px 25px rgba(0,0,0,0.3); max-width:550px; margin:0 auto;">
+      <h3 id="modalTitle">Add Vehicle</h3>
+      <form id="vehicleForm" onsubmit="saveVehicleProfile(event)">
+        <input type="hidden" id="modalMode" value="add">
+        <label>Vehicle Name / Reg Number</label>
+        <input type="text" id="modalVehicleName" placeholder="e.g. Kia Sonet (TN-45-AB-1234)" required>
+        <label>Upload / Change Vehicle Photo</label>
+        <input type="file" id="modalVehiclePhoto" accept="image/*">
+        
+        <div id="modalPhotoPreviewContainer"></div>
+
+        <button type="submit">Save Vehicle</button>
+        
+        <div class="flex">
+          <button type="button" class="secondary" onclick="hideVehicleModal()">Cancel</button>
+          <button type="button" id="modalDeleteBtn" class="danger hidden" onclick="deleteCurrentVehicle()">🗑️ Delete Vehicle</button>
+        </div>
+      </form>
+    </div>
   </div>
 
-  <!-- ================= JAVASCRIPT LOGIC ================= -->
   <script>
-    // 1. FIREBASE INITIALIZATION
+    // ---------------- FIREBASE INITIALIZATION ----------------
     const firebaseConfig = {
       databaseURL: "https://mygaragetracker-default-rtdb.asia-southeast1.firebasedatabase.app"
     };
@@ -152,15 +281,18 @@
     }
     const realtimeDb = firebase.database();
 
-    // App State
-    let db = { vehicles: [], logs: [] };
+    let db = {
+      vehicles: [],
+      activeVehicle: '',
+      vehicleProfiles: {},
+      fuel: {},
+      service: {}
+    };
+
     let activeGarageName = '';
     let activePin = '';
 
-    // Set today's date in form by default
-    document.getElementById('logDate').valueAsDate = new Date();
-
-    // 2. AUTHENTICATION & LOGIN
+    // ---------------- AUTHENTICATION & LOGIN ----------------
     async function handlePinLogin(e) {
       e.preventDefault();
       
@@ -180,9 +312,9 @@
             errDiv.textContent = '❌ Incorrect PIN for this Garage Name!';
             return;
           }
-          db = cloudData.data || { vehicles: [], logs: [] };
+          db = cloudData.data || db;
         } else {
-          // New garage registration
+          // Register initial setup
           await realtimeDb.ref('garages/' + name).set({ pin: pin, data: db });
         }
 
@@ -199,9 +331,9 @@
 
     function unlockApp() {
       document.getElementById('loginModal').classList.add('hidden');
-      document.getElementById('appContent').classList.remove('hidden');
+      document.getElementById('appInterface').classList.remove('hidden');
       document.getElementById('activeGarageLabel').textContent = activeGarageName;
-      renderUI();
+      init();
     }
 
     function lockApp() {
@@ -210,125 +342,569 @@
       document.getElementById('loginGarageName').value = '';
       document.getElementById('loginPin').value = '';
       document.getElementById('loginModal').classList.remove('hidden');
-      document.getElementById('appContent').classList.add('hidden');
+      document.getElementById('appInterface').classList.add('hidden');
     }
 
-    // 3. REALTIME SYNC
     function listenForLiveSync() {
       if (!activeGarageName) return;
       realtimeDb.ref('garages/' + activeGarageName + '/data').on('value', (snapshot) => {
         if (snapshot.exists()) {
-          db = snapshot.val() || { vehicles: [], logs: [] };
+          db = snapshot.val() || db;
           if (!db.vehicles) db.vehicles = [];
-          if (!db.logs) db.logs = [];
-          renderUI();
+          if (!db.vehicleProfiles) db.vehicleProfiles = {};
+          if (!db.fuel) db.fuel = {};
+          if (!db.service) db.service = {};
+          
+          if (db.vehicles.length > 0 && !db.vehicles.includes(db.activeVehicle)) {
+            db.activeVehicle = db.vehicles[0];
+          }
+          renderVehicleDropdown();
+          renderDashboard();
+          renderLogs();
         }
       });
     }
 
+    // ---------------- DATA PERSISTENCE ----------------
     function saveData() {
       if (!activeGarageName) return;
       realtimeDb.ref('garages/' + activeGarageName + '/data').set(db);
     }
 
-    // 4. DATA ACTIONS
-    function addVehicle(e) {
-      e.preventDefault();
-      const name = document.getElementById('vehName').value.trim();
-      const reg = document.getElementById('vehReg').value.trim();
-      if (!name) return;
+    // ---------------- APP LOGIC ----------------
+    function init() {
+      const today = new Date().toISOString().split('T')[0];
+      document.getElementById('fuelDate').value = today;
+      document.getElementById('serviceDate').value = today;
 
-      if (!db.vehicles) db.vehicles = [];
-      db.vehicles.push({ id: Date.now(), name, reg });
-      document.getElementById('vehName').value = '';
-      document.getElementById('vehReg').value = '';
-      
-      saveData();
-      renderUI();
-    }
+      if (!db.vehicleProfiles) db.vehicleProfiles = {};
+      if (!db.fuel) db.fuel = {};
+      if (!db.service) db.service = {};
 
-    function addLog(e) {
-      e.preventDefault();
-      const vehId = document.getElementById('logVehicleSelect').value;
-      const category = document.getElementById('logCategory').value;
-      const odometer = document.getElementById('logOdometer').value;
-      const cost = parseFloat(document.getElementById('logCost').value) || 0;
-      const date = document.getElementById('logDate').value;
-      const notes = document.getElementById('logNotes').value.trim();
-
-      if (!vehId || !cost) return;
-
-      if (!db.logs) db.logs = [];
-      db.logs.unshift({
-        id: Date.now(),
-        vehId,
-        category,
-        odometer,
-        cost,
-        date,
-        notes
-      });
-
-      document.getElementById('logOdometer').value = '';
-      document.getElementById('logCost').value = '';
-      document.getElementById('logNotes').value = '';
-
-      saveData();
-      renderUI();
-    }
-
-    function deleteLog(logId) {
-      if (!confirm('Delete this record?')) return;
-      db.logs = db.logs.filter(l => l.id !== logId);
-      saveData();
-      renderUI();
-    }
-
-    // 5. RENDER DASHBOARD
-    function renderUI() {
-      const vehicles = db.vehicles || [];
-      const logs = db.logs || [];
-
-      // Stats
-      document.getElementById('statTotalVehicles').textContent = vehicles.length;
-      document.getElementById('statTotalLogs').textContent = logs.length;
-      const totalSpent = logs.reduce((sum, item) => sum + (parseFloat(item.cost) || 0), 0);
-      document.getElementById('statTotalSpent').textContent = '₹' + totalSpent.toLocaleString('en-IN');
-
-      // Populate Vehicle Dropdown
-      const select = document.getElementById('logVehicleSelect');
-      select.innerHTML = '<option value="">Select Vehicle</option>';
-      vehicles.forEach(v => {
-        select.innerHTML += `<option value="${v.id}">${v.name} ${v.reg ? '(' + v.reg + ')' : ''}</option>`;
-      });
-
-      // Render Logs
-      const logsDiv = document.getElementById('logsContainer');
-      if (logs.length === 0) {
-        logsDiv.innerHTML = '<p class="text-sm text-slate-500 text-center py-4">No service records added yet.</p>';
-        return;
+      if (db.vehicles && db.vehicles.length > 0) {
+        db.vehicles = db.vehicles.filter(v => v !== 'Vehicle 1' && v !== 'Vehicle 2');
+        if (!db.vehicles.includes(db.activeVehicle)) {
+          db.activeVehicle = db.vehicles[0] || '';
+        }
       }
 
-      logsDiv.innerHTML = logs.map(l => {
-        const vehicle = vehicles.find(v => v.id == l.vehId);
-        const vehName = vehicle ? vehicle.name : 'Unknown Vehicle';
-        return `
-          <div class="bg-slate-800/60 border border-slate-700/60 p-4 rounded-xl flex justify-between items-start">
-            <div>
-              <div class="flex items-center gap-2">
-                <span class="text-xs px-2 py-0.5 bg-indigo-500/20 text-indigo-300 font-medium rounded-md">${l.category}</span>
-                <span class="text-sm font-semibold text-white">${vehName}</span>
+      if (!db.vehicles || db.vehicles.length === 0) {
+        openVehicleModal('add');
+      } else {
+        renderVehicleDropdown();
+        renderDashboard();
+        renderLogs();
+      }
+    }
+
+    function openVehicleModal(mode = 'add') {
+      const modal = document.getElementById('vehicleModal');
+      const title = document.getElementById('modalTitle');
+      const modeInput = document.getElementById('modalMode');
+      const deleteBtn = document.getElementById('modalDeleteBtn');
+      const nameInput = document.getElementById('modalVehicleName');
+      const previewContainer = document.getElementById('modalPhotoPreviewContainer');
+
+      modeInput.value = mode;
+
+      if (mode === 'edit' && db.activeVehicle) {
+        title.textContent = '✏️ Edit Vehicle Details';
+        nameInput.value = db.activeVehicle;
+        deleteBtn.classList.remove('hidden');
+
+        const profile = db.vehicleProfiles[db.activeVehicle] || {};
+        if (profile.photo) {
+          previewContainer.innerHTML = `<p style="font-size:0.8rem; margin-top:4px;">Current Photo:</p><img src="${profile.photo}" style="max-height:80px; border-radius:6px; margin-bottom:8px;">`;
+        } else {
+          previewContainer.innerHTML = '';
+        }
+      } else {
+        title.textContent = '🚗 Add New Vehicle';
+        nameInput.value = '';
+        deleteBtn.classList.add('hidden');
+        previewContainer.innerHTML = '';
+      }
+
+      modal.classList.remove('hidden');
+    }
+
+    function hideVehicleModal() {
+      document.getElementById('vehicleModal').classList.add('hidden');
+      document.getElementById('vehicleForm').reset();
+    }
+
+    function saveVehicleProfile(e) {
+      e.preventDefault();
+      const newName = document.getElementById('modalVehicleName').value.trim();
+      const photoInput = document.getElementById('modalVehiclePhoto');
+      const mode = document.getElementById('modalMode').value;
+      const oldName = db.activeVehicle;
+
+      if (!newName) return;
+
+      const processSave = (photoDataUrl = '') => {
+        if (mode === 'edit' && oldName && oldName !== newName) {
+          const index = db.vehicles.indexOf(oldName);
+          if (index !== -1) db.vehicles[index] = newName;
+
+          db.fuel[newName] = db.fuel[oldName] || [];
+          delete db.fuel[oldName];
+
+          db.service[newName] = db.service[oldName] || [];
+          delete db.service[oldName];
+
+          db.vehicleProfiles[newName] = db.vehicleProfiles[oldName] || {};
+          delete db.vehicleProfiles[oldName];
+        } else if (mode === 'add' && !db.vehicles.includes(newName)) {
+          db.vehicles.push(newName);
+        }
+
+        db.activeVehicle = newName;
+        if (!db.vehicleProfiles[newName]) db.vehicleProfiles[newName] = {};
+
+        if (photoDataUrl) {
+          db.vehicleProfiles[newName].photo = photoDataUrl;
+        }
+
+        saveData();
+        hideVehicleModal();
+        renderVehicleDropdown();
+        renderDashboard();
+        renderLogs();
+      };
+
+      if (photoInput.files && photoInput.files[0]) {
+        const reader = new FileReader();
+        reader.onload = function(evt) { processSave(evt.target.result); };
+        reader.readAsDataURL(photoInput.files[0]);
+      } else {
+        processSave('');
+      }
+    }
+
+    function deleteCurrentVehicle() {
+      const v = db.activeVehicle;
+      if (!v) return;
+
+      if (confirm(`Are you sure you want to delete "${v}" and all of its associated logs?`)) {
+        db.vehicles = db.vehicles.filter(item => item !== v);
+        delete db.fuel[v];
+        delete db.service[v];
+        if (db.vehicleProfiles) delete db.vehicleProfiles[v];
+
+        db.activeVehicle = db.vehicles.length > 0 ? db.vehicles[0] : '';
+        saveData();
+        hideVehicleModal();
+
+        if (db.vehicles.length === 0) {
+          openVehicleModal('add');
+        } else {
+          renderVehicleDropdown();
+          renderDashboard();
+          renderLogs();
+        }
+      }
+    }
+
+    function renderVehicleDropdown() {
+      const select = document.getElementById('vehicleSelect');
+      select.innerHTML = '';
+      (db.vehicles || []).forEach(v => {
+        const opt = document.createElement('option');
+        opt.value = v;
+        opt.textContent = v;
+        if (v === db.activeVehicle) opt.selected = true;
+        select.appendChild(opt);
+      });
+    }
+
+    function switchVehicle() {
+      db.activeVehicle = document.getElementById('vehicleSelect').value;
+      saveData();
+      cancelFuelEdit();
+      cancelServiceEdit();
+      renderDashboard();
+      renderLogs();
+    }
+
+    function showTab(tab) {
+      document.getElementById('dashSection').classList.toggle('hidden', tab !== 'dash');
+      document.getElementById('fuelSection').classList.toggle('hidden', tab !== 'fuel');
+      document.getElementById('serviceSection').classList.toggle('hidden', tab !== 'service');
+      
+      document.getElementById('dashTabBtn').classList.toggle('active', tab === 'dash');
+      document.getElementById('fuelTabBtn').classList.toggle('active', tab === 'fuel');
+      document.getElementById('serviceTabBtn').classList.toggle('active', tab === 'service');
+
+      if (tab === 'dash') renderDashboard();
+    }
+
+    function calcFuelCost() {
+      const unit = parseFloat(document.getElementById('fuelUnitPrice').value);
+      const liters = parseFloat(document.getElementById('fuelLiters').value);
+      if (unit && liters) {
+        document.getElementById('fuelCost').value = (unit * liters).toFixed(2);
+      }
+    }
+
+    function calcFuelLiters() {
+      const unit = parseFloat(document.getElementById('fuelUnitPrice').value);
+      const cost = parseFloat(document.getElementById('fuelCost').value);
+      if (unit && cost) {
+        document.getElementById('fuelLiters').value = (cost / unit).toFixed(2);
+      }
+    }
+
+    function saveFuel(e) {
+      e.preventDefault();
+      const v = db.activeVehicle;
+      if (!v) return alert('Please add a vehicle first!');
+      if (!db.fuel[v]) db.fuel[v] = [];
+
+      const editIndex = parseInt(document.getElementById('fuelEditIndex').value);
+
+      const newLog = {
+        date: document.getElementById('fuelDate').value,
+        odo: parseFloat(document.getElementById('fuelOdo').value),
+        liters: parseFloat(document.getElementById('fuelLiters').value),
+        cost: parseFloat(document.getElementById('fuelCost').value),
+        unitPrice: parseFloat(document.getElementById('fuelUnitPrice').value) || 0,
+        remarks: document.getElementById('fuelRemarks').value.trim(),
+        fullTank: document.getElementById('isFullTank').checked
+      };
+
+      if (editIndex >= 0) {
+        db.fuel[v][editIndex] = newLog;
+      } else {
+        db.fuel[v].push(newLog);
+      }
+
+      db.fuel[v].sort((a,b) => b.odo - a.odo);
+      saveData();
+      cancelFuelEdit();
+      init();
+    }
+
+    function editFuel(index) {
+      const v = db.activeVehicle;
+      const item = db.fuel[v][index];
+      if (!item) return;
+
+      document.getElementById('fuelEditIndex').value = index;
+      document.getElementById('fuelDate').value = item.date;
+      document.getElementById('fuelOdo').value = item.odo;
+      document.getElementById('fuelLiters').value = item.liters;
+      document.getElementById('fuelCost').value = item.cost;
+      document.getElementById('fuelUnitPrice').value = item.unitPrice || '';
+      document.getElementById('fuelRemarks').value = item.remarks || '';
+      document.getElementById('isFullTank').checked = item.fullTank !== false;
+
+      document.getElementById('fuelFormTitle').textContent = '✏️ Edit Fuel Fill-up';
+      document.getElementById('fuelSubmitBtn').textContent = 'Update Fuel Log';
+      document.getElementById('fuelCancelBtn').classList.remove('hidden');
+
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    function cancelFuelEdit() {
+      document.getElementById('fuelForm').reset();
+      document.getElementById('fuelEditIndex').value = "-1";
+      document.getElementById('fuelFormTitle').textContent = 'Add Fuel Fill-up';
+      document.getElementById('fuelSubmitBtn').textContent = 'Save Fuel Log';
+      document.getElementById('fuelCancelBtn').classList.add('hidden');
+      document.getElementById('fuelDate').value = new Date().toISOString().split('T')[0];
+    }
+
+    function deleteFuel(index) {
+      const v = db.activeVehicle;
+      if (confirm("Are you sure you want to delete this fuel record?")) {
+        db.fuel[v].splice(index, 1);
+        saveData();
+        renderDashboard();
+        renderLogs();
+      }
+    }
+
+    function saveService(e) {
+      e.preventDefault();
+      const v = db.activeVehicle;
+      if (!v) return alert('Please add a vehicle first!');
+      if (!db.service[v]) db.service[v] = [];
+
+      const editIndex = parseInt(document.getElementById('serviceEditIndex').value);
+      const fileInput = document.getElementById('serviceBill');
+
+      const processSave = (billDataUrl = '') => {
+        const existingBill = editIndex >= 0 ? (db.service[v][editIndex].bill || '') : '';
+        const newLog = {
+          date: document.getElementById('serviceDate').value,
+          odo: parseFloat(document.getElementById('serviceOdo').value),
+          cost: parseFloat(document.getElementById('serviceCost').value),
+          type: document.getElementById('serviceType').value,
+          remarks: document.getElementById('serviceRemarks').value.trim(),
+          bill: billDataUrl || existingBill
+        };
+
+        if (editIndex >= 0) {
+          db.service[v][editIndex] = newLog;
+        } else {
+          db.service[v].push(newLog);
+        }
+
+        db.service[v].sort((a,b) => b.odo - a.odo);
+        saveData();
+        cancelServiceEdit();
+        init();
+      };
+
+      if (fileInput.files && fileInput.files[0]) {
+        const reader = new FileReader();
+        reader.onload = function(evt) { processSave(evt.target.result); };
+        reader.readAsDataURL(fileInput.files[0]);
+      } else {
+        processSave('');
+      }
+    }
+
+    function editService(index) {
+      const v = db.activeVehicle;
+      const item = db.service[v][index];
+      if (!item) return;
+
+      document.getElementById('serviceEditIndex').value = index;
+      document.getElementById('serviceDate').value = item.date;
+      document.getElementById('serviceOdo').value = item.odo;
+      document.getElementById('serviceCost').value = item.cost;
+      document.getElementById('serviceType').value = item.type;
+      document.getElementById('serviceRemarks').value = item.remarks || '';
+
+      document.getElementById('serviceFormTitle').textContent = '✏️ Edit Service Record';
+      document.getElementById('serviceSubmitBtn').textContent = 'Update Service Log';
+      document.getElementById('serviceCancelBtn').classList.remove('hidden');
+
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    function cancelServiceEdit() {
+      document.getElementById('serviceForm').reset();
+      document.getElementById('serviceEditIndex').value = "-1";
+      document.getElementById('serviceFormTitle').textContent = 'Add Service Record';
+      document.getElementById('serviceSubmitBtn').textContent = 'Save Service Log';
+      document.getElementById('serviceCancelBtn').classList.add('hidden');
+      document.getElementById('serviceDate').value = new Date().toISOString().split('T')[0];
+    }
+
+    function deleteService(index) {
+      const v = db.activeVehicle;
+      if (confirm("Are you sure you want to delete this service record?")) {
+        db.service[v].splice(index, 1);
+        saveData();
+        renderDashboard();
+        renderLogs();
+      }
+    }
+
+    function calculateMileages(fuelList) {
+      const sorted = [...fuelList].sort((a,b) => a.odo - b.odo);
+      const results = {};
+
+      let lastFullOdo = null;
+      let accumulatedLiters = 0;
+
+      for (let i = 0; i < sorted.length; i++) {
+        const entry = sorted[i];
+        if (lastFullOdo !== null) {
+          accumulatedLiters += entry.liters;
+          if (entry.fullTank) {
+            const dist = entry.odo - lastFullOdo;
+            if (dist > 0 && accumulatedLiters > 0) {
+              results[entry.odo] = (dist / accumulatedLiters).toFixed(2);
+            }
+            lastFullOdo = entry.odo;
+            accumulatedLiters = 0;
+          }
+        } else {
+          if (entry.fullTank) {
+            lastFullOdo = entry.odo;
+            accumulatedLiters = 0;
+          }
+        }
+      }
+      return results;
+    }
+
+    function renderDashboard() {
+      const v = db.activeVehicle;
+      if (!v) return;
+
+      const profileContainer = document.getElementById('vehicleProfileDisplay');
+      const profile = (db.vehicleProfiles && db.vehicleProfiles[v]) || {};
+      
+      profileContainer.innerHTML = `
+        ${profile.photo ? `<img src="${profile.photo}" class="vehicle-avatar" alt="${v}">` : ''}
+        <h2>${v}</h2>
+      `;
+
+      const fuels = db.fuel[v] || [];
+      const services = db.service[v] || [];
+
+      const mileages = calculateMileages(fuels);
+      const mileageValues = Object.values(mileages).map(val => parseFloat(val));
+      
+      let avgKmL = '--';
+      if (mileageValues.length > 0) {
+        const sum = mileageValues.reduce((a, b) => a + b, 0);
+        avgKmL = (sum / mileageValues.length).toFixed(2);
+      }
+
+      document.getElementById('avgMileage').textContent = avgKmL !== '--' ? `${avgKmL} Km/L` : '-- Km/L';
+
+      const period = document.getElementById('expensePeriod').value;
+      const catFilter = document.getElementById('expenseCategoryFilter').value;
+
+      const expenses = {};
+      let overallTotal = 0;
+
+      if (catFilter === 'all' || catFilter === 'fuel') {
+        fuels.forEach(item => {
+          const key = period === 'month' ? item.date.substring(0, 7) : item.date.substring(0, 4);
+          if (!expenses[key]) expenses[key] = { fuel: 0, service: 0 };
+          expenses[key].fuel += item.cost;
+          overallTotal += item.cost;
+        });
+      }
+
+      if (catFilter === 'all' || catFilter === 'service') {
+        services.forEach(item => {
+          const key = period === 'month' ? item.date.substring(0, 7) : item.date.substring(0, 4);
+          if (!expenses[key]) expenses[key] = { fuel: 0, service: 0 };
+          expenses[key].service += item.cost;
+          overallTotal += item.cost;
+        });
+      }
+
+      document.getElementById('totalExpenses').textContent = `₹${overallTotal.toLocaleString()}`;
+
+      const sortedKeys = Object.keys(expenses).sort().reverse();
+      const reportContainer = document.getElementById('expenseReport');
+      
+      if (sortedKeys.length === 0) {
+        reportContainer.innerHTML = '<p style="color:#64748b; margin-top:10px;">No expense records found.</p>';
+      } else {
+        reportContainer.innerHTML = `
+          <table style="width:100%; border-collapse:collapse; margin-top:10px; font-size:0.9rem;">
+            <thead>
+              <tr style="border-bottom:2px solid var(--border); text-align:left;">
+                <th style="padding:6px;">${period === 'month' ? 'Month' : 'Year'}</th>
+                ${catFilter !== 'service' ? '<th style="padding:6px;">Fuel</th>' : ''}
+                ${catFilter !== 'fuel' ? '<th style="padding:6px;">Service</th>' : ''}
+                <th style="padding:6px;">Total</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${sortedKeys.map(k => {
+                const f = expenses[k].fuel || 0;
+                const s = expenses[k].service || 0;
+                return `
+                  <tr style="border-bottom:1px solid var(--border);">
+                    <td style="padding:6px;"><b>${k}</b></td>
+                    ${catFilter !== 'service' ? `<td style="padding:6px;">₹${f.toFixed(0)}</td>` : ''}
+                    ${catFilter !== 'fuel' ? `<td style="padding:6px;">₹${s.toFixed(0)}</td>` : ''}
+                    <td style="padding:6px;"><b>₹${(f + s).toFixed(0)}</b></td>
+                  </tr>
+                `;
+              }).join('')}
+            </tbody>
+          </table>
+        `;
+      }
+    }
+
+    function renderLogs() {
+      const v = db.activeVehicle;
+      if (!v) return;
+      
+      // Render Fuel Logs
+      const fuelList = db.fuel[v] || [];
+      const mileages = calculateMileages(fuelList);
+      const fuelContainer = document.getElementById('fuelHistory');
+
+      if (fuelList.length === 0) {
+        fuelContainer.innerHTML = '<p style="color:#64748b">No fuel entries yet.</p>';
+      } else {
+        fuelContainer.innerHTML = fuelList.map((item, index) => {
+          const kmL = mileages[item.odo];
+          const mileageBadge = kmL ? `<span class="badge">${kmL} Km/L</span>` : (item.fullTank ? `<span class="badge badge-gray">Full Tank</span>` : `<span class="badge badge-gray">Partial Fill</span>`);
+
+          return `
+            <div class="log-item">
+              <div style="display:flex; justify-content:space-between; align-items:center;">
+                <b>${item.date}</b>
+                ${mileageBadge}
               </div>
-              <p class="text-xs text-slate-400 mt-1">${l.date} ${l.odometer ? '• ' + l.odometer + ' km' : ''}</p>
-              ${l.notes ? `<p class="text-xs text-slate-300 mt-1">${l.notes}</p>` : ''}
+              <small>Odometer: ${item.odo} Km | ${item.liters} L @ ₹${item.unitPrice || '--'}/L</small><br>
+              <small><b>Total Cost: ₹${item.cost}</b></small>
+              ${item.remarks ? `<div class="remarks-text">📝 ${item.remarks}</div>` : ''}
+              <div class="actions">
+                <button class="secondary btn-small" onclick="editFuel(${index})">✏️ Edit</button>
+                <button class="danger btn-small" onclick="deleteFuel(${index})">🗑️ Delete</button>
+              </div>
             </div>
-            <div class="text-right">
-              <p class="text-sm font-bold text-emerald-400">₹${l.cost}</p>
-              <button onclick="deleteLog(${l.id})" class="text-xs text-rose-400 hover:underline mt-1">Delete</button>
+          `;
+        }).join('');
+      }
+
+      // Render Service Logs
+      const serviceList = db.service[v] || [];
+      const serviceContainer = document.getElementById('serviceHistory');
+      if (serviceList.length === 0) {
+        serviceContainer.innerHTML = '<p style="color:#64748b">No service entries yet.</p>';
+      } else {
+        serviceContainer.innerHTML = serviceList.map((item, index) => `
+          <div class="log-item">
+            <div style="display:flex; justify-content:space-between;">
+              <b>${item.type}</b>
+              <b>₹${item.cost}</b>
+            </div>
+            <small>Date: ${item.date} | Odometer: ${item.odo} Km</small>
+            ${item.remarks ? `<div class="remarks-text">📝 ${item.remarks}</div>` : ''}
+            ${item.bill ? `<br><a href="${item.bill}" target="_blank"><img src="${item.bill}" class="preview" alt="Bill Receipt"></a>` : ''}
+            <div class="actions">
+              <button class="secondary btn-small" onclick="editService(${index})">✏️ Edit</button>
+              <button class="danger btn-small" onclick="deleteService(${index})">🗑️ Delete</button>
             </div>
           </div>
-        `;
-      }).join('');
+        `).join('');
+      }
+    }
+
+    function exportCSV() {
+      let csvContent = "data:text/csv;charset=utf-8,";
+      
+      (db.vehicles || []).forEach(v => {
+        csvContent += `=== VEHICLE: ${v} ===\n`;
+        csvContent += "Type,Date,Odometer (Km),Liters,Price/L,Total Cost (INR),Full Tank,Service/Details,Remarks\n";
+        
+        const fuels = db.fuel[v] || [];
+        fuels.forEach(f => {
+          csvContent += `Fuel,${f.date},${f.odo},${f.liters},${f.unitPrice || ''},${f.cost},${f.fullTank ? 'Yes' : 'No'},"","${(f.remarks || '').replace(/"/g, '""')}"\n`;
+        });
+
+        const services = db.service[v] || [];
+        services.forEach(s => {
+          csvContent += `Service,${s.date},${s.odo},"","",${s.cost},"","${s.type.replace(/"/g, '""')}","${(s.remarks || '').replace(/"/g, '""')}"\n`;
+        });
+        
+        csvContent += "\n\n";
+      });
+
+      const encodedUri = encodeURI(csvContent);
+      const link = document.createElement("a");
+      link.setAttribute("href", encodedUri);
+      link.setAttribute("download", `vehicle_tracker_export_${new Date().toISOString().split('T')[0]}.csv`);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
     }
   </script>
 </body>
