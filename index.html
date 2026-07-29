@@ -27,7 +27,10 @@
     .log-item { border-bottom: 1px solid var(--border); padding: 10px 0; }
     .log-item:last-child { border-bottom: none; }
     .badge { display: inline-block; padding: 2px 8px; font-size: 0.75rem; border-radius: 4px; background: #dbeafe; color: #1e40af; font-weight: bold; }
+    .badge-gray { background: #f1f5f9; color: #64748b; }
     .flex { display: flex; gap: 8px; }
+    .checkbox-container { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; margin-top: 4px; }
+    .checkbox-container input { width: auto; margin: 0; }
     .stat-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin-bottom: 12px; }
     .stat-box { background: #f1f5f9; padding: 12px; border-radius: 8px; text-align: center; }
     .stat-box small { color: #64748b; display: block; font-size: 0.75rem; }
@@ -94,7 +97,7 @@
         <div class="flex">
           <div>
             <label>Odometer (Km)</label>
-            <input type="number" id="fuelOdo" placeholder="e.g. 15200" required>
+            <input type="number" step="0.1" id="fuelOdo" placeholder="e.g. 15200.5" required>
           </div>
           <div>
             <label>Price / Litre (₹)</label>
@@ -111,6 +114,12 @@
             <input type="number" step="0.01" id="fuelCost" placeholder="e.g. 3587.5" oninput="calcFuelLiters()" required>
           </div>
         </div>
+        
+        <div class="checkbox-container">
+          <input type="checkbox" id="isFullTank" checked>
+          <label for="isFullTank"><b>Full Tank Fill-up?</b> (Required for accurate mileage calculation)</label>
+        </div>
+
         <button type="submit">Save Fuel Log</button>
       </form>
     </div>
@@ -131,7 +140,7 @@
         <div class="flex">
           <div>
             <label>Odometer (Km)</label>
-            <input type="number" id="serviceOdo" placeholder="e.g. 15000" required>
+            <input type="number" step="0.1" id="serviceOdo" placeholder="e.g. 15000.0" required>
           </div>
           <div>
             <label>Cost (₹)</label>
@@ -153,7 +162,7 @@
   </div>
 
   <div class="card">
-    <button class="secondary" onclick="exportData()">📥 Backup Data (JSON)</button>
+    <button class="secondary" onclick="exportCSV()">📊 Export Data to Excel / CSV</button>
   </div>
 
   <script>
@@ -221,7 +230,6 @@
       if (tab === 'dash') renderDashboard();
     }
 
-    // Auto-calculate Fuel Form fields
     function calcFuelCost() {
       const unit = parseFloat(document.getElementById('fuelUnitPrice').value);
       const liters = parseFloat(document.getElementById('fuelLiters').value);
@@ -248,7 +256,8 @@
         odo: parseFloat(document.getElementById('fuelOdo').value),
         liters: parseFloat(document.getElementById('fuelLiters').value),
         cost: parseFloat(document.getElementById('fuelCost').value),
-        unitPrice: parseFloat(document.getElementById('fuelUnitPrice').value) || 0
+        unitPrice: parseFloat(document.getElementById('fuelUnitPrice').value) || 0,
+        fullTank: document.getElementById('isFullTank').checked
       };
 
       db.fuel[v].push(newLog);
@@ -289,25 +298,53 @@
       }
     }
 
+    // Mileage calculation logic accounting for partial fills
+    function calculateMileages(fuelList) {
+      // Create chronological copy (oldest first)
+      const sorted = [...fuelList].sort((a,b) => a.odo - b.odo);
+      const results = {}; // Map odo -> kmL
+
+      let lastFullOdo = null;
+      let accumulatedLiters = 0;
+
+      for (let i = 0; i < sorted.length; i++) {
+        const entry = sorted[i];
+        if (lastFullOdo !== null) {
+          accumulatedLiters += entry.liters;
+          if (entry.fullTank) {
+            const dist = entry.odo - lastFullOdo;
+            if (dist > 0 && accumulatedLiters > 0) {
+              results[entry.odo] = (dist / accumulatedLiters).toFixed(2);
+            }
+            lastFullOdo = entry.odo;
+            accumulatedLiters = 0;
+          }
+        } else {
+          if (entry.fullTank) {
+            lastFullOdo = entry.odo;
+            accumulatedLiters = 0;
+          }
+        }
+      }
+      return results;
+    }
+
     function renderDashboard() {
       const v = db.activeVehicle;
       const fuels = db.fuel[v] || [];
       const services = db.service[v] || [];
 
-      // Calculate Average Mileage
-      let totalDist = 0;
-      let totalLitersForMileage = 0;
-      if (fuels.length > 1) {
-        for (let i = 0; i < fuels.length - 1; i++) {
-          totalDist += (fuels[i].odo - fuels[i+1].odo);
-          totalLitersForMileage += fuels[i].liters;
-        }
+      const mileages = calculateMileages(fuels);
+      const mileageValues = Object.values(mileages).map(val => parseFloat(val));
+      
+      let avgKmL = '--';
+      if (mileageValues.length > 0) {
+        const sum = mileageValues.reduce((a, b) => a + b, 0);
+        avgKmL = (sum / mileageValues.length).toFixed(2);
       }
 
-      const avgKmL = totalLitersForMileage > 0 ? (totalDist / totalLitersForMileage).toFixed(2) : '--';
       document.getElementById('avgMileage').textContent = avgKmL !== '--' ? `${avgKmL} Km/L` : '-- Km/L';
 
-      // Group Expenses
       const period = document.getElementById('expensePeriod').value;
       const expenses = {};
       let overallTotal = 0;
@@ -328,7 +365,6 @@
 
       document.getElementById('totalExpenses').textContent = `₹${overallTotal.toLocaleString()}`;
 
-      // Render Expense Report Table
       const sortedKeys = Object.keys(expenses).sort().reverse();
       const reportContainer = document.getElementById('expenseReport');
       
@@ -365,25 +401,21 @@
       
       // Render Fuel Logs
       const fuelList = db.fuel[v] || [];
+      const mileages = calculateMileages(fuelList);
       const fuelContainer = document.getElementById('fuelHistory');
+
       if (fuelList.length === 0) {
         fuelContainer.innerHTML = '<p style="color:#64748b">No fuel entries yet.</p>';
       } else {
-        fuelContainer.innerHTML = fuelList.map((item, index) => {
-          let mileageText = '';
-          if (index < fuelList.length - 1) {
-            const prevItem = fuelList[index + 1];
-            const dist = item.odo - prevItem.odo;
-            if (dist > 0 && item.liters > 0) {
-              const kmL = (dist / item.liters).toFixed(2);
-              mileageText = `<span class="badge">${kmL} Km/L</span>`;
-            }
-          }
+        fuelContainer.innerHTML = fuelList.map((item) => {
+          const kmL = mileages[item.odo];
+          const mileageBadge = kmL ? `<span class="badge">${kmL} Km/L</span>` : (item.fullTank ? `<span class="badge badge-gray">Full Tank</span>` : `<span class="badge badge-gray">Partial Fill</span>`);
+
           return `
             <div class="log-item">
               <div style="display:flex; justify-content:space-between; align-items:center;">
                 <b>${item.date}</b>
-                ${mileageText}
+                ${mileageBadge}
               </div>
               <small>Odometer: ${item.odo} Km | ${item.liters} L @ ₹${item.unitPrice || '--'}/L</small><br>
               <small><b>Total Cost: ₹${item.cost}</b></small>
@@ -411,14 +443,34 @@
       }
     }
 
-    function exportData() {
-      const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(db));
-      const downloadAnchor = document.createElement('a');
-      downloadAnchor.setAttribute("href", dataStr);
-      downloadAnchor.setAttribute("download", `garage_backup_${new Date().toISOString().split('T')[0]}.json`);
-      document.body.appendChild(downloadAnchor);
-      downloadAnchor.click();
-      downloadAnchor.remove();
+    // Export Data directly as Excel-compatible CSV
+    function exportCSV() {
+      let csvContent = "data:text/csv;charset=utf-8,";
+      
+      db.vehicles.forEach(v => {
+        csvContent += `=== VEHICLE: ${v} ===\n`;
+        csvContent += "Type,Date,Odometer (Km),Liters,Price/L,Total Cost (INR),Full Tank,Service Details\n";
+        
+        const fuels = db.fuel[v] || [];
+        fuels.forEach(f => {
+          csvContent += `Fuel,${f.date},${f.odo},${f.liters},${f.unitPrice || ''},${f.cost},${f.fullTank ? 'Yes' : 'No'},""\n`;
+        });
+
+        const services = db.service[v] || [];
+        services.forEach(s => {
+          csvContent += `Service,${s.date},${s.odo},"","",${s.cost},"","${s.type.replace(/"/g, '""')}"\n`;
+        });
+        
+        csvContent += "\n\n";
+      });
+
+      const encodedUri = encodeURI(csvContent);
+      const link = document.createElement("a");
+      link.setAttribute("href", encodedUri);
+      link.setAttribute("download", `vehicle_tracker_export_${new Date().toISOString().split('T')[0]}.csv`);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
     }
 
     init();
