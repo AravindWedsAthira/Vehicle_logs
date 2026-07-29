@@ -8,6 +8,9 @@
   <!-- Firebase JS SDKs -->
   <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
   <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
+  
+  <!-- Chart.js CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
   <style>
     :root {
@@ -15,24 +18,41 @@
       --bg: #f8fafc;
       --card: #ffffff;
       --text: #1e293b;
+      --text-muted: #64748b;
       --border: #e2e8f0;
       --danger: #ef4444;
       --warning-bg: #fffbebf5;
       --warning-border: #fef08a;
       --warning-text: #854d0e;
+      --input-bg: #ffffff;
     }
+
+    [data-theme="dark"] {
+      --primary: #3b82f6;
+      --bg: #0f172a;
+      --card: #1e293b;
+      --text: #f8fafc;
+      --text-muted: #94a3b8;
+      --border: #334155;
+      --danger: #f87171;
+      --warning-bg: #422006;
+      --warning-border: #78350f;
+      --warning-text: #fef08a;
+      --input-bg: #0f172a;
+    }
+
     * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
-    body { background: var(--bg); color: var(--text); padding: 16px; max-width: 650px; margin: 0 auto; }
+    body { background: var(--bg); color: var(--text); padding: 16px; max-width: 650px; margin: 0 auto; transition: background 0.3s, color 0.3s; }
     header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
     h1 { font-size: 1.25rem; }
-    select, input, button, textarea { width: 100%; padding: 10px; margin-top: 6px; margin-bottom: 12px; border: 1px solid var(--border); border-radius: 8px; font-size: 1rem; }
+    select, input, button, textarea { width: 100%; padding: 10px; margin-top: 6px; margin-bottom: 12px; border: 1px solid var(--border); border-radius: 8px; font-size: 1rem; background: var(--input-bg); color: var(--text); }
     button { background: var(--primary); color: white; font-weight: bold; border: none; cursor: pointer; }
-    button.secondary { background: #64748b; }
-    button.danger { background: var(--danger); }
+    button.secondary { background: var(--text-muted); color: white; }
+    button.danger { background: var(--danger); color: white; }
     .btn-small { width: auto; padding: 4px 10px; font-size: 0.75rem; margin: 0; }
-    .card { background: var(--card); padding: 16px; border-radius: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); margin-bottom: 16px; }
+    .card { background: var(--card); padding: 16px; border-radius: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); margin-bottom: 16px; border: 1px solid var(--border); }
     .tabs { display: flex; gap: 6px; margin-bottom: 16px; flex-wrap: wrap; }
-    .tab-btn { flex: 1; min-width: 20%; padding: 8px 4px; background: #e2e8f0; color: var(--text); border-radius: 6px; font-weight: bold; border: none; font-size: 0.8rem; text-align: center; }
+    .tab-btn { flex: 1; min-width: 20%; padding: 8px 4px; background: var(--border); color: var(--text); border-radius: 6px; font-weight: bold; border: none; font-size: 0.8rem; text-align: center; }
     .tab-btn.active { background: var(--primary); color: white; }
     .hidden { display: none !important; }
     .log-item { border-bottom: 1px solid var(--border); padding: 10px 0; }
@@ -40,16 +60,17 @@
     .badge { display: inline-block; padding: 2px 8px; font-size: 0.75rem; border-radius: 4px; background: #dbeafe; color: #1e40af; font-weight: bold; }
     .badge-gray { background: #f1f5f9; color: #64748b; }
     .badge-warning { background: #fef3c7; color: #92400e; }
+    .badge-danger { background: #fee2e2; color: #991b1b; }
     .flex { display: flex; gap: 8px; }
     .actions { display: flex; gap: 6px; margin-top: 6px; }
     .checkbox-container { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; margin-top: 4px; }
     .checkbox-container input { width: auto; margin: 0; }
-    .stat-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin-bottom: 12px; }
-    .stat-box { background: #f1f5f9; padding: 12px; border-radius: 8px; text-align: center; }
-    .stat-box small { color: #64748b; display: block; font-size: 0.75rem; }
-    .stat-box strong { font-size: 1.1rem; color: var(--primary); }
+    .stat-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 12px; }
+    .stat-box { background: var(--bg); border: 1px solid var(--border); padding: 10px 6px; border-radius: 8px; text-align: center; }
+    .stat-box small { color: var(--text-muted); display: block; font-size: 0.7rem; }
+    .stat-box strong { font-size: 1rem; color: var(--primary); }
     .vehicle-profile { text-align: center; margin-bottom: 12px; }
-    .remarks-text { color: #64748b; font-style: italic; font-size: 0.85rem; margin-top: 4px; }
+    .remarks-text { color: var(--text-muted); font-style: italic; font-size: 0.85rem; margin-top: 4px; }
     
     .tyre-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 6px; }
 
@@ -63,7 +84,6 @@
       font-size: 0.85rem;
     }
 
-    /* Auth Modal Styling */
     #loginModal {
       position: fixed;
       inset: 0;
@@ -76,30 +96,30 @@
       padding: 16px;
     }
     .auth-card {
-      background: #ffffff;
+      background: var(--card);
       padding: 24px;
       border-radius: 16px;
       width: 100%;
       max-width: 380px;
-      box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+      box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
     }
   </style>
 </head>
-<body>
+<body data-theme="light">
 
   <!-- ================= FIREBASE LOGIN / AUTH MODAL ================= -->
   <div id="loginModal">
     <div class="auth-card">
       <div style="text-align: center; margin-bottom: 20px;">
         <span style="font-size: 2.5rem;">🚗</span>
-        <h2 style="font-size: 1.25rem; margin-top: 8px; color: var(--text);">Garage Login & Sync</h2>
-        <p style="font-size: 0.8rem; color: #64748b; margin-top: 4px;">Enter your Garage Name and PIN to unlock.</p>
+        <h2 style="font-size: 1.25rem; margin-top: 8px;">Garage Login & Sync</h2>
+        <p style="font-size: 0.8rem; color: var(--text-muted); margin-top: 4px;">Enter Garage Name and PIN to unlock.</p>
       </div>
       <form id="loginForm" onsubmit="handlePinLogin(event)">
-        <label style="font-size: 0.75rem; font-weight: bold; text-transform: uppercase; color: #64748b;">Garage ID / Name</label>
+        <label style="font-size: 0.75rem; font-weight: bold; text-transform: uppercase; color: var(--text-muted);">Garage ID / Name</label>
         <input type="text" id="loginGarageName" required placeholder="e.g. MyGarage" style="margin-top: 4px;" />
         
-        <label style="font-size: 0.75rem; font-weight: bold; text-transform: uppercase; color: #64748b;">Security PIN</label>
+        <label style="font-size: 0.75rem; font-weight: bold; text-transform: uppercase; color: var(--text-muted);">Security PIN</label>
         <input type="password" id="loginPin" required maxlength="6" placeholder="****" style="text-align: center; letter-spacing: 4px; font-weight: bold; margin-top: 4px;" />
 
         <div id="loginError" style="color: var(--danger); font-size: 0.8rem; text-align: center; margin-bottom: 8px; min-height: 18px;"></div>
@@ -114,11 +134,12 @@
     <header>
       <div>
         <h1>🚗 Garage Tracker</h1>
-        <small style="color: #64748b; font-size: 0.75rem;">Garage ID: <b id="activeGarageLabel" style="color: var(--primary);">--</b></small>
+        <small style="color: var(--text-muted); font-size: 0.75rem;">Garage ID: <b id="activeGarageLabel" style="color: var(--primary);">--</b></small>
       </div>
       <div style="display: flex; gap: 6px;">
+        <button class="secondary" style="width: auto; padding: 6px 10px; font-size: 0.8rem;" onclick="toggleTheme()">🌙 Mode</button>
         <button class="secondary" style="width: auto; padding: 6px 10px; font-size: 0.8rem;" onclick="lockApp()">🔒 Lock</button>
-        <button class="secondary" style="width: auto; padding: 6px 12px;" onclick="openVehicleModal('add')">+ New Vehicle</button>
+        <button class="secondary" style="width: auto; padding: 6px 10px;" onclick="openVehicleModal('add')">+ Vehicle</button>
       </div>
     </header>
 
@@ -128,10 +149,11 @@
     </div>
 
     <div class="tabs">
-      <button class="tab-btn active" id="dashTabBtn" onclick="showTab('dash')">📊 Dashboard</button>
+      <button class="tab-btn active" id="dashTabBtn" onclick="showTab('dash')">📊 Dash</button>
       <button class="tab-btn" id="fuelTabBtn" onclick="showTab('fuel')">⛽ Fuel</button>
-      <button class="tab-btn" id="tyreTabBtn" onclick="showTab('tyre')">🛞 Tyre Pressure</button>
+      <button class="tab-btn" id="tyreTabBtn" onclick="showTab('tyre')">🛞 Tyre</button>
       <button class="tab-btn" id="serviceTabBtn" onclick="showTab('service')">🔧 Service</button>
+      <button class="tab-btn" id="reminderTabBtn" onclick="showTab('reminder')">🔔 Reminders</button>
     </div>
 
     <!-- DASHBOARD SECTION -->
@@ -140,19 +162,34 @@
         <div id="vehicleProfileDisplay" class="vehicle-profile"></div>
         <button class="secondary btn-small" style="width: 100%; margin-bottom: 12px; padding: 8px;" onclick="openVehicleModal('edit')">✏️ Edit Active Vehicle</button>
         
+        <!-- Alerts & Reminders Banner -->
+        <div id="reminderAlertBox"></div>
+
         <!-- Smart Refuel Recommendation Banner -->
         <div id="refuelRecommendation"></div>
 
-        <h3>Vehicle Summary</h3>
+        <h3>Vehicle Metrics</h3>
         <div class="stat-grid" style="margin-top:10px;">
           <div class="stat-box">
             <small>Avg Mileage</small>
             <strong id="avgMileage">-- Km/L</strong>
           </div>
           <div class="stat-box">
+            <small>Cost / Km</small>
+            <strong id="costPerKm">₹-- / Km</strong>
+          </div>
+          <div class="stat-box">
             <small>Total Expenses</small>
             <strong id="totalExpenses">₹0</strong>
           </div>
+        </div>
+      </div>
+
+      <!-- Mileage Chart Card -->
+      <div class="card">
+        <h3>Mileage Trend Chart</h3>
+        <div style="position: relative; height:200px; width:100%; margin-top:10px;">
+          <canvas id="mileageChart"></canvas>
         </div>
       </div>
 
@@ -190,7 +227,7 @@
           <div class="flex">
             <div>
               <label>Odometer (Km)</label>
-              <input type="number" step="0.1" id="fuelOdo" placeholder="e.g. 15200.5" required>
+              <input type="number" step="0.1" id="fuelOdo" placeholder="e.g. 15200" required>
             </div>
             <div>
               <label>Price / Litre (₹)</label>
@@ -209,7 +246,7 @@
           </div>
           
           <label>Remarks / Notes</label>
-          <input type="text" id="fuelRemarks" placeholder="e.g. Indian Oil bunk, filled Shell V-power">
+          <input type="text" id="fuelRemarks" placeholder="e.g. Shell V-power">
 
           <div class="checkbox-container">
             <input type="checkbox" id="isFullTank" checked>
@@ -218,7 +255,7 @@
 
           <div class="checkbox-container">
             <input type="checkbox" id="missedPrevious">
-            <label for="missedPrevious" style="color: #92400e;"><b>Missed Previous Fueling?</b> (Skips mileage for this tank to avoid false spikes)</label>
+            <label for="missedPrevious" style="color: #92400e;"><b>Missed Previous Fueling?</b> (Skips calculation spike)</label>
           </div>
 
           <button type="submit" id="fuelSubmitBtn">Save Fuel Log</button>
@@ -282,7 +319,7 @@
           </div>
 
           <label>Remarks / Notes</label>
-          <input type="text" id="tyreRemarks" placeholder="e.g. Checked cold in the morning">
+          <input type="text" id="tyreRemarks" placeholder="e.g. Checked cold morning">
 
           <button type="submit" id="tyreSubmitBtn">Save Pressure Log</button>
           <button type="button" id="tyreCancelBtn" class="secondary hidden" onclick="cancelTyreEdit()">Cancel Edit</button>
@@ -306,7 +343,7 @@
           <div class="flex">
             <div>
               <label>Odometer (Km)</label>
-              <input type="number" step="0.1" id="serviceOdo" placeholder="e.g. 15000.0" required>
+              <input type="number" step="0.1" id="serviceOdo" placeholder="e.g. 15000" required>
             </div>
             <div>
               <label>Cost (₹)</label>
@@ -328,6 +365,35 @@
       </div>
     </div>
 
+    <!-- REMINDERS SECTION -->
+    <div id="reminderSection" class="hidden">
+      <div class="card">
+        <h3 id="reminderFormTitle">Set Service / Maintenance Reminder</h3>
+        <form id="reminderForm" onsubmit="saveReminder(event)">
+          <label>Title / Task</label>
+          <input type="text" id="remTitle" placeholder="e.g. Engine Oil & Filter Replacement" required>
+          
+          <div class="flex">
+            <div style="flex:1;">
+              <label>Due Date (Optional)</label>
+              <input type="date" id="remDueDate">
+            </div>
+            <div style="flex:1;">
+              <label>Due Odometer Km (Optional)</label>
+              <input type="number" step="1" id="remDueOdo" placeholder="e.g. 20000">
+            </div>
+          </div>
+
+          <button type="submit">Set Reminder</button>
+        </form>
+      </div>
+
+      <div class="card">
+        <h3>Active Reminders</h3>
+        <div id="reminderList"></div>
+      </div>
+    </div>
+
     <div class="card">
       <button class="secondary" onclick="exportCSV()">📊 Export Data to Excel / CSV</button>
     </div>
@@ -342,7 +408,7 @@
         <input type="text" id="modalVehicleName" placeholder="e.g. My Sonet" required>
         
         <label>Vehicle Model / Registration Number</label>
-        <input type="text" id="modalVehicleModel" placeholder="e.g. Kia Sonet HTX (TN-45-AB-1234)">
+        <input type="text" id="modalVehicleModel" placeholder="e.g. Kia Sonet HTX">
 
         <div class="flex">
           <div style="flex:1;">
@@ -361,11 +427,11 @@
         <label><b>Recommended Tyre Pressures (PSI)</b></label>
         <div class="tyre-grid">
           <div>
-            <small id="modalLabelFront">Front / Front-Left PSI</small>
+            <small id="modalLabelFront">Front / FL PSI</small>
             <input type="number" step="0.5" id="modalRecFront" placeholder="e.g. 33">
           </div>
           <div id="modalRecRearCol">
-            <small id="modalLabelRear">Rear / Front-Right PSI</small>
+            <small id="modalLabelRear">Rear / FR PSI</small>
             <input type="number" step="0.5" id="modalRecRear" placeholder="e.g. 33">
           </div>
           <div id="modalRecRLCol">
@@ -394,7 +460,6 @@
   </div>
 
   <script>
-    // ---------------- FIREBASE INITIALIZATION ----------------
     const firebaseConfig = {
       databaseURL: "https://mygaragetracker-default-rtdb.asia-southeast1.firebasedatabase.app"
     };
@@ -410,13 +475,25 @@
       vehicleProfiles: {},
       fuel: {},
       tyre: {},
-      service: {}
+      service: {},
+      reminders: {}
     };
 
     let activeGarageName = '';
     let activePin = '';
+    let mileageChartInstance = null;
 
-    // ---------------- AUTHENTICATION & LOGIN ----------------
+    function toggleTheme() {
+      const current = document.body.getAttribute('data-theme');
+      const next = current === 'dark' ? 'light' : 'dark';
+      document.body.setAttribute('data-theme', next);
+      localStorage.setItem('garage_theme', next);
+    }
+
+    // Load saved theme setting
+    const savedTheme = localStorage.getItem('garage_theme') || 'light';
+    document.body.setAttribute('data-theme', savedTheme);
+
     async function handlePinLogin(e) {
       e.preventDefault();
       
@@ -444,7 +521,6 @@
           }
           if (cloudData.data) db = cloudData.data;
         } else {
-          // New garage setup
           await realtimeDb.ref('garages/' + name).set({ pin: pin, data: db });
         }
 
@@ -489,6 +565,7 @@
           if (!db.fuel) db.fuel = {};
           if (!db.tyre) db.tyre = {};
           if (!db.service) db.service = {};
+          if (!db.reminders) db.reminders = {};
           
           if (db.vehicles.length > 0 && !db.vehicles.includes(db.activeVehicle)) {
             db.activeVehicle = db.vehicles[0];
@@ -501,13 +578,11 @@
       });
     }
 
-    // ---------------- DATA PERSISTENCE ----------------
     function saveData() {
       if (!activeGarageName) return;
       realtimeDb.ref('garages/' + activeGarageName + '/data').set(db);
     }
 
-    // ---------------- APP LOGIC ----------------
     function init() {
       const today = new Date().toISOString().split('T')[0];
       document.getElementById('fuelDate').value = today;
@@ -518,13 +593,7 @@
       if (!db.fuel) db.fuel = {};
       if (!db.tyre) db.tyre = {};
       if (!db.service) db.service = {};
-
-      if (db.vehicles && db.vehicles.length > 0) {
-        db.vehicles = db.vehicles.filter(v => v !== 'Vehicle 1' && v !== 'Vehicle 2');
-        if (!db.vehicles.includes(db.activeVehicle)) {
-          db.activeVehicle = db.vehicles[0] || '';
-        }
-      }
+      if (!db.reminders) db.reminders = {};
 
       if (!activeGarageName) return;
 
@@ -631,6 +700,9 @@
         db.service[newName] = db.service[oldName] || [];
         delete db.service[oldName];
 
+        db.reminders[newName] = db.reminders[oldName] || [];
+        delete db.reminders[oldName];
+
         db.vehicleProfiles[newName] = db.vehicleProfiles[oldName] || {};
         delete db.vehicleProfiles[oldName];
       } else if (mode === 'add' && !db.vehicles.includes(newName)) {
@@ -673,6 +745,7 @@
         delete db.fuel[v];
         delete db.tyre[v];
         delete db.service[v];
+        delete db.reminders[v];
         if (db.vehicleProfiles) delete db.vehicleProfiles[v];
 
         db.activeVehicle = db.vehicles.length > 0 ? db.vehicles[0] : '';
@@ -733,11 +806,13 @@
       document.getElementById('fuelSection').classList.toggle('hidden', tab !== 'fuel');
       document.getElementById('tyreSection').classList.toggle('hidden', tab !== 'tyre');
       document.getElementById('serviceSection').classList.toggle('hidden', tab !== 'service');
+      document.getElementById('reminderSection').classList.toggle('hidden', tab !== 'reminder');
       
       document.getElementById('dashTabBtn').classList.toggle('active', tab === 'dash');
       document.getElementById('fuelTabBtn').classList.toggle('active', tab === 'fuel');
       document.getElementById('tyreTabBtn').classList.toggle('active', tab === 'tyre');
       document.getElementById('serviceTabBtn').classList.toggle('active', tab === 'service');
+      document.getElementById('reminderTabBtn').classList.toggle('active', tab === 'reminder');
 
       if (tab === 'dash') renderDashboard();
     }
@@ -830,7 +905,6 @@
       }
     }
 
-    // ---------------- TYRE LOG LOGIC ----------------
     function saveTyrePressure(e) {
       e.preventDefault();
       const v = db.activeVehicle;
@@ -973,6 +1047,35 @@
       }
     }
 
+    function saveReminder(e) {
+      e.preventDefault();
+      const v = db.activeVehicle;
+      if (!v) return alert('Please select a vehicle first!');
+      if (!db.reminders[v]) db.reminders[v] = [];
+
+      const newRem = {
+        title: document.getElementById('remTitle').value.trim(),
+        dueDate: document.getElementById('remDueDate').value || null,
+        dueOdo: parseFloat(document.getElementById('remDueOdo').value) || null
+      };
+
+      db.reminders[v].push(newRem);
+      saveData();
+      document.getElementById('reminderForm').reset();
+      renderLogs();
+      renderDashboard();
+    }
+
+    function deleteReminder(index) {
+      const v = db.activeVehicle;
+      if (confirm("Delete this reminder?")) {
+        db.reminders[v].splice(index, 1);
+        saveData();
+        renderLogs();
+        renderDashboard();
+      }
+    }
+
     function calculateMileages(fuelList) {
       const sorted = [...fuelList].sort((a,b) => a.odo - b.odo);
       const results = {};
@@ -1009,6 +1112,30 @@
       return results;
     }
 
+    function getMaxLoggedOdometer(v) {
+      const fuels = db.fuel[v] || [];
+      const services = db.service[v] || [];
+      const tyres = db.tyre[v] || [];
+
+      let max = 0;
+      fuels.forEach(item => { if (item.odo > max) max = item.odo; });
+      services.forEach(item => { if (item.odo > max) max = item.odo; });
+      tyres.forEach(item => { if (item.odo && item.odo > max) max = item.odo; });
+
+      return max;
+    }
+
+    function getMinLoggedOdometer(v) {
+      const fuels = db.fuel[v] || [];
+      const services = db.service[v] || [];
+
+      let min = Infinity;
+      fuels.forEach(item => { if (item.odo < min) min = item.odo; });
+      services.forEach(item => { if (item.odo < min) min = item.odo; });
+
+      return min === Infinity ? 0 : min;
+    }
+
     function renderDashboard() {
       const v = db.activeVehicle;
       if (!v) return;
@@ -1031,8 +1158,8 @@
 
       profileContainer.innerHTML = `
         <h2 style="font-size: 1.4rem;">${v} ${is2W ? '🛵' : '🚗'}</h2>
-        ${profile.model ? `<p style="color: #64748b; font-size: 0.9rem; margin-top: 2px;">${profile.model}</p>` : ''}
-        ${tyreRecStr ? `<p style="color: #2563eb; font-size: 0.8rem; margin-top: 4px; font-weight: 500;">${tyreRecStr}</p>` : ''}
+        ${profile.model ? `<p style="color: var(--text-muted); font-size: 0.9rem; margin-top: 2px;">${profile.model}</p>` : ''}
+        ${tyreRecStr ? `<p style="color: var(--primary); font-size: 0.8rem; margin-top: 4px; font-weight: 500;">${tyreRecStr}</p>` : ''}
       `;
 
       const fuels = db.fuel[v] || [];
@@ -1049,6 +1176,22 @@
 
       document.getElementById('avgMileage').textContent = avgKmL ? `${avgKmL} Km/L` : '-- Km/L';
 
+      // Cost per Km calculation
+      const maxOdo = getMaxLoggedOdometer(v);
+      const minOdo = getMinLoggedOdometer(v);
+      const totalDist = maxOdo - minOdo;
+
+      let totalSpent = 0;
+      fuels.forEach(f => totalSpent += f.cost);
+      services.forEach(s => totalSpent += s.cost);
+
+      if (totalDist > 0 && totalSpent > 0) {
+        const costPerKmVal = (totalSpent / totalDist).toFixed(2);
+        document.getElementById('costPerKm').textContent = `₹${costPerKmVal} / Km`;
+      } else {
+        document.getElementById('costPerKm').textContent = `₹-- / Km`;
+      }
+
       // Smart Refuel Recommendation Logic
       const recContainer = document.getElementById('refuelRecommendation');
       recContainer.innerHTML = '';
@@ -1060,25 +1203,52 @@
         if (avgKmL && tankCap) {
           const estimatedRange = parseFloat(avgKmL) * tankCap;
           const refuelAtOdo = Math.round(lastLog.odo + estimatedRange);
-          const safeRefuelAtOdo = Math.round(lastLog.odo + (estimatedRange * 0.85)); // 85% range for safety margin
+          const safeRefuelAtOdo = Math.round(lastLog.odo + (estimatedRange * 0.85));
 
           recContainer.innerHTML = `
             <div class="recommend-box">
               ⛽ <b>Refuel Recommendation:</b><br>
-              Based on your tank capacity (<b>${tankCap}L</b>) & avg mileage (<b>${avgKmL} Km/L</b>):<br>
-              • Plan to refuel around <b>${safeRefuelAtOdo} Km</b> odometer reading.<br>
-              <small>(Max estimated tank range: ~${refuelAtOdo} Km)</small>
+              Based on tank capacity (<b>${tankCap}L</b>) & avg mileage (<b>${avgKmL} Km/L</b>):<br>
+              • Refuel around <b>${safeRefuelAtOdo} Km</b> odometer reading.<br>
+              <small>(Est max range: ~${refuelAtOdo} Km)</small>
             </div>
           `;
         } else if (!tankCap) {
           recContainer.innerHTML = `
-            <div class="recommend-box" style="background:#f1f5f9; border-color:#cbd5e1; color:#475569;">
-              💡 <b>Tip:</b> Add your <b>Tank Capacity</b> in <i>Edit Active Vehicle</i> to get smart refuel odometer recommendations!
+            <div class="recommend-box" style="background:var(--bg); border-color:var(--border); color:var(--text-muted);">
+              💡 Add <b>Tank Capacity</b> in <i>Edit Active Vehicle</i> to enable smart refuel recommendations!
             </div>
           `;
         }
       }
 
+      // Active Service Reminders Banner
+      const remContainer = document.getElementById('reminderAlertBox');
+      remContainer.innerHTML = '';
+      const remList = db.reminders[v] || [];
+      const today = new Date().toISOString().split('T')[0];
+
+      let dueReminders = [];
+      remList.forEach(r => {
+        let isDue = false;
+        if (r.dueDate && r.dueDate <= today) isDue = true;
+        if (r.dueOdo && maxOdo >= r.dueOdo) isDue = true;
+
+        if (isDue) {
+          dueReminders.push(r.title);
+        }
+      });
+
+      if (dueReminders.length > 0) {
+        remContainer.innerHTML = `
+          <div class="recommend-box" style="background:#fee2e2; border-color:#f87171; color:#991b1b;">
+            🔔 <b>Service Due Alert:</b><br>
+            ${dueReminders.map(t => `• ${t}`).join('<br>')}
+          </div>
+        `;
+      }
+
+      // Expense Report Table
       const period = document.getElementById('expensePeriod').value;
       const catFilter = document.getElementById('expenseCategoryFilter').value;
 
@@ -1109,7 +1279,7 @@
       const reportContainer = document.getElementById('expenseReport');
       
       if (sortedKeys.length === 0) {
-        reportContainer.innerHTML = '<p style="color:#64748b; margin-top:10px;">No expense records found.</p>';
+        reportContainer.innerHTML = '<p style="color:var(--text-muted); margin-top:10px;">No expense records found.</p>';
       } else {
         reportContainer.innerHTML = `
           <table style="width:100%; border-collapse:collapse; margin-top:10px; font-size:0.9rem;">
@@ -1138,6 +1308,72 @@
           </table>
         `;
       }
+
+      renderChart(v);
+    }
+
+    function renderChart(v) {
+      const fuels = db.fuel[v] || [];
+      const mileages = calculateMileages(fuels);
+      const sortedOdos = Object.keys(mileages).sort((a,b) => parseFloat(a) - parseFloat(b));
+
+      const labels = sortedOdos.map(odo => `${odo} Km`);
+      const data = sortedOdos.map(odo => parseFloat(mileages[odo]));
+
+      const ctx = document.getElementById('mileageChart').getContext('2d');
+
+      if (mileageChartInstance) {
+        mileageChartInstance.destroy();
+      }
+
+      mileageChartInstance = new Chart(ctx, {
+        type: 'line',
+        data: {
+          labels: labels,
+          datasets: [{
+            label: 'Mileage (Km/L)',
+            data: data,
+            borderColor: '#2563eb',
+            backgroundColor: 'rgba(37, 99, 235, 0.1)',
+            fill: true,
+            tension: 0.3,
+            pointRadius: 4
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          scales: {
+            y: {
+              beginAtZero: false,
+              grid: { color: 'rgba(150,150,150,0.1)' }
+            },
+            x: {
+              grid: { color: 'rgba(150,150,150,0.1)' }
+            }
+          }
+        }
+      });
+    }
+
+    function checkTyrePressureWarning(v, item) {
+      const profile = (db.vehicleProfiles && db.vehicleProfiles[v]) || {};
+      const is2W = profile.type === '2wheeler';
+      const rec = profile.recTyre || {};
+
+      let warnings = [];
+
+      if (is2W) {
+        if (rec.front && Math.abs(item.fl - rec.front) >= 3) warnings.push(`Front (${item.fl} PSI vs rec ${rec.front})`);
+        if (rec.rear && Math.abs(item.fr - rec.rear) >= 3) warnings.push(`Rear (${item.fr} PSI vs rec ${rec.rear})`);
+      } else {
+        if (rec.fl && Math.abs(item.fl - rec.fl) >= 3) warnings.push(`FL (${item.fl} vs rec ${rec.fl})`);
+        if (rec.fr && Math.abs(item.fr - rec.fr) >= 3) warnings.push(`FR (${item.fr} vs rec ${rec.fr})`);
+        if (rec.rl && item.rl && Math.abs(item.rl - rec.rl) >= 3) warnings.push(`RL (${item.rl} vs rec ${rec.rl})`);
+        if (rec.rr && item.rr && Math.abs(item.rr - rec.rr) >= 3) warnings.push(`RR (${item.rr} vs rec ${rec.rr})`);
+      }
+
+      return warnings;
     }
 
     function renderLogs() {
@@ -1153,7 +1389,7 @@
       const fuelContainer = document.getElementById('fuelHistory');
 
       if (fuelList.length === 0) {
-        fuelContainer.innerHTML = '<p style="color:#64748b">No fuel entries yet.</p>';
+        fuelContainer.innerHTML = '<p style="color:var(--text-muted)">No fuel entries yet.</p>';
       } else {
         fuelContainer.innerHTML = fuelList.map((item, index) => {
           const kmL = mileages[item.odo];
@@ -1190,36 +1426,42 @@
       const tyreContainer = document.getElementById('tyreHistory');
 
       if (tyreList.length === 0) {
-        tyreContainer.innerHTML = '<p style="color:#64748b">No tyre pressure entries yet.</p>';
+        tyreContainer.innerHTML = '<p style="color:var(--text-muted)">No tyre pressure entries yet.</p>';
       } else {
-        tyreContainer.innerHTML = tyreList.map((item, index) => `
-          <div class="log-item">
-            <div style="display:flex; justify-content:space-between; align-items:center;">
-              <b>${item.date}</b>
-              <span class="badge">${item.airType || 'Normal Air'}</span>
+        tyreContainer.innerHTML = tyreList.map((item, index) => {
+          const warnings = checkTyrePressureWarning(v, item);
+          const hasWarning = warnings.length > 0;
+
+          return `
+            <div class="log-item">
+              <div style="display:flex; justify-content:space-between; align-items:center;">
+                <b>${item.date}</b>
+                <span class="badge ${hasWarning ? 'badge-danger' : ''}">${item.airType || 'Normal Air'}</span>
+              </div>
+              ${item.odo ? `<small>Odometer: ${item.odo} Km</small><br>` : ''}
+              ${is2W ? `
+                <small>Front: <b>${item.fl} PSI</b> | Rear: <b>${item.fr} PSI</b></small>
+              ` : `
+                <small>FL: <b>${item.fl} PSI</b> | FR: <b>${item.fr} PSI</b></small><br>
+                <small>RL: <b>${item.rl || '--'} PSI</b> | RR: <b>${item.rr || '--'} PSI</b></small>
+              `}
+              ${item.spare ? `<br><small>Spare: <b>${item.spare} PSI</b></small>` : ''}
+              ${hasWarning ? `<div style="color:var(--danger); font-size:0.75rem; margin-top:4px;">⚠️ Pressure Variance: ${warnings.join(', ')}</div>` : ''}
+              ${item.remarks ? `<div class="remarks-text">📝 ${item.remarks}</div>` : ''}
+              <div class="actions">
+                <button class="secondary btn-small" onclick="editTyre(${index})">✏️ Edit</button>
+                <button class="danger btn-small" onclick="deleteTyre(${index})">🗑️ Delete</button>
+              </div>
             </div>
-            ${item.odo ? `<small>Odometer: ${item.odo} Km</small><br>` : ''}
-            ${is2W ? `
-              <small>Front: <b>${item.fl} PSI</b> | Rear: <b>${item.fr} PSI</b></small>
-            ` : `
-              <small>FL: <b>${item.fl} PSI</b> | FR: <b>${item.fr} PSI</b></small><br>
-              <small>RL: <b>${item.rl || '--'} PSI</b> | RR: <b>${item.rr || '--'} PSI</b></small>
-            `}
-            ${item.spare ? `<br><small>Spare: <b>${item.spare} PSI</b></small>` : ''}
-            ${item.remarks ? `<div class="remarks-text">📝 ${item.remarks}</div>` : ''}
-            <div class="actions">
-              <button class="secondary btn-small" onclick="editTyre(${index})">✏️ Edit</button>
-              <button class="danger btn-small" onclick="deleteTyre(${index})">🗑️ Delete</button>
-            </div>
-          </div>
-        `).join('');
+          `;
+        }).join('');
       }
 
       // Render Service Logs
       const serviceList = db.service[v] || [];
       const serviceContainer = document.getElementById('serviceHistory');
       if (serviceList.length === 0) {
-        serviceContainer.innerHTML = '<p style="color:#64748b">No service entries yet.</p>';
+        serviceContainer.innerHTML = '<p style="color:var(--text-muted)">No service entries yet.</p>';
       } else {
         serviceContainer.innerHTML = serviceList.map((item, index) => `
           <div class="log-item">
@@ -1235,6 +1477,36 @@
             </div>
           </div>
         `).join('');
+      }
+
+      // Render Reminders Log
+      const remList = db.reminders[v] || [];
+      const remContainer = document.getElementById('reminderList');
+      const maxOdo = getMaxLoggedOdometer(v);
+      const today = new Date().toISOString().split('T')[0];
+
+      if (remList.length === 0) {
+        remContainer.innerHTML = '<p style="color:var(--text-muted)">No reminders configured.</p>';
+      } else {
+        remContainer.innerHTML = remList.map((item, index) => {
+          let isOverdue = false;
+          if (item.dueDate && item.dueDate <= today) isOverdue = true;
+          if (item.dueOdo && maxOdo >= item.dueOdo) isOverdue = true;
+
+          return `
+            <div class="log-item">
+              <div style="display:flex; justify-content:space-between; align-items:center;">
+                <b>${item.title}</b>
+                <span class="badge ${isOverdue ? 'badge-danger' : 'badge-gray'}">${isOverdue ? 'DUE / OVERDUE' : 'UPCOMING'}</span>
+              </div>
+              ${item.dueDate ? `<small>Due Date: <b>${item.dueDate}</b></small><br>` : ''}
+              ${item.dueOdo ? `<small>Due Odometer: <b>${item.dueOdo} Km</b></small>` : ''}
+              <div class="actions">
+                <button class="danger btn-small" onclick="deleteReminder(${index})">🗑️ Remove</button>
+              </div>
+            </div>
+          `;
+        }).join('');
       }
     }
 
