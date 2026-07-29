@@ -8,29 +8,29 @@
   <!-- Tailwind CSS CDN -->
   <script src="https://cdn.tailwindcss.com"></script>
 
-  <!-- Firebase JS SDKs (v8 compatibility mode) -->
+  <!-- Firebase JS SDKs -->
   <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
   <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
 
   <style>
     body {
-      background-color: #0f172a;
+      background-color: #0b1120;
       color: #f8fafc;
-      font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
     }
   </style>
 </head>
-<body class="min-h-screen pb-12">
+<body class="min-h-screen pb-16">
 
   <!-- ================= AUTH / LOGIN OVERLAY ================= -->
   <div id="loginModal" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-950 bg-opacity-95 p-4">
     <div class="w-full max-w-md bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-2xl">
       <div class="text-center mb-6">
-        <div class="inline-block p-3 bg-indigo-600/20 text-indigo-400 rounded-2xl mb-3">
+        <div class="inline-block p-3 bg-indigo-600/20 text-indigo-400 rounded-2xl mb-3 text-2xl">
           🚗
         </div>
         <h2 class="text-2xl font-bold text-white">Garage Login & Sync</h2>
-        <p class="text-sm text-slate-400 mt-1">Enter a Garage ID and PIN to access or create your cloud sync.</p>
+        <p class="text-sm text-slate-400 mt-1">Enter your Garage Name and PIN to unlock your dashboard.</p>
       </div>
 
       <form id="loginForm" onsubmit="handlePinLogin(event)" class="space-y-4">
@@ -53,11 +53,11 @@
     </div>
   </div>
 
-  <!-- ================= MAIN APP WRAPPER ================= -->
-  <div id="appContent" class="hidden max-w-2xl mx-auto px-4 pt-6">
+  <!-- ================= MAIN DASHBOARD ================= -->
+  <div id="appContent" class="hidden max-w-3xl mx-auto px-4 pt-6 space-y-6">
 
-    <!-- Header Section -->
-    <header class="flex justify-between items-center mb-6 bg-slate-900 border border-slate-800 p-4 rounded-2xl">
+    <!-- Top Header -->
+    <header class="flex justify-between items-center bg-slate-900 border border-slate-800 p-4 rounded-2xl">
       <div>
         <h1 class="text-xl font-bold text-white flex items-center gap-2">
           <span>🚗</span> Garage Dashboard
@@ -65,25 +65,84 @@
         <p class="text-xs text-slate-400">Synced to: <span id="activeGarageLabel" class="text-indigo-400 font-semibold">--</span></p>
       </div>
       <button onclick="lockApp()" class="text-xs bg-slate-800 hover:bg-slate-700 text-slate-300 px-3 py-2 rounded-lg border border-slate-700 transition">
-        🔒 Lock
+        🔒 Lock Garage
       </button>
     </header>
 
-    <!-- App Actions / Content Placeholder -->
-    <main class="space-y-6">
-      <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5">
-        <h2 class="text-lg font-semibold text-white mb-2">Welcome to your Garage!</h2>
-        <p class="text-sm text-slate-400">Your database is active and connected to Firebase Realtime Database. Any changes made here will sync automatically across all devices logging into this garage name.</p>
+    <!-- Quick Stats Cards -->
+    <div class="grid grid-cols-2 md:grid-cols-3 gap-4">
+      <div class="bg-slate-900 border border-slate-800 p-4 rounded-xl">
+        <p class="text-xs text-slate-400">Total Vehicles</p>
+        <p id="statTotalVehicles" class="text-2xl font-bold text-white mt-1">0</p>
       </div>
-    </main>
+      <div class="bg-slate-900 border border-slate-800 p-4 rounded-xl">
+        <p class="text-xs text-slate-400">Total Logs</p>
+        <p id="statTotalLogs" class="text-2xl font-bold text-indigo-400 mt-1">0</p>
+      </div>
+      <div class="bg-slate-900 border border-slate-800 p-4 rounded-xl col-span-2 md:col-span-1">
+        <p class="text-xs text-slate-400">Total Spent</p>
+        <p id="statTotalSpent" class="text-2xl font-bold text-emerald-400 mt-1">₹0</p>
+      </div>
+    </div>
+
+    <!-- Add Vehicle Form -->
+    <section class="bg-slate-900 border border-slate-800 p-5 rounded-2xl">
+      <h2 class="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+        <span>➕</span> Add New Vehicle
+      </h2>
+      <form onsubmit="addVehicle(event)" class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+        <input type="text" id="vehName" required placeholder="Vehicle Name (e.g. Sonet)" class="bg-slate-800 border border-slate-700 text-white rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-indigo-500" />
+        <input type="text" id="vehReg" placeholder="Reg No (e.g. TN 45 AA 1234)" class="bg-slate-800 border border-slate-700 text-white rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-indigo-500" />
+        <button type="submit" class="bg-indigo-600 hover:bg-indigo-500 text-white font-medium py-2 rounded-xl text-sm transition">
+          Add Vehicle
+        </button>
+      </form>
+    </section>
+
+    <!-- Add Log Entry Form -->
+    <section class="bg-slate-900 border border-slate-800 p-5 rounded-2xl">
+      <h2 class="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+        <span>📝</span> Add Service / Fuel Log
+      </h2>
+      <form onsubmit="addLog(event)" class="space-y-3">
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <select id="logVehicleSelect" required class="bg-slate-800 border border-slate-700 text-white rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-indigo-500">
+            <option value="">Select Vehicle</option>
+          </select>
+          <select id="logCategory" required class="bg-slate-800 border border-slate-700 text-white rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-indigo-500">
+            <option value="Fuel">Fuel</option>
+            <option value="Service">Service / Maintenance</option>
+            <option value="Insurance">Insurance / Pollution</option>
+            <option value="Other">Other Expense</option>
+          </select>
+        </div>
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <input type="number" id="logOdometer" placeholder="Odometer (km)" class="bg-slate-800 border border-slate-700 text-white rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-indigo-500" />
+          <input type="number" id="logCost" step="0.01" required placeholder="Cost (₹)" class="bg-slate-800 border border-slate-700 text-white rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-indigo-500" />
+          <input type="date" id="logDate" required class="bg-slate-800 border border-slate-700 text-white rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-indigo-500" />
+        </div>
+        <input type="text" id="logNotes" placeholder="Notes (e.g. Engine Oil replaced, 35L Petrol)" class="w-full bg-slate-800 border border-slate-700 text-white rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-indigo-500" />
+        <button type="submit" class="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-medium py-2.5 rounded-xl text-sm transition">
+          Save Entry
+        </button>
+      </form>
+    </section>
+
+    <!-- Logs History -->
+    <section class="bg-slate-900 border border-slate-800 p-5 rounded-2xl">
+      <h2 class="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+        <span>📋</span> Service & Fuel History
+      </h2>
+      <div id="logsContainer" class="space-y-3">
+        <p class="text-sm text-slate-500 text-center py-4">No service records added yet.</p>
+      </div>
+    </section>
 
   </div>
 
   <!-- ================= JAVASCRIPT LOGIC ================= -->
   <script>
-    // ----------------------------------------------------
     // 1. FIREBASE INITIALIZATION
-    // ----------------------------------------------------
     const firebaseConfig = {
       databaseURL: "https://mygaragetracker-default-rtdb.asia-southeast1.firebasedatabase.app"
     };
@@ -93,28 +152,25 @@
     }
     const realtimeDb = firebase.database();
 
-    // App State Variables
+    // App State
     let db = { vehicles: [], logs: [] };
     let activeGarageName = '';
     let activePin = '';
 
-    // ----------------------------------------------------
-    // 2. AUTH & LOGIN LOGIC
-    // ----------------------------------------------------
+    // Set today's date in form by default
+    document.getElementById('logDate').valueAsDate = new Date();
+
+    // 2. AUTHENTICATION & LOGIN
     async function handlePinLogin(e) {
       e.preventDefault();
       
       const rawName = document.getElementById('loginGarageName').value.trim();
-      // Sanitize garage name so spaces/special characters won't break Firebase keys
       const name = rawName.toLowerCase().replace(/[^a-z0-9]/g, '_');
       const pin = document.getElementById('loginPin').value.trim();
       const errDiv = document.getElementById('loginError');
       errDiv.textContent = '';
 
-      if (!name || !pin) {
-        errDiv.textContent = 'Please enter both Garage Name and PIN.';
-        return;
-      }
+      if (!name || !pin) return;
 
       try {
         const snapshot = await realtimeDb.ref('garages/' + name).once('value');
@@ -124,29 +180,20 @@
             errDiv.textContent = '❌ Incorrect PIN for this Garage Name!';
             return;
           }
-          db = cloudData.data || db;
+          db = cloudData.data || { vehicles: [], logs: [] };
         } else {
-          // Automatic entry creation on first attempt
+          // New garage registration
           await realtimeDb.ref('garages/' + name).set({ pin: pin, data: db });
         }
 
         activeGarageName = name;
         activePin = pin;
-        localStorage.setItem('garage_name', name);
-        localStorage.setItem('garage_pin', pin);
 
         unlockApp();
-        initApp();
         listenForLiveSync();
       } catch (err) {
-        console.error('Firebase Sync Error:', err);
-        // Local fallback in case of connection drop
-        activeGarageName = name;
-        activePin = pin;
-        localStorage.setItem('garage_name', name);
-        localStorage.setItem('garage_pin', pin);
-        unlockApp();
-        initApp();
+        console.error('Firebase Error:', err);
+        errDiv.textContent = 'Connection error. Please try again.';
       }
     }
 
@@ -154,20 +201,26 @@
       document.getElementById('loginModal').classList.add('hidden');
       document.getElementById('appContent').classList.remove('hidden');
       document.getElementById('activeGarageLabel').textContent = activeGarageName;
+      renderUI();
     }
 
     function lockApp() {
-      localStorage.removeItem('garage_name');
-      localStorage.removeItem('garage_pin');
+      activeGarageName = '';
+      activePin = '';
+      document.getElementById('loginGarageName').value = '';
+      document.getElementById('loginPin').value = '';
       document.getElementById('loginModal').classList.remove('hidden');
       document.getElementById('appContent').classList.add('hidden');
     }
 
+    // 3. REALTIME SYNC
     function listenForLiveSync() {
       if (!activeGarageName) return;
       realtimeDb.ref('garages/' + activeGarageName + '/data').on('value', (snapshot) => {
         if (snapshot.exists()) {
-          db = snapshot.val();
+          db = snapshot.val() || { vehicles: [], logs: [] };
+          if (!db.vehicles) db.vehicles = [];
+          if (!db.logs) db.logs = [];
           renderUI();
         }
       });
@@ -178,24 +231,105 @@
       realtimeDb.ref('garages/' + activeGarageName + '/data').set(db);
     }
 
-    function initApp() {
+    // 4. DATA ACTIONS
+    function addVehicle(e) {
+      e.preventDefault();
+      const name = document.getElementById('vehName').value.trim();
+      const reg = document.getElementById('vehReg').value.trim();
+      if (!name) return;
+
+      if (!db.vehicles) db.vehicles = [];
+      db.vehicles.push({ id: Date.now(), name, reg });
+      document.getElementById('vehName').value = '';
+      document.getElementById('vehReg').value = '';
+      
+      saveData();
       renderUI();
     }
 
-    function renderUI() {
-      // Re-render UI components as needed
+    function addLog(e) {
+      e.preventDefault();
+      const vehId = document.getElementById('logVehicleSelect').value;
+      const category = document.getElementById('logCategory').value;
+      const odometer = document.getElementById('logOdometer').value;
+      const cost = parseFloat(document.getElementById('logCost').value) || 0;
+      const date = document.getElementById('logDate').value;
+      const notes = document.getElementById('logNotes').value.trim();
+
+      if (!vehId || !cost) return;
+
+      if (!db.logs) db.logs = [];
+      db.logs.unshift({
+        id: Date.now(),
+        vehId,
+        category,
+        odometer,
+        cost,
+        date,
+        notes
+      });
+
+      document.getElementById('logOdometer').value = '';
+      document.getElementById('logCost').value = '';
+      document.getElementById('logNotes').value = '';
+
+      saveData();
+      renderUI();
     }
 
-    // Auto-login if credentials exist in local storage
-    window.addEventListener('DOMContentLoaded', () => {
-      const savedName = localStorage.getItem('garage_name');
-      const savedPin = localStorage.getItem('garage_pin');
-      if (savedName && savedPin) {
-        document.getElementById('loginGarageName').value = savedName;
-        document.getElementById('loginPin').value = savedPin;
-        handlePinLogin(new Event('submit'));
+    function deleteLog(logId) {
+      if (!confirm('Delete this record?')) return;
+      db.logs = db.logs.filter(l => l.id !== logId);
+      saveData();
+      renderUI();
+    }
+
+    // 5. RENDER DASHBOARD
+    function renderUI() {
+      const vehicles = db.vehicles || [];
+      const logs = db.logs || [];
+
+      // Stats
+      document.getElementById('statTotalVehicles').textContent = vehicles.length;
+      document.getElementById('statTotalLogs').textContent = logs.length;
+      const totalSpent = logs.reduce((sum, item) => sum + (parseFloat(item.cost) || 0), 0);
+      document.getElementById('statTotalSpent').textContent = '₹' + totalSpent.toLocaleString('en-IN');
+
+      // Populate Vehicle Dropdown
+      const select = document.getElementById('logVehicleSelect');
+      select.innerHTML = '<option value="">Select Vehicle</option>';
+      vehicles.forEach(v => {
+        select.innerHTML += `<option value="${v.id}">${v.name} ${v.reg ? '(' + v.reg + ')' : ''}</option>`;
+      });
+
+      // Render Logs
+      const logsDiv = document.getElementById('logsContainer');
+      if (logs.length === 0) {
+        logsDiv.innerHTML = '<p class="text-sm text-slate-500 text-center py-4">No service records added yet.</p>';
+        return;
       }
-    });
+
+      logsDiv.innerHTML = logs.map(l => {
+        const vehicle = vehicles.find(v => v.id == l.vehId);
+        const vehName = vehicle ? vehicle.name : 'Unknown Vehicle';
+        return `
+          <div class="bg-slate-800/60 border border-slate-700/60 p-4 rounded-xl flex justify-between items-start">
+            <div>
+              <div class="flex items-center gap-2">
+                <span class="text-xs px-2 py-0.5 bg-indigo-500/20 text-indigo-300 font-medium rounded-md">${l.category}</span>
+                <span class="text-sm font-semibold text-white">${vehName}</span>
+              </div>
+              <p class="text-xs text-slate-400 mt-1">${l.date} ${l.odometer ? '• ' + l.odometer + ' km' : ''}</p>
+              ${l.notes ? `<p class="text-xs text-slate-300 mt-1">${l.notes}</p>` : ''}
+            </div>
+            <div class="text-right">
+              <p class="text-sm font-bold text-emerald-400">₹${l.cost}</p>
+              <button onclick="deleteLog(${l.id})" class="text-xs text-rose-400 hover:underline mt-1">Delete</button>
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
   </script>
 </body>
 </html>
