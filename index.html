@@ -493,4 +493,435 @@
       }
     }
 
-    function deleteCurrentVehicle
+    function deleteCurrentVehicle() {
+      const v = db.activeVehicle;
+      if (!v) return;
+
+      if (confirm(`Are you sure you want to delete "${v}" and all of its associated logs?`)) {
+        db.vehicles = db.vehicles.filter(item => item !== v);
+        delete db.fuel[v];
+        delete db.service[v];
+        if (db.vehicleProfiles) delete db.vehicleProfiles[v];
+
+        db.activeVehicle = db.vehicles.length > 0 ? db.vehicles[0] : '';
+        saveData();
+        hideVehicleModal();
+
+        if (db.vehicles.length === 0) {
+          openVehicleModal('add');
+        } else {
+          renderVehicleDropdown();
+          renderDashboard();
+          renderLogs();
+        }
+      }
+    }
+
+    function renderVehicleDropdown() {
+      const select = document.getElementById('vehicleSelect');
+      select.innerHTML = '';
+      (db.vehicles || []).forEach(v => {
+        const opt = document.createElement('option');
+        opt.value = v;
+        opt.textContent = v;
+        if (v === db.activeVehicle) opt.selected = true;
+        select.appendChild(opt);
+      });
+    }
+
+    function switchVehicle() {
+      db.activeVehicle = document.getElementById('vehicleSelect').value;
+      saveData();
+      cancelFuelEdit();
+      cancelServiceEdit();
+      renderDashboard();
+      renderLogs();
+    }
+
+    function showTab(tab) {
+      document.getElementById('dashSection').classList.toggle('hidden', tab !== 'dash');
+      document.getElementById('fuelSection').classList.toggle('hidden', tab !== 'fuel');
+      document.getElementById('serviceSection').classList.toggle('hidden', tab !== 'service');
+      
+      document.getElementById('dashTabBtn').classList.toggle('active', tab === 'dash');
+      document.getElementById('fuelTabBtn').classList.toggle('active', tab === 'fuel');
+      document.getElementById('serviceTabBtn').classList.toggle('active', tab === 'service');
+
+      if (tab === 'dash') renderDashboard();
+    }
+
+    function calcFuelCost() {
+      const unit = parseFloat(document.getElementById('fuelUnitPrice').value);
+      const liters = parseFloat(document.getElementById('fuelLiters').value);
+      if (unit && liters) {
+        document.getElementById('fuelCost').value = (unit * liters).toFixed(2);
+      }
+    }
+
+    function calcFuelLiters() {
+      const unit = parseFloat(document.getElementById('fuelUnitPrice').value);
+      const cost = parseFloat(document.getElementById('fuelCost').value);
+      if (unit && cost) {
+        document.getElementById('fuelLiters').value = (cost / unit).toFixed(2);
+      }
+    }
+
+    function saveFuel(e) {
+      e.preventDefault();
+      const v = db.activeVehicle;
+      if (!v) return alert('Please add a vehicle first!');
+      if (!db.fuel) db.fuel = {};
+      if (!db.fuel[v]) db.fuel[v] = [];
+
+      const editIndex = parseInt(document.getElementById('fuelEditIndex').value);
+
+      const newLog = {
+        date: document.getElementById('fuelDate').value,
+        odo: parseFloat(document.getElementById('fuelOdo').value),
+        liters: parseFloat(document.getElementById('fuelLiters').value),
+        cost: parseFloat(document.getElementById('fuelCost').value),
+        unitPrice: parseFloat(document.getElementById('fuelUnitPrice').value) || 0,
+        remarks: document.getElementById('fuelRemarks').value.trim(),
+        fullTank: document.getElementById('isFullTank').checked
+      };
+
+      if (editIndex >= 0) {
+        db.fuel[v][editIndex] = newLog;
+      } else {
+        db.fuel[v].push(newLog);
+      }
+
+      db.fuel[v].sort((a,b) => b.odo - a.odo);
+      saveData();
+      cancelFuelEdit();
+      initApp();
+    }
+
+    function editFuel(index) {
+      const v = db.activeVehicle;
+      const item = db.fuel[v][index];
+      if (!item) return;
+
+      document.getElementById('fuelEditIndex').value = index;
+      document.getElementById('fuelDate').value = item.date;
+      document.getElementById('fuelOdo').value = item.odo;
+      document.getElementById('fuelLiters').value = item.liters;
+      document.getElementById('fuelCost').value = item.cost;
+      document.getElementById('fuelUnitPrice').value = item.unitPrice || '';
+      document.getElementById('fuelRemarks').value = item.remarks || '';
+      document.getElementById('isFullTank').checked = item.fullTank !== false;
+
+      document.getElementById('fuelFormTitle').textContent = '✏️ Edit Fuel Fill-up';
+      document.getElementById('fuelSubmitBtn').textContent = 'Update Fuel Log';
+      document.getElementById('fuelCancelBtn').classList.remove('hidden');
+
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    function cancelFuelEdit() {
+      document.getElementById('fuelForm').reset();
+      document.getElementById('fuelEditIndex').value = "-1";
+      document.getElementById('fuelFormTitle').textContent = 'Add Fuel Fill-up';
+      document.getElementById('fuelSubmitBtn').textContent = 'Save Fuel Log';
+      document.getElementById('fuelCancelBtn').classList.add('hidden');
+      document.getElementById('fuelDate').value = new Date().toISOString().split('T')[0];
+    }
+
+    function deleteFuel(index) {
+      const v = db.activeVehicle;
+      if (confirm("Are you sure you want to delete this fuel record?")) {
+        db.fuel[v].splice(index, 1);
+        saveData();
+        renderDashboard();
+        renderLogs();
+      }
+    }
+
+    function saveService(e) {
+      e.preventDefault();
+      const v = db.activeVehicle;
+      if (!v) return alert('Please add a vehicle first!');
+      if (!db.service) db.service = {};
+      if (!db.service[v]) db.service[v] = [];
+
+      const editIndex = parseInt(document.getElementById('serviceEditIndex').value);
+      const fileInput = document.getElementById('serviceBill');
+
+      const processSave = (billDataUrl = '') => {
+        const existingBill = editIndex >= 0 ? (db.service[v][editIndex].bill || '') : '';
+        const newLog = {
+          date: document.getElementById('serviceDate').value,
+          odo: parseFloat(document.getElementById('serviceOdo').value),
+          cost: parseFloat(document.getElementById('serviceCost').value),
+          type: document.getElementById('serviceType').value,
+          remarks: document.getElementById('serviceRemarks').value.trim(),
+          bill: billDataUrl || existingBill
+        };
+
+        if (editIndex >= 0) {
+          db.service[v][editIndex] = newLog;
+        } else {
+          db.service[v].push(newLog);
+        }
+
+        db.service[v].sort((a,b) => b.odo - a.odo);
+        saveData();
+        cancelServiceEdit();
+        initApp();
+      };
+
+      if (fileInput.files && fileInput.files[0]) {
+        const reader = new FileReader();
+        reader.onload = function(evt) { processSave(evt.target.result); };
+        reader.readAsDataURL(fileInput.files[0]);
+      } else {
+        processSave('');
+      }
+    }
+
+    function editService(index) {
+      const v = db.activeVehicle;
+      const item = db.service[v][index];
+      if (!item) return;
+
+      document.getElementById('serviceEditIndex').value = index;
+      document.getElementById('serviceDate').value = item.date;
+      document.getElementById('serviceOdo').value = item.odo;
+      document.getElementById('serviceCost').value = item.cost;
+      document.getElementById('serviceType').value = item.type;
+      document.getElementById('serviceRemarks').value = item.remarks || '';
+
+      document.getElementById('serviceFormTitle').textContent = '✏️ Edit Service Record';
+      document.getElementById('serviceSubmitBtn').textContent = 'Update Service Log';
+      document.getElementById('serviceCancelBtn').classList.remove('hidden');
+
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    function cancelServiceEdit() {
+      document.getElementById('serviceForm').reset();
+      document.getElementById('serviceEditIndex').value = "-1";
+      document.getElementById('serviceFormTitle').textContent = 'Add Service Record';
+      document.getElementById('serviceSubmitBtn').textContent = 'Save Service Log';
+      document.getElementById('serviceCancelBtn').classList.add('hidden');
+      document.getElementById('serviceDate').value = new Date().toISOString().split('T')[0];
+    }
+
+    function deleteService(index) {
+      const v = db.activeVehicle;
+      if (confirm("Are you sure you want to delete this service record?")) {
+        db.service[v].splice(index, 1);
+        saveData();
+        renderDashboard();
+        renderLogs();
+      }
+    }
+
+    function calculateMileages(fuelList) {
+      if (!fuelList) return {};
+      const sorted = [...fuelList].sort((a,b) => a.odo - b.odo);
+      const results = {};
+
+      let lastFullOdo = null;
+      let accumulatedLiters = 0;
+
+      for (let i = 0; i < sorted.length; i++) {
+        const entry = sorted[i];
+        if (lastFullOdo !== null) {
+          accumulatedLiters += entry.liters;
+          if (entry.fullTank) {
+            const dist = entry.odo - lastFullOdo;
+            if (dist > 0 && accumulatedLiters > 0) {
+              results[entry.odo] = (dist / accumulatedLiters).toFixed(2);
+            }
+            lastFullOdo = entry.odo;
+            accumulatedLiters = 0;
+          }
+        } else {
+          if (entry.fullTank) {
+            lastFullOdo = entry.odo;
+            accumulatedLiters = 0;
+          }
+        }
+      }
+      return results;
+    }
+
+    function renderDashboard() {
+      const v = db.activeVehicle;
+      if (!v) return;
+
+      const profileContainer = document.getElementById('vehicleProfileDisplay');
+      const profile = (db.vehicleProfiles && db.vehicleProfiles[v]) || {};
+      
+      profileContainer.innerHTML = `
+        ${profile.photo ? `<img src="${profile.photo}" class="vehicle-avatar" alt="${v}">` : ''}
+        <h2>${v}</h2>
+      `;
+
+      const fuels = (db.fuel && db.fuel[v]) || [];
+      const services = (db.service && db.service[v]) || [];
+
+      const mileages = calculateMileages(fuels);
+      const mileageValues = Object.values(mileages).map(val => parseFloat(val));
+      
+      let avgKmL = '--';
+      if (mileageValues.length > 0) {
+        const sum = mileageValues.reduce((a, b) => a + b, 0);
+        avgKmL = (sum / mileageValues.length).toFixed(2);
+      }
+
+      document.getElementById('avgMileage').textContent = avgKmL !== '--' ? `${avgKmL} Km/L` : '-- Km/L';
+
+      const period = document.getElementById('expensePeriod').value;
+      const catFilter = document.getElementById('expenseCategoryFilter').value;
+
+      const expenses = {};
+      let overallTotal = 0;
+
+      if (catFilter === 'all' || catFilter === 'fuel') {
+        fuels.forEach(item => {
+          const key = period === 'month' ? item.date.substring(0, 7) : item.date.substring(0, 4);
+          if (!expenses[key]) expenses[key] = { fuel: 0, service: 0 };
+          expenses[key].fuel += item.cost;
+          overallTotal += item.cost;
+        });
+      }
+
+      if (catFilter === 'all' || catFilter === 'service') {
+        services.forEach(item => {
+          const key = period === 'month' ? item.date.substring(0, 7) : item.date.substring(0, 4);
+          if (!expenses[key]) expenses[key] = { fuel: 0, service: 0 };
+          expenses[key].service += item.cost;
+          overallTotal += item.cost;
+        });
+      }
+
+      document.getElementById('totalExpenses').textContent = `₹${overallTotal.toLocaleString()}`;
+
+      const sortedKeys = Object.keys(expenses).sort().reverse();
+      const reportContainer = document.getElementById('expenseReport');
+      
+      if (sortedKeys.length === 0) {
+        reportContainer.innerHTML = '<p style="color:#64748b; margin-top:10px;">No expense records found.</p>';
+      } else {
+        reportContainer.innerHTML = `
+          <table style="width:100%; border-collapse:collapse; margin-top:10px; font-size:0.9rem;">
+            <thead>
+              <tr style="border-bottom:2px solid var(--border); text-align:left;">
+                <th style="padding:6px;">${period === 'month' ? 'Month' : 'Year'}</th>
+                ${catFilter !== 'service' ? '<th style="padding:6px;">Fuel</th>' : ''}
+                ${catFilter !== 'fuel' ? '<th style="padding:6px;">Service</th>' : ''}
+                <th style="padding:6px;">Total</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${sortedKeys.map(k => {
+                const f = expenses[k].fuel || 0;
+                const s = expenses[k].service || 0;
+                return `
+                  <tr style="border-bottom:1px solid var(--border);">
+                    <td style="padding:6px;"><b>${k}</b></td>
+                    ${catFilter !== 'service' ? `<td style="padding:6px;">₹${f.toFixed(0)}</td>` : ''}
+                    ${catFilter !== 'fuel' ? `<td style="padding:6px;">₹${s.toFixed(0)}</td>` : ''}
+                    <td style="padding:6px;"><b>₹${(f + s).toFixed(0)}</b></td>
+                  </tr>
+                `;
+              }).join('')}
+            </tbody>
+          </table>
+        `;
+      }
+    }
+
+    function renderLogs() {
+      const v = db.activeVehicle;
+      if (!v) return;
+      
+      // Render Fuel Logs
+      const fuelList = (db.fuel && db.fuel[v]) || [];
+      const mileages = calculateMileages(fuelList);
+      const fuelContainer = document.getElementById('fuelHistory');
+
+      if (fuelList.length === 0) {
+        fuelContainer.innerHTML = '<p style="color:#64748b">No fuel entries yet.</p>';
+      } else {
+        fuelContainer.innerHTML = fuelList.map((item, index) => {
+          const kmL = mileages[item.odo];
+          const mileageBadge = kmL ? `<span class="badge">${kmL} Km/L</span>` : (item.fullTank ? `<span class="badge badge-gray">Full Tank</span>` : `<span class="badge badge-gray">Partial Fill</span>`);
+
+          return `
+            <div class="log-item">
+              <div style="display:flex; justify-content:space-between; align-items:center;">
+                <b>${item.date}</b>
+                ${mileageBadge}
+              </div>
+              <small>Odometer: ${item.odo} Km | ${item.liters} L @ ₹${item.unitPrice || '--'}/L</small><br>
+              <small><b>Total Cost: ₹${item.cost}</b></small>
+              ${item.remarks ? `<div class="remarks-text">📝 ${item.remarks}</div>` : ''}
+              <div class="actions">
+                <button class="secondary btn-small" onclick="editFuel(${index})">✏️ Edit</button>
+                <button class="danger btn-small" onclick="deleteFuel(${index})">🗑️ Delete</button>
+              </div>
+            </div>
+          `;
+        }).join('');
+      }
+
+      // Render Service Logs
+      const serviceList = (db.service && db.service[v]) || [];
+      const serviceContainer = document.getElementById('serviceHistory');
+      if (serviceList.length === 0) {
+        serviceContainer.innerHTML = '<p style="color:#64748b">No service entries yet.</p>';
+      } else {
+        serviceContainer.innerHTML = serviceList.map((item, index) => `
+          <div class="log-item">
+            <div style="display:flex; justify-content:space-between;">
+              <b>${item.type}</b>
+              <b>₹${item.cost}</b>
+            </div>
+            <small>Date: ${item.date} | Odometer: ${item.odo} Km</small>
+            ${item.remarks ? `<div class="remarks-text">📝 ${item.remarks}</div>` : ''}
+            ${item.bill ? `<br><a href="${item.bill}" target="_blank"><img src="${item.bill}" class="preview" alt="Bill Receipt"></a>` : ''}
+            <div class="actions">
+              <button class="secondary btn-small" onclick="editService(${index})">✏️ Edit</button>
+              <button class="danger btn-small" onclick="deleteService(${index})">🗑️ Delete</button>
+            </div>
+          </div>
+        `).join('');
+      }
+    }
+
+    function exportCSV() {
+      let csvContent = "data:text/csv;charset=utf-8,";
+      
+      (db.vehicles || []).forEach(v => {
+        csvContent += `=== VEHICLE: ${v} ===\n`;
+        csvContent += "Type,Date,Odometer (Km),Liters,Price/L,Total Cost (INR),Full Tank,Service/Details,Remarks\n";
+        
+        const fuels = (db.fuel && db.fuel[v]) || [];
+        fuels.forEach(f => {
+          csvContent += `Fuel,${f.date},${f.odo},${f.liters},${f.unitPrice || ''},${f.cost},${f.fullTank ? 'Yes' : 'No'},"","${(f.remarks || '').replace(/"/g, '""')}"\n`;
+        });
+
+        const services = (db.service && db.service[v]) || [];
+        services.forEach(s => {
+          csvContent += `Service,${s.date},${s.odo},"","",${s.cost},"","${s.type.replace(/"/g, '""')}","${(s.remarks || '').replace(/"/g, '""')}"\n`;
+        });
+        
+        csvContent += "\n\n";
+      });
+
+      const encodedUri = encodeURI(csvContent);
+      const link = document.createElement("a");
+      link.setAttribute("href", encodedUri);
+      link.setAttribute("download", `vehicle_tracker_export_${new Date().toISOString().split('T')[0]}.csv`);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+    }
+
+    checkAuthOnLoad();
+  </script>
+</body>
+</html>
