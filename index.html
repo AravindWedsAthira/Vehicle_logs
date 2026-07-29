@@ -39,6 +39,8 @@
     .stat-box { background: #f1f5f9; padding: 12px; border-radius: 8px; text-align: center; }
     .stat-box small { color: #64748b; display: block; font-size: 0.75rem; }
     .stat-box strong { font-size: 1.1rem; color: var(--primary); }
+    .vehicle-profile { text-align: center; margin-bottom: 12px; }
+    .vehicle-avatar { width: 100%; max-height: 200px; object-fit: cover; border-radius: 8px; margin-bottom: 8px; border: 1px solid var(--border); }
     img.preview { max-width: 100%; max-height: 150px; margin-top: 8px; border-radius: 6px; border: 1px solid var(--border); }
   </style>
 </head>
@@ -46,7 +48,7 @@
 
   <header>
     <h1>🚗 Garage Tracker</h1>
-    <button class="secondary" style="width: auto; padding: 6px 12px;" onclick="addVehicle()">+ New Vehicle</button>
+    <button class="secondary" style="width: auto; padding: 6px 12px;" onclick="showVehicleModal()">+ New Vehicle</button>
   </header>
 
   <div class="card">
@@ -63,6 +65,7 @@
   <!-- DASHBOARD SECTION -->
   <div id="dashSection">
     <div class="card">
+      <div id="vehicleProfileDisplay" class="vehicle-profile"></div>
       <h3>Vehicle Summary</h3>
       <div class="stat-grid" style="margin-top:10px;">
         <div class="stat-box">
@@ -88,6 +91,10 @@
         </div>
       </div>
       <div id="expenseReport"></div>
+    </div>
+
+    <div class="card" style="border: 1px solid #fee2e2;">
+      <button class="danger" onclick="deleteCurrentVehicle()">🗑️ Delete Active Vehicle</button>
     </div>
   </div>
 
@@ -173,10 +180,24 @@
     <button class="secondary" onclick="exportCSV()">📊 Export Data to Excel / CSV</button>
   </div>
 
+  <!-- VEHICLE CREATION FORM CONTAINER -->
+  <div id="vehicleModal" class="hidden card" style="position:fixed; top:10%; left:5%; right:5%; z-index:100; box-shadow:0 10px 25px rgba(0,0,0,0.3); max-width:550px; margin:0 auto;">
+    <h3>Add / Edit Vehicle</h3>
+    <form id="vehicleForm" onsubmit="saveVehicleProfile(event)">
+      <label>Vehicle Name / Reg Number</label>
+      <input type="text" id="modalVehicleName" placeholder="e.g. Kia Sonet (TN-45-AB-1234)" required>
+      <label>Upload Vehicle Photo</label>
+      <input type="file" id="modalVehiclePhoto" accept="image/*">
+      <button type="submit">Save Vehicle</button>
+      <button type="button" class="secondary" onclick="hideVehicleModal()">Cancel</button>
+    </form>
+  </div>
+
   <script>
     let db = JSON.parse(localStorage.getItem('garage_db')) || {
       vehicles: [],
       activeVehicle: '',
+      vehicleProfiles: {},
       fuel: {},
       service: {}
     };
@@ -186,22 +207,91 @@
       document.getElementById('fuelDate').value = today;
       document.getElementById('serviceDate').value = today;
 
-      if (!db.vehicles || db.vehicles.length === 0) {
-        const name = prompt("Welcome! Please enter your first vehicle name/number:");
-        if (name) {
-          db.vehicles = [name];
-          db.activeVehicle = name;
-          saveData();
+      if (!db.vehicleProfiles) db.vehicleProfiles = {};
+
+      // Filter out old "Vehicle 1" and "Vehicle 2" defaults automatically
+      if (db.vehicles && db.vehicles.length > 0) {
+        db.vehicles = db.vehicles.filter(v => v !== 'Vehicle 1' && v !== 'Vehicle 2');
+        if (!db.vehicles.includes(db.activeVehicle)) {
+          db.activeVehicle = db.vehicles[0] || '';
         }
       }
 
-      renderVehicleDropdown();
-      renderDashboard();
-      renderLogs();
+      if (!db.vehicles || db.vehicles.length === 0) {
+        showVehicleModal();
+      } else {
+        renderVehicleDropdown();
+        renderDashboard();
+        renderLogs();
+      }
     }
 
     function saveData() {
       localStorage.setItem('garage_db', JSON.stringify(db));
+    }
+
+    function showVehicleModal() {
+      document.getElementById('vehicleModal').classList.remove('hidden');
+    }
+
+    function hideVehicleModal() {
+      document.getElementById('vehicleModal').classList.add('hidden');
+      document.getElementById('vehicleForm').reset();
+    }
+
+    function saveVehicleProfile(e) {
+      e.preventDefault();
+      const name = document.getElementById('modalVehicleName').value.trim();
+      const photoInput = document.getElementById('modalVehiclePhoto');
+
+      if (!name) return;
+
+      const processSave = (photoDataUrl = '') => {
+        if (!db.vehicles.includes(name)) {
+          db.vehicles.push(name);
+        }
+        db.activeVehicle = name;
+        
+        if (!db.vehicleProfiles[name]) db.vehicleProfiles[name] = {};
+        if (photoDataUrl) db.vehicleProfiles[name].photo = photoDataUrl;
+
+        saveData();
+        hideVehicleModal();
+        renderVehicleDropdown();
+        renderDashboard();
+        renderLogs();
+      };
+
+      if (photoInput.files && photoInput.files[0]) {
+        const reader = new FileReader();
+        reader.onload = function(evt) { processSave(evt.target.result); };
+        reader.readAsDataURL(photoInput.files[0]);
+      } else {
+        processSave('');
+      }
+    }
+
+    function deleteCurrentVehicle() {
+      const v = db.activeVehicle;
+      if (!v) return;
+
+      if (confirm(`Are you sure you want to delete "${v}" and all its logs?`)) {
+        db.vehicles = db.vehicles.filter(item => item !== v);
+        delete db.fuel[v];
+        delete db.service[v];
+        if (db.vehicleProfiles) delete db.vehicleProfiles[v];
+
+        db.activeVehicle = db.vehicles.length > 0 ? db.vehicles[0] : '';
+        saveData();
+
+        if (db.vehicles.length === 0) {
+          showVehicleModal();
+        } else {
+          renderVehicleDropdown();
+          renderDashboard();
+          renderLogs();
+        }
+      }
     }
 
     function renderVehicleDropdown() {
@@ -223,21 +313,6 @@
       cancelServiceEdit();
       renderDashboard();
       renderLogs();
-    }
-
-    function addVehicle() {
-      const name = prompt("Enter new vehicle name/registration:");
-      if (name) {
-        if (!db.vehicles) db.vehicles = [];
-        if (!db.vehicles.includes(name)) {
-          db.vehicles.push(name);
-          db.activeVehicle = name;
-          saveData();
-          renderVehicleDropdown();
-          renderDashboard();
-          renderLogs();
-        }
-      }
     }
 
     function showTab(tab) {
@@ -445,6 +520,15 @@
     function renderDashboard() {
       const v = db.activeVehicle;
       if (!v) return;
+
+      // Render profile photo & name header
+      const profileContainer = document.getElementById('vehicleProfileDisplay');
+      const profile = (db.vehicleProfiles && db.vehicleProfiles[v]) || {};
+      
+      profileContainer.innerHTML = `
+        ${profile.photo ? `<img src="${profile.photo}" class="vehicle-avatar" alt="${v}">` : ''}
+        <h2>${v}</h2>
+      `;
 
       const fuels = db.fuel[v] || [];
       const services = db.service[v] || [];
