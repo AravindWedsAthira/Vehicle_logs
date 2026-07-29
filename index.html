@@ -17,6 +17,9 @@
       --text: #1e293b;
       --border: #e2e8f0;
       --danger: #ef4444;
+      --warning-bg: #fffbebf5;
+      --warning-border: #fef08a;
+      --warning-text: #854d0e;
     }
     * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
     body { background: var(--bg); color: var(--text); padding: 16px; max-width: 650px; margin: 0 auto; }
@@ -49,6 +52,16 @@
     .remarks-text { color: #64748b; font-style: italic; font-size: 0.85rem; margin-top: 4px; }
     
     .tyre-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 6px; }
+
+    .recommend-box {
+      background: var(--warning-bg);
+      border: 1px solid var(--warning-border);
+      color: var(--warning-text);
+      padding: 12px;
+      border-radius: 8px;
+      margin-bottom: 12px;
+      font-size: 0.85rem;
+    }
 
     /* Auth Modal Styling */
     #loginModal {
@@ -127,6 +140,9 @@
         <div id="vehicleProfileDisplay" class="vehicle-profile"></div>
         <button class="secondary btn-small" style="width: 100%; margin-bottom: 12px; padding: 8px;" onclick="openVehicleModal('edit')">✏️ Edit Active Vehicle</button>
         
+        <!-- Smart Refuel Recommendation Banner -->
+        <div id="refuelRecommendation"></div>
+
         <h3>Vehicle Summary</h3>
         <div class="stat-grid" style="margin-top:10px;">
           <div class="stat-box">
@@ -243,20 +259,20 @@
           <label>Pressure Values (PSI)</label>
           <div class="tyre-grid">
             <div>
-              <small>Front Left (FL)</small>
+              <small id="labelFL">Front Left (FL)</small>
               <input type="number" step="0.5" id="tyreFL" placeholder="e.g. 33" required>
             </div>
             <div>
-              <small>Front Right (FR)</small>
+              <small id="labelFR">Front Right (FR)</small>
               <input type="number" step="0.5" id="tyreFR" placeholder="e.g. 33" required>
             </div>
-            <div>
+            <div id="tyreRLContainer">
               <small>Rear Left (RL)</small>
-              <input type="number" step="0.5" id="tyreRL" placeholder="e.g. 33" required>
+              <input type="number" step="0.5" id="tyreRL" placeholder="e.g. 33">
             </div>
-            <div>
+            <div id="tyreRRContainer">
               <small>Rear Right (RR)</small>
-              <input type="number" step="0.5" id="tyreRR" placeholder="e.g. 33" required>
+              <input type="number" step="0.5" id="tyreRR" placeholder="e.g. 33">
             </div>
           </div>
 
@@ -317,7 +333,7 @@
     </div>
 
     <!-- VEHICLE CREATION & EDIT MODAL -->
-    <div id="vehicleModal" class="hidden card" style="position:fixed; top:10%; left:5%; right:5%; z-index:100; box-shadow:0 10px 25px rgba(0,0,0,0.3); max-width:550px; margin:0 auto;">
+    <div id="vehicleModal" class="hidden card" style="position:fixed; top:5%; left:5%; right:5%; z-index:100; box-shadow:0 10px 25px rgba(0,0,0,0.3); max-width:550px; margin:0 auto; max-height: 90vh; overflow-y: auto;">
       <h3 id="modalTitle">Add Vehicle</h3>
       <form id="vehicleForm" onsubmit="saveVehicleProfile(event)">
         <input type="hidden" id="modalMode" value="add">
@@ -328,7 +344,46 @@
         <label>Vehicle Model / Registration Number</label>
         <input type="text" id="modalVehicleModel" placeholder="e.g. Kia Sonet HTX (TN-45-AB-1234)">
 
-        <button type="submit">Save Vehicle</button>
+        <div class="flex">
+          <div style="flex:1;">
+            <label>Vehicle Type</label>
+            <select id="modalVehicleType" onchange="toggleVehicleModalTypeFields()">
+              <option value="4wheeler">🚗 4-Wheeler (Car/SUV)</option>
+              <option value="2wheeler">🛵 2-Wheeler (Bike/Scooter)</option>
+            </select>
+          </div>
+          <div style="flex:1;">
+            <label>Tank Capacity (Liters)</label>
+            <input type="number" step="0.1" id="modalTankCapacity" placeholder="e.g. 45">
+          </div>
+        </div>
+
+        <label><b>Recommended Tyre Pressures (PSI)</b></label>
+        <div class="tyre-grid">
+          <div>
+            <small id="modalLabelFront">Front / Front-Left PSI</small>
+            <input type="number" step="0.5" id="modalRecFront" placeholder="e.g. 33">
+          </div>
+          <div id="modalRecRearCol">
+            <small id="modalLabelRear">Rear / Front-Right PSI</small>
+            <input type="number" step="0.5" id="modalRecRear" placeholder="e.g. 33">
+          </div>
+          <div id="modalRecRLCol">
+            <small>Rear-Left PSI</small>
+            <input type="number" step="0.5" id="modalRecRL" placeholder="e.g. 33">
+          </div>
+          <div id="modalRecRRCol">
+            <small>Rear-Right PSI</small>
+            <input type="number" step="0.5" id="modalRecRR" placeholder="e.g. 33">
+          </div>
+        </div>
+
+        <div>
+          <small>Spare Tyre PSI</small>
+          <input type="number" step="0.5" id="modalRecSpare" placeholder="e.g. 35">
+        </div>
+
+        <button type="submit" style="margin-top: 12px;">Save Vehicle</button>
         
         <div class="flex">
           <button type="button" class="secondary" onclick="hideVehicleModal()">Cancel</button>
@@ -441,6 +496,7 @@
           renderVehicleDropdown();
           renderDashboard();
           renderLogs();
+          adjustTyreFormFields();
         }
       });
     }
@@ -478,7 +534,19 @@
         renderVehicleDropdown();
         renderDashboard();
         renderLogs();
+        adjustTyreFormFields();
       }
+    }
+
+    function toggleVehicleModalTypeFields() {
+      const type = document.getElementById('modalVehicleType').value;
+      const is2W = type === '2wheeler';
+
+      document.getElementById('modalLabelFront').textContent = is2W ? 'Front Tyre PSI' : 'Front Left (FL) PSI';
+      document.getElementById('modalLabelRear').textContent = is2W ? 'Rear Tyre PSI' : 'Front Right (FR) PSI';
+
+      document.getElementById('modalRecRLCol').style.display = is2W ? 'none' : 'block';
+      document.getElementById('modalRecRRCol').style.display = is2W ? 'none' : 'block';
     }
 
     function openVehicleModal(mode = 'add') {
@@ -488,6 +556,14 @@
       const deleteBtn = document.getElementById('modalDeleteBtn');
       const nameInput = document.getElementById('modalVehicleName');
       const modelInput = document.getElementById('modalVehicleModel');
+      const typeInput = document.getElementById('modalVehicleType');
+      const tankInput = document.getElementById('modalTankCapacity');
+      
+      const recFront = document.getElementById('modalRecFront');
+      const recRear = document.getElementById('modalRecRear');
+      const recRL = document.getElementById('modalRecRL');
+      const recRR = document.getElementById('modalRecRR');
+      const recSpare = document.getElementById('modalRecSpare');
 
       modeInput.value = mode;
 
@@ -498,13 +574,30 @@
 
         const profile = db.vehicleProfiles[db.activeVehicle] || {};
         modelInput.value = profile.model || '';
+        typeInput.value = profile.type || '4wheeler';
+        tankInput.value = profile.tankCapacity || '';
+
+        const rec = profile.recTyre || {};
+        recFront.value = rec.fl || rec.front || '';
+        recRear.value = rec.fr || rec.rear || '';
+        recRL.value = rec.rl || '';
+        recRR.value = rec.rr || '';
+        recSpare.value = rec.spare || '';
       } else {
         title.textContent = '🚗 Add New Vehicle';
         nameInput.value = '';
         modelInput.value = '';
+        typeInput.value = '4wheeler';
+        tankInput.value = '';
+        recFront.value = '';
+        recRear.value = '';
+        recRL.value = '';
+        recRR.value = '';
+        recSpare.value = '';
         deleteBtn.classList.add('hidden');
       }
 
+      toggleVehicleModalTypeFields();
       modal.classList.remove('hidden');
     }
 
@@ -517,6 +610,9 @@
       e.preventDefault();
       const newName = document.getElementById('modalVehicleName').value.trim();
       const newModel = document.getElementById('modalVehicleModel').value.trim();
+      const newType = document.getElementById('modalVehicleType').value;
+      const tankCap = parseFloat(document.getElementById('modalTankCapacity').value) || null;
+
       const mode = document.getElementById('modalMode').value;
       const oldName = db.activeVehicle;
 
@@ -543,13 +639,29 @@
 
       db.activeVehicle = newName;
       if (!db.vehicleProfiles[newName]) db.vehicleProfiles[newName] = {};
-      db.vehicleProfiles[newName].model = newModel;
+
+      const is2W = newType === '2wheeler';
+      db.vehicleProfiles[newName] = {
+        model: newModel,
+        type: newType,
+        tankCapacity: tankCap,
+        recTyre: {
+          front: is2W ? parseFloat(document.getElementById('modalRecFront').value) || null : null,
+          rear: is2W ? parseFloat(document.getElementById('modalRecRear').value) || null : null,
+          fl: !is2W ? parseFloat(document.getElementById('modalRecFront').value) || null : null,
+          fr: !is2W ? parseFloat(document.getElementById('modalRecRear').value) || null : null,
+          rl: !is2W ? parseFloat(document.getElementById('modalRecRL').value) || null : null,
+          rr: !is2W ? parseFloat(document.getElementById('modalRecRR').value) || null : null,
+          spare: parseFloat(document.getElementById('modalRecSpare').value) || null
+        }
+      };
 
       saveData();
       hideVehicleModal();
       renderVehicleDropdown();
       renderDashboard();
       renderLogs();
+      adjustTyreFormFields();
     }
 
     function deleteCurrentVehicle() {
@@ -573,6 +685,7 @@
           renderVehicleDropdown();
           renderDashboard();
           renderLogs();
+          adjustTyreFormFields();
         }
       }
     }
@@ -589,6 +702,21 @@
       });
     }
 
+    function adjustTyreFormFields() {
+      const v = db.activeVehicle;
+      const profile = (db.vehicleProfiles && db.vehicleProfiles[v]) || {};
+      const is2W = profile.type === '2wheeler';
+
+      document.getElementById('labelFL').textContent = is2W ? 'Front Tyre (PSI)' : 'Front Left (FL)';
+      document.getElementById('labelFR').textContent = is2W ? 'Rear Tyre (PSI)' : 'Front Right (FR)';
+
+      document.getElementById('tyreRLContainer').style.display = is2W ? 'none' : 'block';
+      document.getElementById('tyreRRContainer').style.display = is2W ? 'none' : 'block';
+      
+      document.getElementById('tyreRL').required = !is2W;
+      document.getElementById('tyreRR').required = !is2W;
+    }
+
     function switchVehicle() {
       db.activeVehicle = document.getElementById('vehicleSelect').value;
       saveData();
@@ -597,6 +725,7 @@
       cancelServiceEdit();
       renderDashboard();
       renderLogs();
+      adjustTyreFormFields();
     }
 
     function showTab(tab) {
@@ -709,6 +838,8 @@
       if (!db.tyre) db.tyre = {};
       if (!db.tyre[v]) db.tyre[v] = [];
 
+      const profile = (db.vehicleProfiles && db.vehicleProfiles[v]) || {};
+      const is2W = profile.type === '2wheeler';
       const editIndex = parseInt(document.getElementById('tyreEditIndex').value);
 
       const newLog = {
@@ -717,8 +848,8 @@
         airType: document.getElementById('tyreAirType').value,
         fl: parseFloat(document.getElementById('tyreFL').value),
         fr: parseFloat(document.getElementById('tyreFR').value),
-        rl: parseFloat(document.getElementById('tyreRL').value),
-        rr: parseFloat(document.getElementById('tyreRR').value),
+        rl: !is2W ? parseFloat(document.getElementById('tyreRL').value) : null,
+        rr: !is2W ? parseFloat(document.getElementById('tyreRR').value) : null,
         spare: parseFloat(document.getElementById('tyreSpare').value) || null,
         remarks: document.getElementById('tyreRemarks').value.trim()
       };
@@ -746,8 +877,8 @@
       document.getElementById('tyreAirType').value = item.airType || 'Normal Air';
       document.getElementById('tyreFL').value = item.fl;
       document.getElementById('tyreFR').value = item.fr;
-      document.getElementById('tyreRL').value = item.rl;
-      document.getElementById('tyreRR').value = item.rr;
+      document.getElementById('tyreRL').value = item.rl || '';
+      document.getElementById('tyreRR').value = item.rr || '';
       document.getElementById('tyreSpare').value = item.spare || '';
       document.getElementById('tyreRemarks').value = item.remarks || '';
 
@@ -852,7 +983,6 @@
       for (let i = 0; i < sorted.length; i++) {
         const entry = sorted[i];
 
-        // If user flagged that a previous fill-up was missed, reset the baseline chain
         if (entry.missedPrevious) {
           lastFullOdo = entry.fullTank ? entry.odo : null;
           accumulatedLiters = 0;
@@ -885,10 +1015,24 @@
 
       const profileContainer = document.getElementById('vehicleProfileDisplay');
       const profile = (db.vehicleProfiles && db.vehicleProfiles[v]) || {};
-      
+      const is2W = profile.type === '2wheeler';
+      const rec = profile.recTyre || {};
+
+      let tyreRecStr = '';
+      if (is2W) {
+        if (rec.front || rec.rear) {
+          tyreRecStr = `Recommended PSI: Front ${rec.front || '--'} | Rear ${rec.rear || '--'}`;
+        }
+      } else {
+        if (rec.fl || rec.fr || rec.rl || rec.rr) {
+          tyreRecStr = `Recommended PSI: FL ${rec.fl || '--'}, FR ${rec.fr || '--'}, RL ${rec.rl || '--'}, RR ${rec.rr || '--'}`;
+        }
+      }
+
       profileContainer.innerHTML = `
-        <h2 style="font-size: 1.4rem;">${v}</h2>
+        <h2 style="font-size: 1.4rem;">${v} ${is2W ? '🛵' : '🚗'}</h2>
         ${profile.model ? `<p style="color: #64748b; font-size: 0.9rem; margin-top: 2px;">${profile.model}</p>` : ''}
+        ${tyreRecStr ? `<p style="color: #2563eb; font-size: 0.8rem; margin-top: 4px; font-weight: 500;">${tyreRecStr}</p>` : ''}
       `;
 
       const fuels = db.fuel[v] || [];
@@ -897,13 +1041,43 @@
       const mileages = calculateMileages(fuels);
       const mileageValues = Object.values(mileages).map(val => parseFloat(val));
       
-      let avgKmL = '--';
+      let avgKmL = null;
       if (mileageValues.length > 0) {
         const sum = mileageValues.reduce((a, b) => a + b, 0);
         avgKmL = (sum / mileageValues.length).toFixed(2);
       }
 
-      document.getElementById('avgMileage').textContent = avgKmL !== '--' ? `${avgKmL} Km/L` : '-- Km/L';
+      document.getElementById('avgMileage').textContent = avgKmL ? `${avgKmL} Km/L` : '-- Km/L';
+
+      // Smart Refuel Recommendation Logic
+      const recContainer = document.getElementById('refuelRecommendation');
+      recContainer.innerHTML = '';
+
+      if (fuels.length > 0) {
+        const lastLog = [...fuels].sort((a,b) => b.odo - a.odo)[0];
+        const tankCap = profile.tankCapacity;
+
+        if (avgKmL && tankCap) {
+          const estimatedRange = parseFloat(avgKmL) * tankCap;
+          const refuelAtOdo = Math.round(lastLog.odo + estimatedRange);
+          const safeRefuelAtOdo = Math.round(lastLog.odo + (estimatedRange * 0.85)); // 85% range for safety margin
+
+          recContainer.innerHTML = `
+            <div class="recommend-box">
+              ⛽ <b>Refuel Recommendation:</b><br>
+              Based on your tank capacity (<b>${tankCap}L</b>) & avg mileage (<b>${avgKmL} Km/L</b>):<br>
+              • Plan to refuel around <b>${safeRefuelAtOdo} Km</b> odometer reading.<br>
+              <small>(Max estimated tank range: ~${refuelAtOdo} Km)</small>
+            </div>
+          `;
+        } else if (!tankCap) {
+          recContainer.innerHTML = `
+            <div class="recommend-box" style="background:#f1f5f9; border-color:#cbd5e1; color:#475569;">
+              💡 <b>Tip:</b> Add your <b>Tank Capacity</b> in <i>Edit Active Vehicle</i> to get smart refuel odometer recommendations!
+            </div>
+          `;
+        }
+      }
 
       const period = document.getElementById('expensePeriod').value;
       const catFilter = document.getElementById('expenseCategoryFilter').value;
@@ -969,6 +1143,9 @@
     function renderLogs() {
       const v = db.activeVehicle;
       if (!v) return;
+
+      const profile = (db.vehicleProfiles && db.vehicleProfiles[v]) || {};
+      const is2W = profile.type === '2wheeler';
       
       // Render Fuel Logs
       const fuelList = db.fuel[v] || [];
@@ -1022,8 +1199,12 @@
               <span class="badge">${item.airType || 'Normal Air'}</span>
             </div>
             ${item.odo ? `<small>Odometer: ${item.odo} Km</small><br>` : ''}
-            <small>FL: <b>${item.fl} PSI</b> | FR: <b>${item.fr} PSI</b></small><br>
-            <small>RL: <b>${item.rl} PSI</b> | RR: <b>${item.rr} PSI</b></small>
+            ${is2W ? `
+              <small>Front: <b>${item.fl} PSI</b> | Rear: <b>${item.fr} PSI</b></small>
+            ` : `
+              <small>FL: <b>${item.fl} PSI</b> | FR: <b>${item.fr} PSI</b></small><br>
+              <small>RL: <b>${item.rl || '--'} PSI</b> | RR: <b>${item.rr || '--'} PSI</b></small>
+            `}
             ${item.spare ? `<br><small>Spare: <b>${item.spare} PSI</b></small>` : ''}
             ${item.remarks ? `<div class="remarks-text">📝 ${item.remarks}</div>` : ''}
             <div class="actions">
@@ -1062,7 +1243,7 @@
       
       (db.vehicles || []).forEach(v => {
         const profile = (db.vehicleProfiles && db.vehicleProfiles[v]) || {};
-        csvContent += `=== VEHICLE: ${v} (${profile.model || 'N/A'}) ===\n`;
+        csvContent += `=== VEHICLE: ${v} (${profile.model || 'N/A'}) - ${profile.type || '4wheeler'} ===\n`;
         
         csvContent += "--- FUEL LOGS ---\n";
         csvContent += "Type,Date,Odometer (Km),Liters,Price/L,Total Cost (INR),Full Tank,Missed Prev Fueling,Remarks\n";
@@ -1072,10 +1253,10 @@
         });
 
         csvContent += "\n--- TYRE PRESSURE LOGS ---\n";
-        csvContent += "Type,Date,Odometer (Km),Air Type,FL (PSI),FR (PSI),RL (PSI),RR (PSI),Spare (PSI),Remarks\n";
+        csvContent += "Type,Date,Odometer (Km),Air Type,FL/Front (PSI),FR/Rear (PSI),RL (PSI),RR (PSI),Spare (PSI),Remarks\n";
         const tyres = (db.tyre && db.tyre[v]) || [];
         tyres.forEach(t => {
-          csvContent += `Tyre,${t.date},${t.odo || ''},${t.airType || 'Normal Air'},${t.fl},${t.fr},${t.rl},${t.rr},${t.spare || ''},"${(t.remarks || '').replace(/"/g, '""')}"\n`;
+          csvContent += `Tyre,${t.date},${t.odo || ''},${t.airType || 'Normal Air'},${t.fl},${t.fr},${t.rl || ''},${t.rr || ''},${t.spare || ''},"${(t.remarks || '').replace(/"/g, '""')}"\n`;
         });
 
         csvContent += "\n--- SERVICE LOGS ---\n";
