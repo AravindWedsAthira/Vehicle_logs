@@ -394,8 +394,15 @@
       </div>
     </div>
 
+    <!-- DATA OPERATIONS CARD (EXPORT & IMPORT) -->
     <div class="card">
-      <button class="secondary" onclick="exportCSV()">📊 Export Data to Excel / CSV</button>
+      <h3 style="font-size: 0.95rem; margin-bottom: 8px;">Data Backup & Restore</h3>
+      <div class="flex">
+        <button class="secondary" style="flex: 1; font-size: 0.85rem;" onclick="exportCSV()">📊 Export CSV</button>
+        <button class="secondary" style="flex: 1; font-size: 0.85rem;" onclick="triggerCSVImport()">📥 Import CSV</button>
+      </div>
+      <!-- Hidden File Input for Clean UI -->
+      <input type="file" id="importCsvInput" accept=".csv" class="hidden" onchange="processCSVImport(event)">
     </div>
 
     <!-- VEHICLE CREATION & EDIT MODAL -->
@@ -1548,6 +1555,105 @@
       document.body.appendChild(link);
       link.click();
       link.remove();
+    }
+
+    /* ================= IMPORT CSV LOGIC ================= */
+    function triggerCSVImport() {
+      document.getElementById('importCsvInput').click();
+    }
+
+    function processCSVImport(event) {
+      const file = event.target.files[0];
+      if (!file) return;
+
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        const text = e.target.result;
+        try {
+          parseCSVAndMerge(text);
+          alert('✅ Data imported successfully!');
+          saveData();
+          init();
+        } catch (err) {
+          console.error(err);
+          alert('❌ Error parsing CSV file. Make sure it matches the exported format.');
+        }
+      };
+      reader.readAsText(file);
+      event.target.value = ''; // Clear file input selection
+    }
+
+    function parseCSVAndMerge(csvText) {
+      const lines = csvText.split('\n');
+      let currentVehicle = db.activeVehicle || 'Default Vehicle';
+
+      lines.forEach(line => {
+        const trimmed = line.trim();
+        if (!trimmed) return;
+
+        // Check for Vehicle Header
+        if (trimmed.startsWith('=== VEHICLE:')) {
+          const match = trimmed.match(/=== VEHICLE:\s*([^(\n]+)/);
+          if (match && match[1]) {
+            currentVehicle = match[1].trim();
+            if (!db.vehicles.includes(currentVehicle)) {
+              db.vehicles.push(currentVehicle);
+            }
+            if (!db.fuel[currentVehicle]) db.fuel[currentVehicle] = [];
+            if (!db.tyre[currentVehicle]) db.tyre[currentVehicle] = [];
+            if (!db.service[currentVehicle]) db.service[currentVehicle] = [];
+            if (!db.reminders[currentVehicle]) db.reminders[currentVehicle] = [];
+            if (!db.vehicleProfiles[currentVehicle]) db.vehicleProfiles[currentVehicle] = { type: '4wheeler' };
+          }
+          return;
+        }
+
+        // Parse Standard Row Items
+        const parts = trimmed.split(',').map(p => p.replace(/^"|"$/g, '').trim());
+        const recordType = parts[0];
+
+        if (recordType === 'Fuel' && parts.length >= 6) {
+          const newFuel = {
+            date: parts[1],
+            odo: parseFloat(parts[2]),
+            liters: parseFloat(parts[3]),
+            unitPrice: parseFloat(parts[4]) || 0,
+            cost: parseFloat(parts[5]),
+            fullTank: parts[6] === 'Yes',
+            missedPrevious: parts[7] === 'Yes',
+            remarks: parts[8] || ''
+          };
+          if (!db.fuel[currentVehicle]) db.fuel[currentVehicle] = [];
+          db.fuel[currentVehicle].push(newFuel);
+          db.fuel[currentVehicle].sort((a,b) => b.odo - a.odo);
+        } else if (recordType === 'Tyre' && parts.length >= 6) {
+          const newTyre = {
+            date: parts[1],
+            odo: parseFloat(parts[2]) || null,
+            airType: parts[3] || 'Normal Air',
+            fl: parseFloat(parts[4]),
+            fr: parseFloat(parts[5]),
+            rl: parseFloat(parts[6]) || null,
+            rr: parseFloat(parts[7]) || null,
+            spare: parseFloat(parts[8]) || null,
+            remarks: parts[9] || ''
+          };
+          if (!db.tyre[currentVehicle]) db.tyre[currentVehicle] = [];
+          db.tyre[currentVehicle].push(newTyre);
+          db.tyre[currentVehicle].sort((a,b) => new Date(b.date) - new Date(a.date));
+        } else if (recordType === 'Service' && parts.length >= 5) {
+          const newService = {
+            date: parts[1],
+            odo: parseFloat(parts[2]),
+            cost: parseFloat(parts[3]),
+            type: parts[4],
+            remarks: parts[5] || ''
+          };
+          if (!db.service[currentVehicle]) db.service[currentVehicle] = [];
+          db.service[currentVehicle].push(newService);
+          db.service[currentVehicle].sort((a,b) => b.odo - a.odo);
+        }
+      });
     }
   </script>
 </body>
