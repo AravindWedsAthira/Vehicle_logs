@@ -17,7 +17,7 @@
     body { background: var(--bg); color: var(--text); padding: 16px; max-width: 650px; margin: 0 auto; }
     header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
     h1 { font-size: 1.25rem; }
-    select, input, button { width: 100%; padding: 10px; margin-top: 6px; margin-bottom: 12px; border: 1px solid var(--border); border-radius: 8px; font-size: 1rem; }
+    select, input, button, textarea { width: 100%; padding: 10px; margin-top: 6px; margin-bottom: 12px; border: 1px solid var(--border); border-radius: 8px; font-size: 1rem; }
     button { background: var(--primary); color: white; font-weight: bold; border: none; cursor: pointer; }
     button.secondary { background: #64748b; }
     button.danger { background: var(--danger); }
@@ -42,13 +42,14 @@
     .vehicle-profile { text-align: center; margin-bottom: 12px; }
     .vehicle-avatar { width: 100%; max-height: 200px; object-fit: cover; border-radius: 8px; margin-bottom: 8px; border: 1px solid var(--border); }
     img.preview { max-width: 100%; max-height: 150px; margin-top: 8px; border-radius: 6px; border: 1px solid var(--border); }
+    .remarks-text { color: #64748b; font-style: italic; font-size: 0.85rem; margin-top: 4px; }
   </style>
 </head>
 <body>
 
   <header>
     <h1>🚗 Garage Tracker</h1>
-    <button class="secondary" style="width: auto; padding: 6px 12px;" onclick="showVehicleModal()">+ New Vehicle</button>
+    <button class="secondary" style="width: auto; padding: 6px 12px;" onclick="openVehicleModal('add')">+ New Vehicle</button>
   </header>
 
   <div class="card">
@@ -66,6 +67,8 @@
   <div id="dashSection">
     <div class="card">
       <div id="vehicleProfileDisplay" class="vehicle-profile"></div>
+      <button class="secondary btn-small" style="width: 100%; margin-bottom: 12px; padding: 8px;" onclick="openVehicleModal('edit')">✏️ Edit Active Vehicle</button>
+      
       <h3>Vehicle Summary</h3>
       <div class="stat-grid" style="margin-top:10px;">
         <div class="stat-box">
@@ -82,19 +85,23 @@
     <div class="card">
       <h3>Expense Breakdown</h3>
       <div class="flex" style="margin-top:10px;">
-        <div>
-          <label>View By</label>
+        <div style="flex: 1;">
+          <label><small>View By</small></label>
           <select id="expensePeriod" onchange="renderDashboard()">
             <option value="month">Monthly</option>
             <option value="year">Yearly</option>
           </select>
         </div>
+        <div style="flex: 1;">
+          <label><small>Filter Expense</small></label>
+          <select id="expenseCategoryFilter" onchange="renderDashboard()">
+            <option value="all">All Expenses</option>
+            <option value="fuel">Fuel Only</option>
+            <option value="service">Service Only</option>
+          </select>
+        </div>
       </div>
       <div id="expenseReport"></div>
-    </div>
-
-    <div class="card" style="border: 1px solid #fee2e2;">
-      <button class="danger" onclick="deleteCurrentVehicle()">🗑️ Delete Active Vehicle</button>
     </div>
   </div>
 
@@ -127,6 +134,9 @@
           </div>
         </div>
         
+        <label>Remarks / Notes</label>
+        <input type="text" id="fuelRemarks" placeholder="e.g. Indian Oil bunk, filled shell V-power">
+
         <div class="checkbox-container">
           <input type="checkbox" id="isFullTank" checked>
           <label for="isFullTank"><b>Full Tank Fill-up?</b> (Required for accurate mileage calculation)</label>
@@ -163,6 +173,8 @@
         </div>
         <label>Service Type / Details</label>
         <input type="text" id="serviceType" placeholder="e.g. Engine Oil Change" required>
+        <label>Remarks / Notes</label>
+        <input type="text" id="serviceRemarks" placeholder="e.g. Done at authorized service center">
         <label>Attach Bill / Receipt (Image)</label>
         <input type="file" id="serviceBill" accept="image/*">
         <button type="submit" id="serviceSubmitBtn">Save Service Log</button>
@@ -180,16 +192,24 @@
     <button class="secondary" onclick="exportCSV()">📊 Export Data to Excel / CSV</button>
   </div>
 
-  <!-- VEHICLE CREATION FORM CONTAINER -->
+  <!-- VEHICLE CREATION & EDIT MODAL -->
   <div id="vehicleModal" class="hidden card" style="position:fixed; top:10%; left:5%; right:5%; z-index:100; box-shadow:0 10px 25px rgba(0,0,0,0.3); max-width:550px; margin:0 auto;">
-    <h3>Add / Edit Vehicle</h3>
+    <h3 id="modalTitle">Add Vehicle</h3>
     <form id="vehicleForm" onsubmit="saveVehicleProfile(event)">
+      <input type="hidden" id="modalMode" value="add">
       <label>Vehicle Name / Reg Number</label>
       <input type="text" id="modalVehicleName" placeholder="e.g. Kia Sonet (TN-45-AB-1234)" required>
-      <label>Upload Vehicle Photo</label>
+      <label>Upload / Change Vehicle Photo</label>
       <input type="file" id="modalVehiclePhoto" accept="image/*">
+      
+      <div id="modalPhotoPreviewContainer"></div>
+
       <button type="submit">Save Vehicle</button>
-      <button type="button" class="secondary" onclick="hideVehicleModal()">Cancel</button>
+      
+      <div class="flex">
+        <button type="button" class="secondary" onclick="hideVehicleModal()">Cancel</button>
+        <button type="button" id="modalDeleteBtn" class="danger hidden" onclick="deleteCurrentVehicle()">🗑️ Delete Vehicle</button>
+      </div>
     </form>
   </div>
 
@@ -209,7 +229,6 @@
 
       if (!db.vehicleProfiles) db.vehicleProfiles = {};
 
-      // Filter out old "Vehicle 1" and "Vehicle 2" defaults automatically
       if (db.vehicles && db.vehicles.length > 0) {
         db.vehicles = db.vehicles.filter(v => v !== 'Vehicle 1' && v !== 'Vehicle 2');
         if (!db.vehicles.includes(db.activeVehicle)) {
@@ -218,7 +237,7 @@
       }
 
       if (!db.vehicles || db.vehicles.length === 0) {
-        showVehicleModal();
+        openVehicleModal('add');
       } else {
         renderVehicleDropdown();
         renderDashboard();
@@ -230,8 +249,35 @@
       localStorage.setItem('garage_db', JSON.stringify(db));
     }
 
-    function showVehicleModal() {
-      document.getElementById('vehicleModal').classList.remove('hidden');
+    function openVehicleModal(mode = 'add') {
+      const modal = document.getElementById('vehicleModal');
+      const title = document.getElementById('modalTitle');
+      const modeInput = document.getElementById('modalMode');
+      const deleteBtn = document.getElementById('modalDeleteBtn');
+      const nameInput = document.getElementById('modalVehicleName');
+      const previewContainer = document.getElementById('modalPhotoPreviewContainer');
+
+      modeInput.value = mode;
+
+      if (mode === 'edit' && db.activeVehicle) {
+        title.textContent = '✏️ Edit Vehicle Details';
+        nameInput.value = db.activeVehicle;
+        deleteBtn.classList.remove('hidden');
+
+        const profile = db.vehicleProfiles[db.activeVehicle] || {};
+        if (profile.photo) {
+          previewContainer.innerHTML = `<p style="font-size:0.8rem; margin-top:4px;">Current Photo:</p><img src="${profile.photo}" style="max-height:80px; border-radius:6px; margin-bottom:8px;">`;
+        } else {
+          previewContainer.innerHTML = '';
+        }
+      } else {
+        title.textContent = '🚗 Add New Vehicle';
+        nameInput.value = '';
+        deleteBtn.classList.add('hidden');
+        previewContainer.innerHTML = '';
+      }
+
+      modal.classList.remove('hidden');
     }
 
     function hideVehicleModal() {
@@ -241,19 +287,37 @@
 
     function saveVehicleProfile(e) {
       e.preventDefault();
-      const name = document.getElementById('modalVehicleName').value.trim();
+      const newName = document.getElementById('modalVehicleName').value.trim();
       const photoInput = document.getElementById('modalVehiclePhoto');
+      const mode = document.getElementById('modalMode').value;
+      const oldName = db.activeVehicle;
 
-      if (!name) return;
+      if (!newName) return;
 
       const processSave = (photoDataUrl = '') => {
-        if (!db.vehicles.includes(name)) {
-          db.vehicles.push(name);
+        if (mode === 'edit' && oldName && oldName !== newName) {
+          // Rename vehicle across all records
+          const index = db.vehicles.indexOf(oldName);
+          if (index !== -1) db.vehicles[index] = newName;
+
+          db.fuel[newName] = db.fuel[oldName] || [];
+          delete db.fuel[oldName];
+
+          db.service[newName] = db.service[oldName] || [];
+          delete db.service[oldName];
+
+          db.vehicleProfiles[newName] = db.vehicleProfiles[oldName] || {};
+          delete db.vehicleProfiles[oldName];
+        } else if (mode === 'add' && !db.vehicles.includes(newName)) {
+          db.vehicles.push(newName);
         }
-        db.activeVehicle = name;
-        
-        if (!db.vehicleProfiles[name]) db.vehicleProfiles[name] = {};
-        if (photoDataUrl) db.vehicleProfiles[name].photo = photoDataUrl;
+
+        db.activeVehicle = newName;
+        if (!db.vehicleProfiles[newName]) db.vehicleProfiles[newName] = {};
+
+        if (photoDataUrl) {
+          db.vehicleProfiles[newName].photo = photoDataUrl;
+        }
 
         saveData();
         hideVehicleModal();
@@ -275,7 +339,7 @@
       const v = db.activeVehicle;
       if (!v) return;
 
-      if (confirm(`Are you sure you want to delete "${v}" and all its logs?`)) {
+      if (confirm(`Are you sure you want to delete "${v}" and all of its associated logs?`)) {
         db.vehicles = db.vehicles.filter(item => item !== v);
         delete db.fuel[v];
         delete db.service[v];
@@ -283,9 +347,10 @@
 
         db.activeVehicle = db.vehicles.length > 0 ? db.vehicles[0] : '';
         saveData();
+        hideVehicleModal();
 
         if (db.vehicles.length === 0) {
-          showVehicleModal();
+          openVehicleModal('add');
         } else {
           renderVehicleDropdown();
           renderDashboard();
@@ -357,6 +422,7 @@
         liters: parseFloat(document.getElementById('fuelLiters').value),
         cost: parseFloat(document.getElementById('fuelCost').value),
         unitPrice: parseFloat(document.getElementById('fuelUnitPrice').value) || 0,
+        remarks: document.getElementById('fuelRemarks').value.trim(),
         fullTank: document.getElementById('isFullTank').checked
       };
 
@@ -383,6 +449,7 @@
       document.getElementById('fuelLiters').value = item.liters;
       document.getElementById('fuelCost').value = item.cost;
       document.getElementById('fuelUnitPrice').value = item.unitPrice || '';
+      document.getElementById('fuelRemarks').value = item.remarks || '';
       document.getElementById('isFullTank').checked = item.fullTank !== false;
 
       document.getElementById('fuelFormTitle').textContent = '✏️ Edit Fuel Fill-up';
@@ -427,6 +494,7 @@
           odo: parseFloat(document.getElementById('serviceOdo').value),
           cost: parseFloat(document.getElementById('serviceCost').value),
           type: document.getElementById('serviceType').value,
+          remarks: document.getElementById('serviceRemarks').value.trim(),
           bill: billDataUrl || existingBill
         };
 
@@ -461,6 +529,7 @@
       document.getElementById('serviceOdo').value = item.odo;
       document.getElementById('serviceCost').value = item.cost;
       document.getElementById('serviceType').value = item.type;
+      document.getElementById('serviceRemarks').value = item.remarks || '';
 
       document.getElementById('serviceFormTitle').textContent = '✏️ Edit Service Record';
       document.getElementById('serviceSubmitBtn').textContent = 'Update Service Log';
@@ -521,7 +590,6 @@
       const v = db.activeVehicle;
       if (!v) return;
 
-      // Render profile photo & name header
       const profileContainer = document.getElementById('vehicleProfileDisplay');
       const profile = (db.vehicleProfiles && db.vehicleProfiles[v]) || {};
       
@@ -545,22 +613,28 @@
       document.getElementById('avgMileage').textContent = avgKmL !== '--' ? `${avgKmL} Km/L` : '-- Km/L';
 
       const period = document.getElementById('expensePeriod').value;
+      const catFilter = document.getElementById('expenseCategoryFilter').value;
+
       const expenses = {};
       let overallTotal = 0;
 
-      fuels.forEach(item => {
-        const key = period === 'month' ? item.date.substring(0, 7) : item.date.substring(0, 4);
-        if (!expenses[key]) expenses[key] = { fuel: 0, service: 0 };
-        expenses[key].fuel += item.cost;
-        overallTotal += item.cost;
-      });
+      if (catFilter === 'all' || catFilter === 'fuel') {
+        fuels.forEach(item => {
+          const key = period === 'month' ? item.date.substring(0, 7) : item.date.substring(0, 4);
+          if (!expenses[key]) expenses[key] = { fuel: 0, service: 0 };
+          expenses[key].fuel += item.cost;
+          overallTotal += item.cost;
+        });
+      }
 
-      services.forEach(item => {
-        const key = period === 'month' ? item.date.substring(0, 7) : item.date.substring(0, 4);
-        if (!expenses[key]) expenses[key] = { fuel: 0, service: 0 };
-        expenses[key].service += item.cost;
-        overallTotal += item.cost;
-      });
+      if (catFilter === 'all' || catFilter === 'service') {
+        services.forEach(item => {
+          const key = period === 'month' ? item.date.substring(0, 7) : item.date.substring(0, 4);
+          if (!expenses[key]) expenses[key] = { fuel: 0, service: 0 };
+          expenses[key].service += item.cost;
+          overallTotal += item.cost;
+        });
+      }
 
       document.getElementById('totalExpenses').textContent = `₹${overallTotal.toLocaleString()}`;
 
@@ -575,20 +649,24 @@
             <thead>
               <tr style="border-bottom:2px solid var(--border); text-align:left;">
                 <th style="padding:6px;">${period === 'month' ? 'Month' : 'Year'}</th>
-                <th style="padding:6px;">Fuel</th>
-                <th style="padding:6px;">Service</th>
+                ${catFilter !== 'service' ? '<th style="padding:6px;">Fuel</th>' : ''}
+                ${catFilter !== 'fuel' ? '<th style="padding:6px;">Service</th>' : ''}
                 <th style="padding:6px;">Total</th>
               </tr>
             </thead>
             <tbody>
-              ${sortedKeys.map(k => `
-                <tr style="border-bottom:1px solid var(--border);">
-                  <td style="padding:6px;"><b>${k}</b></td>
-                  <td style="padding:6px;">₹${expenses[k].fuel.toFixed(0)}</td>
-                  <td style="padding:6px;">₹${expenses[k].service.toFixed(0)}</td>
-                  <td style="padding:6px;"><b>₹${(expenses[k].fuel + expenses[k].service).toFixed(0)}</b></td>
-                </tr>
-              `).join('')}
+              ${sortedKeys.map(k => {
+                const f = expenses[k].fuel || 0;
+                const s = expenses[k].service || 0;
+                return `
+                  <tr style="border-bottom:1px solid var(--border);">
+                    <td style="padding:6px;"><b>${k}</b></td>
+                    ${catFilter !== 'service' ? `<td style="padding:6px;">₹${f.toFixed(0)}</td>` : ''}
+                    ${catFilter !== 'fuel' ? `<td style="padding:6px;">₹${s.toFixed(0)}</td>` : ''}
+                    <td style="padding:6px;"><b>₹${(f + s).toFixed(0)}</b></td>
+                  </tr>
+                `;
+              }).join('')}
             </tbody>
           </table>
         `;
@@ -619,6 +697,7 @@
               </div>
               <small>Odometer: ${item.odo} Km | ${item.liters} L @ ₹${item.unitPrice || '--'}/L</small><br>
               <small><b>Total Cost: ₹${item.cost}</b></small>
+              ${item.remarks ? `<div class="remarks-text">📝 ${item.remarks}</div>` : ''}
               <div class="actions">
                 <button class="secondary btn-small" onclick="editFuel(${index})">✏️ Edit</button>
                 <button class="danger btn-small" onclick="deleteFuel(${index})">🗑️ Delete</button>
@@ -641,6 +720,7 @@
               <b>₹${item.cost}</b>
             </div>
             <small>Date: ${item.date} | Odometer: ${item.odo} Km</small>
+            ${item.remarks ? `<div class="remarks-text">📝 ${item.remarks}</div>` : ''}
             ${item.bill ? `<br><a href="${item.bill}" target="_blank"><img src="${item.bill}" class="preview" alt="Bill Receipt"></a>` : ''}
             <div class="actions">
               <button class="secondary btn-small" onclick="editService(${index})">✏️ Edit</button>
@@ -656,16 +736,16 @@
       
       (db.vehicles || []).forEach(v => {
         csvContent += `=== VEHICLE: ${v} ===\n`;
-        csvContent += "Type,Date,Odometer (Km),Liters,Price/L,Total Cost (INR),Full Tank,Service Details\n";
+        csvContent += "Type,Date,Odometer (Km),Liters,Price/L,Total Cost (INR),Full Tank,Service/Details,Remarks\n";
         
         const fuels = db.fuel[v] || [];
         fuels.forEach(f => {
-          csvContent += `Fuel,${f.date},${f.odo},${f.liters},${f.unitPrice || ''},${f.cost},${f.fullTank ? 'Yes' : 'No'},""\n`;
+          csvContent += `Fuel,${f.date},${f.odo},${f.liters},${f.unitPrice || ''},${f.cost},${f.fullTank ? 'Yes' : 'No'},"","${(f.remarks || '').replace(/"/g, '""')}"\n`;
         });
 
         const services = db.service[v] || [];
         services.forEach(s => {
-          csvContent += `Service,${s.date},${s.odo},"","",${s.cost},"","${s.type.replace(/"/g, '""')}"\n`;
+          csvContent += `Service,${s.date},${s.odo},"","",${s.cost},"","${s.type.replace(/"/g, '""')}","${(s.remarks || '').replace(/"/g, '""')}"\n`;
         });
         
         csvContent += "\n\n";
