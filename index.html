@@ -174,14 +174,16 @@
         <!-- EXPENSE FILTER & BREAKDOWN -->
         <div style="margin-top: 16px; border-top: 1px solid var(--border); padding-top: 14px;">
           <div class="flex-center" style="margin-bottom: 10px;">
-            <h3>Expenses Summary</h3>
-            <select id="expenseTimeFilter" class="filter-select" onchange="renderDashboard()">
-              <option value="this_month" selected>This Month</option>
-              <option value="last_month">Last Month</option>
-              <option value="this_year">This Year</option>
-              <option value="last_year">Last Year</option>
-              <option value="all">All Time</option>
-            </select>
+            <h3>Expenses</h3>
+            <div style="display: flex; gap: 6px;">
+              <select id="expenseFilterMode" class="filter-select" onchange="updateExpensePeriodOptions()">
+                <option value="monthly" selected>Monthly</option>
+                <option value="yearly">Yearly</option>
+              </select>
+              <select id="expensePeriodSelect" class="filter-select" onchange="renderDashboard()">
+                <option value="all">All Time</option>
+              </select>
+            </div>
           </div>
 
           <div class="stat-box" style="margin-bottom: 8px;">
@@ -447,6 +449,8 @@
     let tyreLogsData = {};
     let remindersData = {};
 
+    const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+
     window.onload = function() {
       const savedGarage = localStorage.getItem("garageId") || "nikhil";
       const savedPin = localStorage.getItem("garagePin") || "";
@@ -517,6 +521,7 @@
         tyreLogsData = root.tyreLogs || (root.data && root.data.tyre) || {};
         remindersData = root.reminders || (root.data && root.data.reminders) || {};
 
+        updateExpensePeriodOptions();
         refreshAllDisplays();
       });
     }
@@ -551,6 +556,7 @@
       const select = document.getElementById("vehicleSelect");
       activeVehicleName = select.value;
       db.ref(`garages/${currentGarageId}/data/activeVehicle`).set(activeVehicleName);
+      updateExpensePeriodOptions();
       refreshAllDisplays();
     }
 
@@ -560,6 +566,70 @@
       renderServiceLogs();
       renderTyreLogs();
       renderReminders();
+    }
+
+    function updateExpensePeriodOptions() {
+      const mode = document.getElementById("expenseFilterMode").value;
+      const periodSelect = document.getElementById("expensePeriodSelect");
+      const currentSelectedVal = periodSelect.value;
+      
+      periodSelect.innerHTML = "";
+
+      const dates = [];
+
+      Object.values(fuelLogsData).forEach(f => {
+        if ((!f.vehicle || f.vehicle === activeVehicleName) && f.date) dates.push(new Date(f.date));
+      });
+      Object.values(serviceLogsData).forEach(s => {
+        if ((!s.vehicle || s.vehicle === activeVehicleName) && s.date) dates.push(new Date(s.date));
+      });
+
+      const optAll = document.createElement("option");
+      optAll.value = "all";
+      optAll.innerText = "All Time";
+      periodSelect.appendChild(optAll);
+
+      if (mode === "monthly") {
+        const periods = new Set();
+        dates.forEach(d => {
+          if (!isNaN(d.getTime())) {
+            const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+            periods.add(key);
+          }
+        });
+
+        const sortedPeriods = Array.from(periods).sort().reverse();
+        sortedPeriods.forEach(pKey => {
+          const [yr, mo] = pKey.split('-');
+          const opt = document.createElement("option");
+          opt.value = pKey;
+          opt.innerText = `${monthNames[parseInt(mo, 10) - 1]} ${yr}`;
+          periodSelect.appendChild(opt);
+        });
+      } else {
+        const years = new Set();
+        dates.forEach(d => {
+          if (!isNaN(d.getTime())) {
+            years.add(d.getFullYear().toString());
+          }
+        });
+
+        const sortedYears = Array.from(years).sort().reverse();
+        sortedYears.forEach(yr => {
+          const opt = document.createElement("option");
+          opt.value = yr;
+          opt.innerText = yr;
+          periodSelect.appendChild(opt);
+        });
+      }
+
+      if (Array.from(periodSelect.options).some(o => o.value === currentSelectedVal)) {
+        periodSelect.value = currentSelectedVal;
+      } else if (periodSelect.options.length > 1) {
+        periodSelect.selectedIndex = 1; // Default to latest period if available
+      }
+
+      renderDashboard();
     }
 
     // Process fuel logs to calculate leg distances and mileages for active vehicle
@@ -623,29 +693,23 @@
 
       const avgMileage = totalLiters > 0 ? (totalKm / totalLiters) : 0;
 
-      // Expenses Time Filter Logic
-      const expFilter = document.getElementById("expenseTimeFilter").value;
-      const now = new Date();
-      const currYr = now.getFullYear();
-      const currMo = now.getMonth();
+      // Expense Period Filtering
+      const mode = document.getElementById("expenseFilterMode").value;
+      const periodVal = document.getElementById("expensePeriodSelect").value;
 
       const filterByTime = (dateStr) => {
-        if (!dateStr || expFilter === "all") return true;
+        if (!dateStr || periodVal === "all") return true;
         const d = new Date(dateStr);
         if (isNaN(d.getTime())) return false;
 
         const y = d.getFullYear();
-        const m = d.getMonth();
+        const m = String(d.getMonth() + 1).padStart(2, '0');
 
-        if (expFilter === "this_month") return y === currYr && m === currMo;
-        if (expFilter === "last_month") {
-          const targetMo = currMo === 0 ? 11 : currMo - 1;
-          const targetYr = currMo === 0 ? currYr - 1 : currYr;
-          return y === targetYr && m === targetMo;
+        if (mode === "monthly") {
+          return `${y}-${m}` === periodVal;
+        } else {
+          return y.toString() === periodVal;
         }
-        if (expFilter === "this_year") return y === currYr;
-        if (expFilter === "last_year") return y === currYr - 1;
-        return true;
       };
 
       let fuelExpenseSum = 0;
