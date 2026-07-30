@@ -271,33 +271,34 @@
         </div>
 
         <div style="margin-top: 16px;">
-          <h3 style="font-size:0.95rem; margin-bottom:6px;">Monthly vs Yearly Expenses</h3>
-          <table class="comparison-table">
-            <thead>
-              <tr>
-                <th>Category</th>
-                <th>This Month</th>
-                <th>This Year</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr>
-                <td style="font-weight:bold; text-align:left;">⛽ Fuel</td>
-                <td id="compMonthFuel">₹0</td>
-                <td id="compYearFuel">₹0</td>
-              </tr>
-              <tr>
-                <td style="font-weight:bold; text-align:left;">🔧 Service</td>
-                <td id="compMonthService">₹0</td>
-                <td id="compYearService">₹0</td>
-              </tr>
-              <tr style="background: var(--bg); font-weight:bold;">
-                <td style="text-align:left;">Total Expense</td>
-                <td id="compMonthTotal" style="color:var(--primary);">₹0</td>
-                <td id="compYearTotal" style="color:var(--primary);">₹0</td>
-              </tr>
-            </tbody>
-          </table>
+          <div class="flex-center" style="margin-bottom: 6px;">
+            <h3 style="font-size:0.95rem;">Expense Breakdown</h3>
+            <div style="display: flex; gap: 4px;">
+              <button class="btn-sm" id="btnViewMonthly" onclick="setExpenseView('monthly')">Months</button>
+              <button class="outline btn-sm" id="btnViewYearly" onclick="setExpenseView('yearly')">Years</button>
+            </div>
+          </div>
+          
+          <!-- Filter/Selector for Year when in Monthly View -->
+          <div id="monthlyYearFilterContainer" style="margin-bottom: 8px;">
+            <select id="expenseYearSelect" onchange="renderDashboard()" style="padding: 6px; font-size: 0.85rem; margin-bottom: 4px;"></select>
+          </div>
+
+          <div style="max-height: 240px; overflow-y: auto;">
+            <table class="comparison-table">
+              <thead>
+                <tr>
+                  <th id="tableColHeader">Period</th>
+                  <th>Fuel</th>
+                  <th>Service</th>
+                  <th>Total</th>
+                </tr>
+              </thead>
+              <tbody id="expenseTableBody">
+                <!-- Dynamically populated -->
+              </tbody>
+            </table>
+          </div>
         </div>
       </div>
     </div>
@@ -359,6 +360,7 @@
 
     let activeGarage = null;
     let garageData = {};
+    let currentExpenseView = 'monthly'; // 'monthly' or 'yearly'
 
     window.addEventListener('DOMContentLoaded', () => {
       const savedGarage = localStorage.getItem('garageId');
@@ -559,6 +561,14 @@
       document.getElementById('toolsTabBtn').classList.toggle('active', tab === 'tools');
     }
 
+    function setExpenseView(view) {
+      currentExpenseView = view;
+      document.getElementById('btnViewMonthly').className = view === 'monthly' ? 'btn-sm' : 'outline btn-sm';
+      document.getElementById('btnViewYearly').className = view === 'yearly' ? 'btn-sm' : 'outline btn-sm';
+      document.getElementById('monthlyYearFilterContainer').style.display = view === 'monthly' ? 'block' : 'none';
+      renderDashboard();
+    }
+
     function openAddLogModal(type) {
       document.getElementById('editLogId').value = '';
       document.getElementById('logModalTitle').innerText = 'Add ' + type.toUpperCase() + ' Log';
@@ -746,15 +756,33 @@
       const sorted = getSortedLogs();
       const now = new Date();
       const currentYear = now.getFullYear();
-      const currentMonth = now.getMonth();
+
+      // Collect all available years
+      const yearsSet = new Set();
+      yearsSet.add(currentYear);
+      sorted.forEach(l => {
+        if (l.date) {
+          yearsSet.add(new Date(l.date).getFullYear());
+        }
+      });
+      const sortedYears = Array.from(yearsSet).sort((a, b) => b - a);
+
+      // Populate year selector
+      const yearSelect = document.getElementById('expenseYearSelect');
+      const selectedYearVal = yearSelect.value ? parseInt(yearSelect.value) : currentYear;
+      yearSelect.innerHTML = '';
+      sortedYears.forEach(y => {
+        const opt = document.createElement('option');
+        opt.value = y;
+        opt.textContent = `Year: ${y}`;
+        if (y === selectedYearVal) opt.selected = true;
+        yearSelect.appendChild(opt);
+      });
+      const activeYear = parseInt(yearSelect.value) || currentYear;
 
       let allTimeSpent = 0;
       let totalDist = 0;
       let totalLiters = 0;
-
-      let monthFuel = 0, monthService = 0;
-      let yearFuel = 0, yearService = 0;
-
       let lastFullOdo = null;
       let lastOdo = sorted.length > 0 ? sorted[0].odometer : 0;
       let firstOdo = sorted.length > 0 ? sorted[sorted.length - 1].odometer : 0;
@@ -762,23 +790,8 @@
       sorted.forEach(l => {
         const cost = parseFloat(l.cost) || 0;
         if (l.type === 'fuel' || l.type === 'service') {
-          const d = new Date(l.date);
-          const isThisYear = d.getFullYear() === currentYear;
-          const isThisMonth = isThisYear && d.getMonth() === currentMonth;
-
           allTimeSpent += cost;
-
-          if (isThisMonth) {
-            if (l.type === 'fuel') monthFuel += cost;
-            if (l.type === 'service') monthService += cost;
-          }
-
-          if (isThisYear) {
-            if (l.type === 'fuel') yearFuel += cost;
-            if (l.type === 'service') yearService += cost;
-          }
         }
-
         if (l.type === 'fuel') {
           totalLiters += parseFloat(l.liters) || 0;
           if (lastFullOdo !== null && l.odometer > lastFullOdo) {
@@ -807,13 +820,69 @@
       document.getElementById('statAllTimeTotal').innerText = `₹${allTimeSpent.toFixed(2)}`;
       document.getElementById('statDistToRefill').innerText = `${distToRefill} Km`;
 
-      // Update Comparison Table
-      document.getElementById('compMonthFuel').innerText = `₹${monthFuel.toFixed(2)}`;
-      document.getElementById('compYearFuel').innerText = `₹${yearFuel.toFixed(2)}`;
-      document.getElementById('compMonthService').innerText = `₹${monthService.toFixed(2)}`;
-      document.getElementById('compYearService').innerText = `₹${yearService.toFixed(2)}`;
-      document.getElementById('compMonthTotal').innerText = `₹${(monthFuel + monthService).toFixed(2)}`;
-      document.getElementById('compYearTotal').innerText = `₹${(yearFuel + yearService).toFixed(2)}`;
+      // Render Table depending on currentExpenseView ('monthly' or 'yearly')
+      const tableBody = document.getElementById('expenseTableBody');
+      const tableColHeader = document.getElementById('tableColHeader');
+      tableBody.innerHTML = '';
+
+      if (currentExpenseView === 'monthly') {
+        tableColHeader.innerText = `Month (${activeYear})`;
+        const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+        const monthlyData = Array.from({ length: 12 }, () => ({ fuel: 0, service: 0 }));
+
+        sorted.forEach(l => {
+          if ((l.type === 'fuel' || l.type === 'service') && l.date) {
+            const d = new Date(l.date);
+            if (d.getFullYear() === activeYear) {
+              const m = d.getMonth();
+              if (l.type === 'fuel') monthlyData[m].fuel += parseFloat(l.cost) || 0;
+              if (l.type === 'service') monthlyData[m].service += parseFloat(l.cost) || 0;
+            }
+          }
+        });
+
+        monthNames.forEach((mName, idx) => {
+          const f = monthlyData[idx].fuel;
+          const s = monthlyData[idx].service;
+          const tot = f + s;
+          tableBody.innerHTML += `
+            <tr>
+              <td style="font-weight:bold; text-align:left;">${mName}</td>
+              <td>₹${f.toFixed(2)}</td>
+              <td>₹${s.toFixed(2)}</td>
+              <td style="font-weight:bold; color:var(--primary);">₹${tot.toFixed(2)}</td>
+            </tr>
+          `;
+        });
+
+      } else {
+        tableColHeader.innerText = "Year";
+        const yearlyData = {};
+        sortedYears.forEach(y => { yearlyData[y] = { fuel: 0, service: 0 }; });
+
+        sorted.forEach(l => {
+          if ((l.type === 'fuel' || l.type === 'service') && l.date) {
+            const y = new Date(l.date).getFullYear();
+            if (!yearlyData[y]) yearlyData[y] = { fuel: 0, service: 0 };
+            if (l.type === 'fuel') yearlyData[y].fuel += parseFloat(l.cost) || 0;
+            if (l.type === 'service') yearlyData[y].service += parseFloat(l.cost) || 0;
+          }
+        });
+
+        sortedYears.forEach(y => {
+          const f = yearlyData[y].fuel;
+          const s = yearlyData[y].service;
+          const tot = f + s;
+          tableBody.innerHTML += `
+            <tr>
+              <td style="font-weight:bold; text-align:left;">${y}</td>
+              <td>₹${f.toFixed(2)}</td>
+              <td>₹${s.toFixed(2)}</td>
+              <td style="font-weight:bold; color:var(--primary);">₹${tot.toFixed(2)}</td>
+            </tr>
+          `;
+        });
+      }
     }
 
     function saveReminder(e) {
