@@ -639,15 +639,15 @@
       renderExpenseComparison();
     }
 
-    // Cumulative Comparison View (Monthly & Yearly)
+    // Cumulative Expense Comparison Filtered for Active Vehicle
     function renderExpenseComparison() {
       const viewMode = document.getElementById("expenseCompareView").value;
       const container = document.getElementById("expenseComparisonContainer");
       container.innerHTML = "";
 
-      const totals = {}; // Structure: { "2026-03": { fuel: 0, service: 0 }, ... }
+      const totals = {};
 
-      // Aggregate Fuel Costs
+      // Aggregate Fuel Costs for active vehicle
       Object.values(fuelLogsData).forEach(f => {
         if ((!f.vehicle || f.vehicle === activeVehicleName) && f.date) {
           const d = new Date(f.date);
@@ -662,7 +662,7 @@
         }
       });
 
-      // Aggregate Service Costs
+      // Aggregate Service Costs for active vehicle
       Object.values(serviceLogsData).forEach(s => {
         if ((!s.vehicle || s.vehicle === activeVehicleName) && s.date) {
           const d = new Date(s.date);
@@ -680,7 +680,7 @@
       const sortedPeriods = Object.keys(totals).sort().reverse();
 
       if (sortedPeriods.length === 0) {
-        container.innerHTML = `<p style="color:var(--text-muted); font-size:0.85rem; text-align:center; padding:10px;">No expense records available for comparison.</p>`;
+        container.innerHTML = `<p style="color:var(--text-muted); font-size:0.85rem; text-align:center; padding:10px;">No expense records available for ${activeVehicleName}.</p>`;
         return;
       }
 
@@ -728,7 +728,7 @@
       const logs = getProcessedFuelLogs();
 
       if (logs.length === 0) {
-        container.innerHTML = "<p style='color:var(--text-muted); font-size:0.85rem;'>No fuel logs recorded.</p>";
+        container.innerHTML = `<p style='color:var(--text-muted); font-size:0.85rem;'>No fuel logs recorded for ${activeVehicleName}.</p>`;
         return;
       }
 
@@ -838,7 +838,7 @@
       });
 
       if (keys.length === 0) {
-        container.innerHTML = "<p style='color:var(--text-muted); font-size:0.85rem;'>No service logs recorded.</p>";
+        container.innerHTML = `<p style='color:var(--text-muted); font-size:0.85rem;'>No service logs recorded for ${activeVehicleName}.</p>`;
         return;
       }
 
@@ -931,7 +931,7 @@
       });
 
       if (keys.length === 0) {
-        container.innerHTML = "<p style='color:var(--text-muted); font-size:0.85rem;'>No tyre pressure logs recorded.</p>";
+        container.innerHTML = `<p style='color:var(--text-muted); font-size:0.85rem;'>No tyre pressure logs recorded for ${activeVehicleName}.</p>`;
         return;
       }
 
@@ -1012,7 +1012,7 @@
       });
 
       if (keys.length === 0) {
-        container.innerHTML = "<p style='color:var(--text-muted); font-size:0.85rem;'>No reminders set.</p>";
+        container.innerHTML = `<p style='color:var(--text-muted); font-size:0.85rem;'>No reminders set for ${activeVehicleName}.</p>`;
         return;
       }
 
@@ -1184,6 +1184,22 @@
               cost: parseFloat(cols[6]),
               isFull: cols[7] === 'Yes',
               remarks: cols[8] ? cols[8].replace(/"/g, '') : ''
+            });
+          } else if (type === 'Service') {
+            db.ref(`garages/${currentGarageId}/serviceLogs`).push({
+              vehicle: cols[1] || activeVehicleName,
+              date: cols[2],
+              odo: parseFloat(cols[3]),
+              cost: parseFloat(cols[6]),
+              details: cols[9] ? cols[9].replace(/"/g, '') : ''
+            });
+          } else if (type === 'Tyre') {
+            db.ref(`garages/${currentGarageId}/tyreLogs`).push({
+              vehicle: cols[1] || activeVehicleName,
+              date: cols[2],
+              odo: parseFloat(cols[3]),
+              frontPsi: parseFloat(cols[10]),
+              rearPsi: parseFloat(cols[11])
             });
           }
         });
