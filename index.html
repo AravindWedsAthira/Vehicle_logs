@@ -65,6 +65,7 @@
       position: fixed; inset: 0; background: rgba(15, 23, 42, 0.85); backdrop-filter: blur(4px); z-index: 1000; display: flex; align-items: center; justify-content: center; padding: 16px;
     }
     .auth-card { background: var(--card); padding: 24px; border-radius: 16px; width: 100%; max-width: 380px; box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1); }
+    .mileage-tag { background: rgba(16, 185, 129, 0.15); color: var(--success); font-weight: bold; padding: 2px 6px; border-radius: 4px; font-size: 0.75rem; display: inline-block; margin-top: 4px; }
   </style>
 </head>
 <body data-theme="light">
@@ -73,20 +74,20 @@
   <div id="loginModal">
     <div class="auth-card">
       <div style="text-align: center; margin-bottom: 20px;">
-        <span style="font-size: 2.5rem;">🚗</span>
-        <h2 style="font-size: 1.25rem; margin-top: 8px;">Garage Login & Sync</h2>
-        <p style="font-size: 0.8rem; color: var(--text-muted); margin-top: 4px;">Enter Garage Name & PIN to connect to Cloud Database.</p>
+        <span style="font-size: 2.5rem;">☁️</span>
+        <h2 style="font-size: 1.25rem; margin-top: 8px;">Fetch Garage From Cloud</h2>
+        <p style="font-size: 0.8rem; color: var(--text-muted); margin-top: 4px;">Enter your Garage ID and PIN to pull live data.</p>
       </div>
       <form id="loginForm" onsubmit="handlePinLogin(event)">
         <label style="font-size: 0.75rem; font-weight: bold; text-transform: uppercase; color: var(--text-muted);">Garage ID / Name</label>
-        <input type="text" id="loginGarageName" required placeholder="e.g. nikhil" style="margin-top: 4px;" />
+        <input type="text" id="loginGarageName" required placeholder="e.g. mygarage" style="margin-top: 4px;" />
         
         <label style="font-size: 0.75rem; font-weight: bold; text-transform: uppercase; color: var(--text-muted);">Security PIN</label>
         <input type="password" id="loginPin" required maxlength="6" placeholder="****" style="text-align: center; letter-spacing: 4px; font-weight: bold; margin-top: 4px;" />
 
         <div id="loginError" style="color: var(--danger); font-size: 0.8rem; text-align: center; margin-bottom: 8px; min-height: 18px;"></div>
 
-        <button type="submit" id="unlockBtn" style="padding: 12px; margin-top: 4px;">Unlock Cloud Garage</button>
+        <button type="submit" id="unlockBtn" style="padding: 12px; margin-top: 4px;">Fetch & Connect Garage</button>
       </form>
     </div>
   </div>
@@ -96,7 +97,7 @@
     <header>
       <div>
         <h1>🚗 Garage Tracker</h1>
-        <small style="color: var(--text-muted); font-size: 0.75rem;">Garage ID: <b id="activeGarageLabel" style="color: var(--primary);">--</b></small>
+        <small style="color: var(--text-muted); font-size: 0.75rem;">Cloud Garage: <b id="activeGarageLabel" style="color: var(--primary);">--</b></small>
       </div>
       <div style="display: flex; gap: 6px;">
         <button class="secondary" style="width: auto; padding: 6px 10px; font-size: 0.8rem;" onclick="toggleTheme()">🌙 Mode</button>
@@ -194,8 +195,7 @@
 
       <div class="card">
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
-          <h3>Fuel History</h3>
-          <button class="danger btn-small" onclick="clearFuelLogs()">Clear Logs</button>
+          <h3>Fuel History & Calculated Mileage</h3>
         </div>
         <div id="fuelHistory"></div>
       </div>
@@ -265,16 +265,6 @@
       <div class="card">
         <h3>Active Reminders</h3>
         <div id="reminderList"></div>
-      </div>
-    </div>
-
-    <!-- BACKUP & RESTORE -->
-    <div class="card">
-      <h3 style="font-size: 0.95rem; margin-bottom: 8px;">Cloud Backup & Restore</h3>
-      <div class="flex">
-        <button class="secondary" style="flex: 1;" onclick="exportCSV()">📊 Export CSV</button>
-        <button class="secondary" style="flex: 1;" onclick="triggerFileInput()">📥 Import CSV to Cloud</button>
-        <input type="file" id="importCsvInput" style="display: none;" onchange="processCSVImport(event)">
       </div>
     </div>
 
@@ -406,7 +396,7 @@
       const keys = Object.keys(storeData.vehicles);
 
       if (keys.length === 0) {
-        select.innerHTML = '<option value="">No vehicles found - Use "Import CSV to Cloud"</option>';
+        select.innerHTML = '<option value="">No vehicles found in Cloud Garage</option>';
         activeVehicleKey = null;
         return;
       }
@@ -414,7 +404,7 @@
       keys.forEach(k => {
         const opt = document.createElement('option');
         opt.value = k;
-        opt.innerText = `${storeData.vehicles[k].name} (${storeData.vehicles[k].model || ''})`;
+        opt.innerText = `${storeData.vehicles[k].name} ${storeData.vehicles[k].model ? '(' + storeData.vehicles[k].model + ')' : ''}`;
         select.appendChild(opt);
       });
 
@@ -437,7 +427,7 @@
 
     function renderDashboard() {
       if (!activeVehicleKey || !storeData.vehicles[activeVehicleKey]) {
-        document.getElementById('vehicleProfileDisplay').innerHTML = '<p style="color:var(--text-muted);">No vehicle active. Click "Import CSV to Cloud" to restore.</p>';
+        document.getElementById('vehicleProfileDisplay').innerHTML = '<p style="color:var(--text-muted);">No active vehicle. Click "+ Vehicle" above to add one.</p>';
         document.getElementById('totalExpenses').innerText = '₹0';
         return;
       }
@@ -450,8 +440,8 @@
       `;
 
       const fuels = Object.values(storeData.fuelLogs || {})
-        .filter(x => x && x.vehicleId === activeVehicleKey && x.odo > 0)
-        .sort((a, b) => a.odo - b.odo);
+        .filter(x => x && x.vehicleId === activeVehicleKey && parseFloat(x.odo) > 0)
+        .sort((a, b) => parseFloat(a.odo) - parseFloat(b.odo));
 
       const services = Object.values(storeData.serviceLogs || {}).filter(x => x && x.vehicleId === activeVehicleKey);
 
@@ -460,7 +450,7 @@
       document.getElementById('totalExpenses').innerText = '₹' + (totalFuelCost + totalServiceCost).toFixed(2);
 
       if (fuels.length >= 2) {
-        let totalDistance = fuels[fuels.length - 1].odo - fuels[0].odo;
+        let totalDistance = parseFloat(fuels[fuels.length - 1].odo) - parseFloat(fuels[0].odo);
         let totalFuelUsed = fuels.slice(1).reduce((acc, x) => acc + (parseFloat(x.liters) || 0), 0);
 
         let avgKmpl = totalFuelUsed > 0 ? (totalDistance / totalFuelUsed) : 0;
@@ -472,7 +462,7 @@
         let tankCap = parseFloat(v.tankCapacity) || 13.5;
         let lastLog = fuels[fuels.length - 1];
         let estRange = avgKmpl * (parseFloat(lastLog.liters) || tankCap);
-        let nextRefuelOdo = lastLog.odo + estRange;
+        let nextRefuelOdo = parseFloat(lastLog.odo) + estRange;
 
         document.getElementById('estRange').innerText = '~' + estRange.toFixed(0) + ' Km';
         document.getElementById('nextRefuelOdo').innerText = '~' + nextRefuelOdo.toFixed(0) + ' Km';
@@ -494,7 +484,7 @@
       let dataPoints = [];
 
       for (let i = 1; i < fuels.length; i++) {
-        let dist = fuels[i].odo - fuels[i-1].odo;
+        let dist = parseFloat(fuels[i].odo) - parseFloat(fuels[i-1].odo);
         let lit = parseFloat(fuels[i].liters);
         if (lit > 0 && dist > 0) {
           labels.push(fuels[i].date);
@@ -557,34 +547,45 @@
     function renderFuelHistory() {
       const container = document.getElementById('fuelHistory');
       container.innerHTML = '';
-      const entries = Object.entries(storeData.fuelLogs || {})
-        .filter(([k, v]) => v && v.vehicleId === activeVehicleKey)
-        .sort((a, b) => new Date(b[1].date) - new Date(a[1].date));
 
-      if (entries.length === 0) return container.innerHTML = '<p style="color:var(--text-muted);">No records found.</p>';
+      // Get all fuel logs for this specific active vehicle, sorted chronologically ascending to calculate mileage
+      const vehicleFuels = Object.values(storeData.fuelLogs || {})
+        .filter(v => v && v.vehicleId === activeVehicleKey && parseFloat(v.odo) > 0)
+        .sort((a, b) => parseFloat(a.odo) - parseFloat(b.odo));
 
-      entries.forEach(([key, log]) => {
+      if (vehicleFuels.length === 0) return container.innerHTML = '<p style="color:var(--text-muted);">No fuel logs found for this vehicle.</p>';
+
+      // Map mileage for each step
+      let logListWithMileage = vehicleFuels.map((log, index) => {
+        let mileage = null;
+        if (index > 0) {
+          let dist = parseFloat(log.odo) - parseFloat(vehicleFuels[index - 1].odo);
+          let liters = parseFloat(log.liters);
+          if (dist > 0 && liters > 0) {
+            mileage = (dist / liters).toFixed(1);
+          }
+        }
+        return { ...log, mileage };
+      });
+
+      // Reverse array so newest refueling appears on top
+      logListWithMileage.reverse().forEach(log => {
         const item = document.createElement('div');
         item.className = 'log-item';
         item.innerHTML = `
-          <div style="display:flex; justify-content:space-between;">
-            <strong>${log.date || 'N/A'} - ${log.odo || 0} Km</strong>
+          <div style="display:flex; justify-content:space-between; align-items:flex-start;">
+            <div>
+              <strong>${log.date || 'N/A'} — ${log.odo || 0} Km</strong>
+              <div>
+                <small style="color:var(--text-muted);">${log.liters || 0} L @ ₹${log.unitPrice || 0}/L ${log.remarks ? '• ' + log.remarks : ''}</small>
+              </div>
+              ${log.mileage ? `<div class="mileage-tag">⚡ ${log.mileage} Km/L</div>` : '<div style="font-size:0.7rem; color:var(--text-muted); margin-top:2px;">Initial log (Base reading)</div>'}
+            </div>
             <strong style="color:var(--primary);">₹${(parseFloat(log.cost)||0).toFixed(2)}</strong>
           </div>
-          <small style="color:var(--text-muted);">${log.liters || 0} L @ ₹${log.unitPrice || 0}/L ${log.remarks ? '• ' + log.remarks : ''}</small>
         `;
         container.appendChild(item);
       });
-    }
-
-    async function clearFuelLogs() {
-      if (!confirm("Are you sure you want to clear current vehicle fuel logs?")) return;
-      const logs = storeData.fuelLogs || {};
-      for (let k in logs) {
-        if (logs[k] && logs[k].vehicleId === activeVehicleKey) {
-          await db.ref(`garages/${activeGarage}/fuelLogs/${k}`).remove();
-        }
-      }
     }
 
     function setupTyreInputs() {
@@ -734,109 +735,6 @@
       }
 
       hideVehicleModal();
-    }
-
-    function exportCSV() {
-      if (!activeVehicleKey) return alert("Select a vehicle first.");
-      const v = storeData.vehicles[activeVehicleKey];
-      const fuels = Object.values(storeData.fuelLogs || {}).filter(x => x && x.vehicleId === activeVehicleKey);
-      
-      let csv = `=== VEHICLE: ${v.name} (${v.model || ''}) - ${v.type || '2wheeler'} ===\n--- FUEL LOGS ---\n`;
-      csv += "Type,Date,Odometer (Km),Liters,Price/L,Total Cost (INR),Full Tank,Missed Prev Fueling,Remarks\n";
-      
-      fuels.forEach(f => {
-        csv += `Fuel,${f.date},${f.odo},${f.liters},${f.unitPrice},${f.cost},No,No,"${f.remarks || ''}"\n`;
-      });
-
-      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `${v.name.replace(/\s+/g, '_')}_export.csv`;
-      a.click();
-    }
-
-    function triggerFileInput() {
-      document.getElementById('importCsvInput').click();
-    }
-
-    function processCSVImport(e) {
-      const file = e.target.files[0];
-      if (!file || !activeGarage) return;
-
-      const reader = new FileReader();
-      reader.onload = async function(evt) {
-        try {
-          const lines = evt.target.result.split(/\r\n|\n/);
-          let currentVehicleKey = null;
-          let currentSection = 'FUEL';
-          let importedCount = 0;
-
-          for (let i = 0; i < lines.length; i++) {
-            const line = lines[i].trim();
-            if (!line) continue;
-
-            if (line.startsWith('===')) {
-              const nameMatch = line.match(/=== VEHICLE:\s*(.*?)\s*\((.*?)\)\s*-\s*(.*?)\s*===/);
-              let name = "Vehicle";
-              let model = "";
-              let type = "2wheeler";
-
-              if (nameMatch) {
-                name = nameMatch[1].trim();
-                model = nameMatch[2].trim();
-                type = nameMatch[3].trim();
-              }
-
-              let existingKey = Object.keys(storeData.vehicles).find(
-                k => storeData.vehicles[k].name === name
-              );
-
-              if (existingKey) {
-                currentVehicleKey = existingKey;
-              } else {
-                const newVRef = await db.ref(`garages/${activeGarage}/vehicles`).push();
-                await newVRef.set({ name, model, type, tankCapacity: 13.5, frontPsi: 32, rearPsi: 36 });
-                currentVehicleKey = newVRef.key;
-              }
-              continue;
-            }
-
-            if (line.includes('FUEL LOGS')) { currentSection = 'FUEL'; continue; }
-            if (line.includes('TYRE PRESSURE')) { currentSection = 'TYRE'; continue; }
-            if (line.includes('SERVICE LOGS')) { currentSection = 'SERVICE'; continue; }
-
-            const parts = line.split(',').map(p => p.replace(/"/g, '').trim());
-            if (parts[0].toLowerCase() === 'type' || parts[0].toLowerCase() === 'date') continue;
-
-            if (currentSection === 'FUEL' && currentVehicleKey) {
-              let date = parts[1];
-              let odo = parseFloat(parts[2]) || 0;
-              let liters = parseFloat(parts[3]) || 0;
-              let unitPrice = parseFloat(parts[4]) || 0;
-              let cost = parseFloat(parts[5]) || 0;
-              let remarks = parts[8] || '';
-
-              if (date && !isNaN(odo) && odo > 0) {
-                await db.ref(`garages/${activeGarage}/fuelLogs`).push().set({
-                  vehicleId: currentVehicleKey,
-                  date: date,
-                  odo: odo,
-                  liters: liters,
-                  unitPrice: unitPrice,
-                  cost: cost,
-                  remarks: remarks
-                });
-                importedCount++;
-              }
-            }
-          }
-          alert(`Success! ${importedCount} logs imported and saved directly to your cloud garage!`);
-        } catch (err) {
-          alert("Error importing file: " + err.message);
-        }
-      };
-      reader.readAsText(file);
     }
 
     function showTab(tabName) {
