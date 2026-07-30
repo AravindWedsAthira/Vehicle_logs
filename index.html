@@ -256,6 +256,20 @@
 
     <!-- DASHBOARD TAB -->
     <div id="dashSection">
+      <!-- OVERALL GARAGE EXPENSES CARD -->
+      <div class="card" style="background: var(--bg); border: 1px dashed var(--primary);">
+        <div class="flex-center">
+          <div>
+            <small style="color: var(--text-muted); font-size: 0.7rem; text-transform: uppercase; font-weight: 600;">Overall Fleet Expense (All Vehicles)</small>
+            <strong id="statOverallFleetCost" style="font-size: 1.2rem; color: var(--primary);">₹0</strong>
+          </div>
+          <button class="outline btn-sm" onclick="toggleOverallFleetDetails()">Toggle Details</button>
+        </div>
+        <div id="fleetDetailsContainer" class="hidden" style="margin-top: 10px; font-size: 0.85rem; border-top: 1px solid var(--border); padding-top: 8px;">
+          <!-- Dynamically populated fleet breakdown -->
+        </div>
+      </div>
+
       <div class="card">
         <div id="vehicleProfileDisplay" style="text-align:center; margin-bottom:10px;"></div>
         
@@ -265,7 +279,7 @@
 
         <div class="stat-grid">
           <div class="stat-box"><small>Avg Mileage</small><strong id="statAvgMileage">0 Km/L</strong></div>
-          <div class="stat-box"><small>Cost per Km</small><strong id="statCostPerKm">₹0/Km</strong></div>
+          <div class="stat-box"><small>Fuel Cost per Km</small><strong id="statCostPerKm">₹0/Km</strong></div>
           <div class="stat-box"><small>All-Time Total</small><strong id="statAllTimeTotal">₹0</strong></div>
           <div class="stat-box"><small>Est. Dist. to Refill</small><strong id="statDistToRefill">-- Km</strong></div>
         </div>
@@ -672,9 +686,35 @@
       renderDashboard();
     }
 
+    function toggleOverallFleetDetails() {
+      const container = document.getElementById('fleetDetailsContainer');
+      container.classList.toggle('hidden');
+    }
+
     function renderDashboard() {
+      const vehicles = garageData.vehicles || {};
+      let overallFleetCost = 0;
+      let fleetDetailsHtml = '';
+
+      // Calculate Overall Fleet Expenses across all vehicles
+      Object.keys(vehicles).forEach(vId => {
+        const v = vehicles[vId];
+        const vLogs = v.logs || {};
+        let vTotalCost = 0;
+        Object.values(vLogs).forEach(l => {
+          if (l.type === 'fuel' || l.type === 'service') {
+            vTotalCost += l.cost || 0;
+          }
+        });
+        overallFleetCost += vTotalCost;
+        fleetDetailsHtml += `<div class="flex-center" style="margin-bottom: 4px;"><span>${v.name} (${v.model})</span><b>₹${vTotalCost.toFixed(0)}</b></div>`;
+      });
+
+      document.getElementById('statOverallFleetCost').innerText = `₹${overallFleetCost.toFixed(0)}`;
+      document.getElementById('fleetDetailsContainer').innerHTML = fleetDetailsHtml || '<span style="color:var(--text-muted)">No vehicles found.</span>';
+
       const activeVehId = garageData.activeVehicle;
-      const vehicle = garageData.vehicles && garageData.vehicles[activeVehId];
+      const vehicle = vehicles[activeVehId];
       
       if (!vehicle) {
         document.getElementById('vehicleProfileDisplay').innerHTML = 'No vehicle selected';
@@ -690,6 +730,7 @@
       const sorted = Object.keys(logs).map(id => ({ id, ...logs[id] })).sort((a,b) => new Date(a.date) - new Date(b.date));
 
       let totalCostAllTime = 0;
+      let totalFuelCostAllTime = 0;
       let totalDistanceAllTime = 0;
       let totalFuelLitersAllTime = 0;
       let lastFullOdo = null;
@@ -700,6 +741,7 @@
       sorted.forEach(l => {
         if (l.type === 'fuel') {
           totalCostAllTime += l.cost || 0;
+          totalFuelCostAllTime += l.cost || 0;
           totalFuelLitersAllTime += l.liters || 0;
           if (lastFullOdo !== null && Number(l.odometer) > Number(lastFullOdo)) {
             const dist = Number(l.odometer) - Number(lastFullOdo);
@@ -733,7 +775,8 @@
       }
 
       const avgMileage = mileageCount > 0 ? (sumMileage / mileageCount).toFixed(1) : '0';
-      const costPerKm = totalDistanceAllTime > 0 ? (totalCostAllTime / totalDistanceAllTime).toFixed(2) : '0';
+      // Cost per Km now considers only fuel cost
+      const costPerKm = totalDistanceAllTime > 0 ? (totalFuelCostAllTime / totalDistanceAllTime).toFixed(2) : '0';
 
       document.getElementById('statAvgMileage').innerText = `${avgMileage} Km/L`;
       document.getElementById('statCostPerKm').innerText = `₹${costPerKm}/Km`;
@@ -901,7 +944,6 @@
 
     function saveReminder(e) {
       e.preventDefault();
-      // Placeholder implementation for reminders
       alert("Reminder saved successfully!");
       e.target.reset();
     }
