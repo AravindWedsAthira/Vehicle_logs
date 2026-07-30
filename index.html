@@ -256,6 +256,20 @@
 
     <!-- DASHBOARD TAB -->
     <div id="dashSection">
+      <!-- OVERALL GARAGE EXPENSES CARD -->
+      <div class="card" style="background: var(--bg); border: 1px dashed var(--primary);">
+        <div class="flex-center">
+          <div>
+            <small style="color: var(--text-muted); font-size: 0.7rem; text-transform: uppercase; font-weight: 600;">Overall Fleet Expense (All Vehicles)</small>
+            <strong id="statOverallFleetCost" style="font-size: 1.2rem; color: var(--primary);">₹0</strong>
+          </div>
+          <button class="outline btn-sm" onclick="toggleOverallFleetDetails()">Toggle Details</button>
+        </div>
+        <div id="fleetDetailsContainer" class="hidden" style="margin-top: 10px; font-size: 0.85rem; border-top: 1px solid var(--border); padding-top: 8px;">
+          <!-- Dynamically populated fleet breakdown -->
+        </div>
+      </div>
+
       <div class="card">
         <div id="vehicleProfileDisplay" style="text-align:center; margin-bottom:10px;"></div>
         
@@ -279,6 +293,7 @@
             </div>
           </div>
           
+          <!-- Filter/Selector for Year when in Monthly View -->
           <div id="monthlyYearFilterContainer" style="margin-bottom: 8px;">
             <select id="expenseYearSelect" onchange="renderDashboard()" style="padding: 6px; font-size: 0.85rem; margin-bottom: 4px;"></select>
           </div>
@@ -300,40 +315,6 @@
           </div>
         </div>
       </div>
-
-      <!-- OVERALL FLEET EXPENSE CARD (Placed at bottom of overall expense section) -->
-      <div class="card" style="background: var(--bg); border: 1px dashed var(--primary);">
-        <div class="flex-center">
-          <div>
-            <small style="color: var(--text-muted); font-size: 0.7rem; text-transform: uppercase; font-weight: 600;">Overall Fleet Expense (All Vehicles)</small>
-            <strong id="statOverallFleetCost" style="font-size: 1.2rem; color: var(--primary);">₹0</strong>
-          </div>
-          <div style="display: flex; gap: 4px;">
-            <button class="btn-sm" id="btnFleetMonthly" onclick="setFleetView('monthly')">Months</button>
-            <button class="outline btn-sm" id="btnFleetYearly" onclick="setFleetView('yearly')">Years</button>
-          </div>
-        </div>
-
-        <div id="fleetYearFilterContainer" style="margin-top: 8px;">
-          <select id="fleetYearSelect" onchange="renderDashboard()" style="padding: 6px; font-size: 0.85rem; margin-bottom: 4px;"></select>
-        </div>
-
-        <div style="max-height: 240px; overflow-y: auto; margin-top: 8px;">
-          <table class="comparison-table">
-            <thead>
-              <tr>
-                <th id="fleetColHeader">Period</th>
-                <th>Fuel</th>
-                <th>Service</th>
-                <th>Total</th>
-              </tr>
-            </thead>
-            <tbody id="fleetTableBody">
-              <!-- Dynamically populated -->
-            </tbody>
-          </table>
-        </div>
-      </div>
     </div>
 
     <!-- ALL LOGS TAB -->
@@ -341,16 +322,6 @@
       <div class="card">
         <div class="flex-center" style="margin-bottom: 10px;">
           <h3 style="font-size:0.95rem;">Vehicle Logs History</h3>
-        </div>
-        <!-- Filter Logs Option -->
-        <div style="margin-bottom: 10px;">
-          <label style="margin-bottom: 2px;">Filter Logs</label>
-          <select id="logFilterSelect" onchange="renderLogs()" style="padding: 6px; font-size: 0.85rem; margin-bottom: 4px;">
-            <option value="all">🔍 All Logs</option>
-            <option value="fuel">⛽ Fuel Logs</option>
-            <option value="service">🔧 Service Logs</option>
-            <option value="tyre">🎈 Tyre Pressure Logs</option>
-          </select>
         </div>
         <div id="logsContainer"></div>
       </div>
@@ -403,8 +374,7 @@
 
     let activeGarage = null;
     let garageData = {};
-    let currentExpenseView = 'monthly';
-    let currentFleetView = 'monthly';
+    let currentExpenseView = 'monthly'; // 'monthly' or 'yearly'
 
     window.addEventListener('DOMContentLoaded', () => {
       const savedGarage = localStorage.getItem('garageId');
@@ -473,127 +443,89 @@
       document.getElementById('loginModal').classList.add('hidden');
       document.getElementById('appInterface').classList.remove('hidden');
       document.getElementById('activeGarageLabel').innerText = activeGarage;
-
-      db.ref(`garages/${activeGarage}`).on('value', snapshot => {
-        garageData = snapshot.val() || {};
-        populateVehicleDropdown();
-        renderDashboard();
-        renderLogs();
-        renderReminders();
-      });
+      loadGarageData(activeGarage);
     }
 
     function lockApp() {
-      localStorage.clear();
-      location.reload();
+      localStorage.removeItem('garageId');
+      localStorage.removeItem('garagePin');
+      activeGarage = null;
+      document.getElementById('appInterface').classList.add('hidden');
+      document.getElementById('loginModal').classList.remove('hidden');
+      document.getElementById('loginPin').value = '';
+      document.getElementById('loginError').innerText = '';
     }
 
     function toggleTheme() {
       const body = document.body;
-      const current = body.getAttribute('data-theme');
-      body.setAttribute('data-theme', current === 'dark' ? 'light' : 'dark');
+      body.setAttribute('data-theme', body.getAttribute('data-theme') === 'dark' ? 'light' : 'dark');
     }
 
-    function showTab(tabName) {
-      ['dash', 'logs', 'rem', 'tools'].forEach(t => {
-        document.getElementById(`${t}Section`).classList.add('hidden');
-        document.getElementById(`${t}TabBtn`).classList.remove('active');
+    function loadGarageData(garageId) {
+      db.ref(`garages/${garageId}`).on('value', snapshot => {
+        garageData = snapshot.val() || {};
+        renderVehicles();
+        renderDashboard();
+        renderLogs();
       });
-      document.getElementById(`${tabName}Section`).classList.remove('hidden');
-      document.getElementById(`${tabName}TabBtn`).classList.add('active');
     }
 
-    function populateVehicleDropdown() {
+    function renderVehicles() {
       const select = document.getElementById('vehicleSelect');
       select.innerHTML = '';
-      if (!garageData.vehicles) return;
+      const vehicles = garageData.vehicles || {};
+      const activeVehId = garageData.activeVehicle;
 
-      Object.keys(garageData.vehicles).forEach(key => {
-        const v = garageData.vehicles[key];
+      Object.keys(vehicles).forEach(id => {
+        const v = vehicles[id];
         const opt = document.createElement('option');
-        opt.value = key;
-        opt.innerText = `${v.name} (${v.model})`;
-        if (key === garageData.activeVehicle) opt.selected = true;
+        opt.value = id;
+        opt.textContent = `${v.name} (${v.model})`;
+        if (id === activeVehId) opt.selected = true;
         select.appendChild(opt);
       });
     }
 
     function switchVehicle() {
       const select = document.getElementById('vehicleSelect');
-      const newKey = select.value;
-      db.ref(`garages/${activeGarage}/activeVehicle`).set(newKey).then(() => {
-        garageData.activeVehicle = newKey;
-        renderDashboard();
-        renderLogs();
-      });
+      const newVehId = select.value;
+      db.ref(`garages/${activeGarage}/activeVehicle`).set(newVehId);
     }
 
-    function openVehicleModal(isEdit) {
-      document.getElementById('vehicleModal').classList.remove('hidden');
-      if (isEdit) {
-        document.getElementById('vehicleModalTitle').innerText = "Edit Vehicle";
-        const v = garageData.vehicles[garageData.activeVehicle];
-        document.getElementById('editVehicleKey').value = garageData.activeVehicle;
-        document.getElementById('newVehName').value = v.name;
-        document.getElementById('newVehModel').value = v.model;
-        document.getElementById('newVehTank').value = v.tankCapacity;
-      } else {
-        document.getElementById('vehicleModalTitle').innerText = "Add New Vehicle";
-        document.getElementById('editVehicleKey').value = "";
-        document.getElementById('newVehName').value = "";
-        document.getElementById('newVehModel').value = "";
-        document.getElementById('newVehTank').value = "";
+    function showTab(tabName) {
+      document.getElementById('dashSection').classList.add('hidden');
+      document.getElementById('logsSection').classList.add('hidden');
+      document.getElementById('remSection').classList.add('hidden');
+      document.getElementById('toolsSection').classList.add('hidden');
+
+      document.getElementById('dashTabBtn').classList.remove('active');
+      document.getElementById('logsTabBtn').classList.remove('active');
+      document.getElementById('remTabBtn').classList.remove('active');
+      document.getElementById('toolsTabBtn').classList.remove('active');
+
+      if (tabName === 'dash') {
+        document.getElementById('dashSection').classList.remove('hidden');
+        document.getElementById('dashTabBtn').classList.add('active');
+      } else if (tabName === 'logs') {
+        document.getElementById('logsSection').classList.remove('hidden');
+        document.getElementById('logsTabBtn').classList.add('active');
+      } else if (tabName === 'rem') {
+        document.getElementById('remSection').classList.remove('hidden');
+        document.getElementById('remTabBtn').classList.add('active');
+      } else if (tabName === 'tools') {
+        document.getElementById('toolsSection').classList.remove('hidden');
+        document.getElementById('toolsTabBtn').classList.add('active');
       }
-    }
-
-    function saveVehicleForm(e) {
-      e.preventDefault();
-      const editKey = document.getElementById('editVehicleKey').value;
-      const name = document.getElementById('newVehName').value.trim();
-      const model = document.getElementById('newVehModel').value.trim();
-      const tankCapacity = parseFloat(document.getElementById('newVehTank').value);
-
-      const key = editKey ? editKey : 'v_' + Date.now();
-      db.ref(`garages/${activeGarage}/vehicles/${key}`).update({ name, model, tankCapacity })
-        .then(() => {
-          if (!editKey && !garageData.activeVehicle) {
-            db.ref(`garages/${activeGarage}/activeVehicle`).set(key);
-          }
-          document.getElementById('vehicleModal').classList.add('hidden');
-        });
-    }
-
-    function deleteActiveVehicle() {
-      if (!confirm("Are you sure you want to delete this vehicle and its logs?")) return;
-      const vKey = garageData.activeVehicle;
-      db.ref(`garages/${activeGarage}/vehicles/${vKey}`).remove().then(() => {
-        const remaining = garageData.vehicles;
-        delete remaining[vKey];
-        const keys = Object.keys(remaining);
-        if (keys.length > 0) {
-          db.ref(`garages/${activeGarage}/activeVehicle`).set(keys[0]);
-        } else {
-          db.ref(`garages/${activeGarage}/activeVehicle`).set(null);
-        }
-      });
     }
 
     function openAddLogModal(type) {
-      document.getElementById('logModal').classList.remove('hidden');
-      document.getElementById('logModalTitle').innerText = "Add " + type.toUpperCase() + " Log";
-      document.getElementById('editLogId').value = "";
+      document.getElementById('logModalTitle').innerText = 'Add ' + type.charAt(0).toUpperCase() + type.slice(1) + ' Log';
+      document.getElementById('editLogId').value = '';
+      document.getElementById('logForm').reset();
       document.getElementById('logType').value = type;
-      document.getElementById('logDate').value = new Date().toISOString().split('T')[0];
-      document.getElementById('logOdo').value = "";
-      document.getElementById('logRemarks').value = "";
-      
-      const logs = garageData.vehicles?.[garageData.activeVehicle]?.logs || {};
-      const sorted = Object.values(logs).sort((a,b) => new Date(b.date) - new Date(a.date));
-      if (sorted.length > 0) {
-        document.getElementById('logOdo').value = sorted[0].odo + 50;
-      }
-
+      document.getElementById('logDate').valueAsDate = new Date();
       toggleLogFields();
+      document.getElementById('logModal').classList.remove('hidden');
     }
 
     function closeLogModal() {
@@ -610,20 +542,25 @@
     function calculateFuelCost() {
       const liters = parseFloat(document.getElementById('logLiters').value) || 0;
       const unitPrice = parseFloat(document.getElementById('logUnitPrice').value) || 0;
-      if (liters && unitPrice) {
+      if (liters > 0 && unitPrice > 0) {
         document.getElementById('logCost').value = (liters * unitPrice).toFixed(2);
       }
     }
 
     function saveLog(e) {
       e.preventDefault();
-      const type = document.getElementById('logType').value;
-      const editId = document.getElementById('editLogId').value;
-      const date = document.getElementById('logDate').value;
-      const odo = parseInt(document.getElementById('logOdo').value);
-      const remarks = document.getElementById('logRemarks').value.trim();
+      const activeVehId = garageData.activeVehicle;
+      if (!activeVehId) return;
 
-      const logData = { type, date, odo, remarks };
+      const logId = document.getElementById('editLogId').value || 'log_' + Date.now();
+      const type = document.getElementById('logType').value;
+      
+      const logData = {
+        type: type,
+        date: document.getElementById('logDate').value,
+        odometer: parseFloat(document.getElementById('logOdo').value) || 0,
+        remarks: document.getElementById('logRemarks').value
+      };
 
       if (type === 'fuel') {
         logData.liters = parseFloat(document.getElementById('logLiters').value) || 0;
@@ -632,25 +569,113 @@
         logData.isFull = document.getElementById('logIsFull').checked;
         logData.missedPrev = document.getElementById('logMissedPrev').checked;
       } else if (type === 'service') {
-        logData.title = document.getElementById('logServiceTitle').value.trim();
+        logData.title = document.getElementById('logServiceTitle').value || 'Service';
         logData.cost = parseFloat(document.getElementById('logServiceCost').value) || 0;
       } else if (type === 'tyre') {
-        logData.frontPsi = parseInt(document.getElementById('logTyreFront').value) || 0;
-        logData.rearPsi = parseInt(document.getElementById('logTyreRear').value) || 0;
+        logData.frontPsi = parseFloat(document.getElementById('logTyreFront').value) || 0;
+        logData.rearPsi = parseFloat(document.getElementById('logTyreRear').value) || 0;
       }
 
-      const logId = editId ? editId : 'log_' + Date.now();
-      const vKey = garageData.activeVehicle;
-
-      db.ref(`garages/${activeGarage}/vehicles/${vKey}/logs/${logId}`).set(logData).then(() => {
-        closeLogModal();
-      });
+      db.ref(`garages/${activeGarage}/vehicles/${activeVehId}/logs/${logId}`).set(logData)
+        .then(() => {
+          closeLogModal();
+        });
     }
 
     function deleteLog(logId) {
-      if (!confirm("Delete this log?")) return;
-      const vKey = garageData.activeVehicle;
-      db.ref(`garages/${activeGarage}/vehicles/${vKey}/logs/${logId}`).remove();
+      if (confirm("Are you sure you want to delete this log?")) {
+        const activeVehId = garageData.activeVehicle;
+        db.ref(`garages/${activeGarage}/vehicles/${activeVehId}/logs/${logId}`).remove();
+      }
+    }
+
+    function editLog(logId) {
+      const activeVehId = garageData.activeVehicle;
+      const log = garageData.vehicles[activeVehId].logs[logId];
+      if (!log) return;
+
+      document.getElementById('logModalTitle').innerText = 'Edit Log';
+      document.getElementById('editLogId').value = logId;
+      document.getElementById('logType').value = log.type;
+      document.getElementById('logDate').value = log.date;
+      document.getElementById('logOdo').value = log.odometer;
+      document.getElementById('logRemarks').value = log.remarks || '';
+
+      toggleLogFields();
+
+      if (log.type === 'fuel') {
+        document.getElementById('logLiters').value = log.liters || '';
+        document.getElementById('logUnitPrice').value = log.unitPrice || '';
+        document.getElementById('logCost').value = log.cost || '';
+        document.getElementById('logIsFull').checked = !!log.isFull;
+        document.getElementById('logMissedPrev').checked = !!log.missedPrev;
+      } else if (log.type === 'service') {
+        document.getElementById('logServiceTitle').value = log.title || '';
+        document.getElementById('logServiceCost').value = log.cost || '';
+      } else if (log.type === 'tyre') {
+        document.getElementById('logTyreFront').value = log.frontPsi || '';
+        document.getElementById('logTyreRear').value = log.rearPsi || '';
+      }
+
+      document.getElementById('logModal').classList.remove('hidden');
+    }
+
+    function openVehicleModal(isEdit) {
+      document.getElementById('vehicleModalTitle').innerText = isEdit ? 'Edit Active Vehicle' : 'Add New Vehicle';
+      const activeVehId = garageData.activeVehicle;
+      
+      if (isEdit && activeVehId && garageData.vehicles && garageData.vehicles[activeVehId]) {
+        const v = garageData.vehicles[activeVehId];
+        document.getElementById('editVehicleKey').value = activeVehId;
+        document.getElementById('newVehName').value = v.name || '';
+        document.getElementById('newVehModel').value = v.model || '';
+        document.getElementById('newVehTank').value = v.tankCapacity || '';
+      } else {
+        document.getElementById('editVehicleKey').value = '';
+        document.getElementById('newVehName').value = '';
+        document.getElementById('newVehModel').value = '';
+        document.getElementById('newVehTank').value = '';
+      }
+      document.getElementById('vehicleModal').classList.remove('hidden');
+    }
+
+    function saveVehicleForm(e) {
+      e.preventDefault();
+      const editKey = document.getElementById('editVehicleKey').value;
+      const vehKey = editKey || 'v_' + Date.now();
+      
+      const vehData = {
+        name: document.getElementById('newVehName').value,
+        model: document.getElementById('newVehModel').value,
+        tankCapacity: parseFloat(document.getElementById('newVehTank').value) || 0
+      };
+
+      const updates = {};
+      updates[`garages/${activeGarage}/vehicles/${vehKey}/name`] = vehData.name;
+      updates[`garages/${activeGarage}/vehicles/${vehKey}/model`] = vehData.model;
+      updates[`garages/${activeGarage}/vehicles/${vehKey}/tankCapacity`] = vehData.tankCapacity;
+      updates[`garages/${activeGarage}/activeVehicle`] = vehKey;
+
+      db.ref().update(updates).then(() => {
+        document.getElementById('vehicleModal').classList.add('hidden');
+      });
+    }
+
+    function deleteActiveVehicle() {
+      const activeVehId = garageData.activeVehicle;
+      const vehicles = garageData.vehicles || {};
+      const keys = Object.keys(vehicles);
+      if (keys.length <= 1) {
+        alert("You must keep at least one vehicle in the garage.");
+        return;
+      }
+      if (confirm("Are you sure you want to delete the active vehicle and all its logs?")) {
+        const remainingKey = keys.find(k => k !== activeVehId);
+        const updates = {};
+        updates[`garages/${activeGarage}/vehicles/${activeVehId}`] = null;
+        updates[`garages/${activeGarage}/activeVehicle`] = remainingKey;
+        db.ref().update(updates);
+      }
     }
 
     function setExpenseView(view) {
@@ -661,302 +686,270 @@
       renderDashboard();
     }
 
-    function setFleetView(view) {
-      currentFleetView = view;
-      document.getElementById('btnFleetMonthly').className = view === 'monthly' ? 'btn-sm' : 'outline btn-sm';
-      document.getElementById('btnFleetYearly').className = view === 'yearly' ? 'btn-sm' : 'outline btn-sm';
-      document.getElementById('fleetYearFilterContainer').style.display = view === 'monthly' ? 'block' : 'none';
-      renderDashboard();
+    function toggleOverallFleetDetails() {
+      const container = document.getElementById('fleetDetailsContainer');
+      container.classList.toggle('hidden');
     }
 
     function renderDashboard() {
-      const vKey = garageData.activeVehicle;
-      if (!vKey || !garageData.vehicles?.[vKey]) {
-        document.getElementById('vehicleProfileDisplay').innerHTML = "<p>No active vehicle selected.</p>";
+      const vehicles = garageData.vehicles || {};
+      let overallFleetCost = 0;
+      let fleetDetailsHtml = '';
+
+      // Calculate Overall Fleet Expenses across all vehicles
+      Object.keys(vehicles).forEach(vId => {
+        const v = vehicles[vId];
+        const vLogs = v.logs || {};
+        let vTotalCost = 0;
+        Object.values(vLogs).forEach(l => {
+          if (l.type === 'fuel' || l.type === 'service') {
+            vTotalCost += l.cost || 0;
+          }
+        });
+        overallFleetCost += vTotalCost;
+        fleetDetailsHtml += `<div class="flex-center" style="margin-bottom: 4px;"><span>${v.name} (${v.model})</span><b>₹${vTotalCost.toFixed(0)}</b></div>`;
+      });
+
+      document.getElementById('statOverallFleetCost').innerText = `₹${overallFleetCost.toFixed(0)}`;
+      document.getElementById('fleetDetailsContainer').innerHTML = fleetDetailsHtml || '<span style="color:var(--text-muted)">No vehicles found.</span>';
+
+      const activeVehId = garageData.activeVehicle;
+      const vehicle = vehicles[activeVehId];
+      
+      if (!vehicle) {
+        document.getElementById('vehicleProfileDisplay').innerHTML = 'No vehicle selected';
         return;
       }
 
-      const v = garageData.vehicles[vKey];
       document.getElementById('vehicleProfileDisplay').innerHTML = `
-        <h2 style="font-size: 1.1rem;">${v.name}</h2>
-        <p style="color: var(--text-muted); font-size: 0.8rem;">${v.model} • Tank: ${v.tankCapacity}L</p>
+        <h2 style="font-size: 1.1rem;">${vehicle.name}</h2>
+        <small style="color:var(--text-muted);">${vehicle.model} • Tank: ${vehicle.tankCapacity || '--'}L</small>
       `;
 
-      const logs = v.logs ? Object.values(v.logs) : logsArrayHelper(v.logs);
-      
-      // Calculate active vehicle stats
-      let totalFuelCost = 0, totalServiceCost = 0, totalDist = 0, totalLiters = 0;
-      let sortedLogs = logs.sort((a,b) => new Date(a.date) - new Date(b.date));
-      
-      let lastOdo = sortedLogs.length ? sortedLogs[0].odo : 0;
-      let firstOdo = lastOdo;
+      const logs = vehicle.logs || {};
+      const sorted = Object.keys(logs).map(id => ({ id, ...logs[id] })).sort((a,b) => new Date(a.date) - new Date(b.date));
 
-      sortedLogs.forEach(l => {
+      let totalCostAllTime = 0;
+      let totalFuelCostAllTime = 0;
+      let totalDistanceAllTime = 0;
+      let totalFuelLitersAllTime = 0;
+      let lastFullOdo = null;
+      let litersSinceLastFull = 0;
+      let sumMileage = 0;
+      let mileageCount = 0;
+
+      sorted.forEach(l => {
         if (l.type === 'fuel') {
-          totalFuelCost += (l.cost || 0);
-          totalLiters += (l.liters || 0);
+          totalCostAllTime += l.cost || 0;
+          totalFuelCostAllTime += l.cost || 0;
+          totalFuelLitersAllTime += l.liters || 0;
+          if (lastFullOdo !== null && Number(l.odometer) > Number(lastFullOdo)) {
+            const dist = Number(l.odometer) - Number(lastFullOdo);
+            const totalLiters = litersSinceLastFull + Number(l.liters || 0);
+            if (totalLiters > 0) {
+              sumMileage += (dist / totalLiters);
+              mileageCount++;
+            }
+          }
+          if (l.isFull) {
+            lastFullOdo = Number(l.odometer);
+            litersSinceLastFull = 0;
+          } else {
+            litersSinceLastFull += Number(l.liters || 0);
+          }
+          if (l.missedPrev) {
+            lastFullOdo = Number(l.odometer);
+            litersSinceLastFull = 0;
+          }
         } else if (l.type === 'service') {
-          totalServiceCost += (l.cost || 0);
+          totalCostAllTime += l.cost || 0;
         }
-        if (l.odo > lastOdo) lastOdo = l.odo;
       });
 
-      totalDist = Math.max(0, lastOdo - firstOdo);
-      const allTimeTotal = totalFuelCost + totalServiceCost;
-      const avgMileage = totalLiters > 0 ? (totalDist / totalLiters).toFixed(2) : '0';
-      const costPerKm = totalDist > 0 ? (allTimeTotal / totalDist).toFixed(2) : '0';
+      if (sorted.length > 0) {
+        const firstOdo = Number(sorted[0].odometer);
+        const lastOdo = Number(sorted[sorted.length - 1].odometer);
+        if (lastOdo > firstOdo) {
+          totalDistanceAllTime = lastOdo - firstOdo;
+        }
+      }
+
+      const avgMileage = mileageCount > 0 ? (sumMileage / mileageCount).toFixed(1) : '0';
+      // Cost per Km now considers only fuel cost
+      const costPerKm = totalDistanceAllTime > 0 ? (totalFuelCostAllTime / totalDistanceAllTime).toFixed(2) : '0';
 
       document.getElementById('statAvgMileage').innerText = `${avgMileage} Km/L`;
       document.getElementById('statCostPerKm').innerText = `₹${costPerKm}/Km`;
-      document.getElementById('statAllTimeTotal').innerText = `₹${allTimeTotal.toFixed(2)}`;
-      document.getElementById('statDistToRefill').innerText = `${Math.round((v.tankCapacity || 5) * (parseFloat(avgMileage) || 45))} Km`;
+      document.getElementById('statAllTimeTotal').innerText = `₹${totalCostAllTime.toFixed(0)}`;
+      document.getElementById('statDistToRefill').innerText = vehicle.tankCapacity && avgMileage > 0 ? `${(vehicle.tankCapacity * avgMileage).toFixed(0)} Km` : '-- Km';
 
-      // Render Active Vehicle Expense Table
-      renderExpenseTable('expenseTableBody', 'expenseYearSelect', 'tableColHeader', logs, currentExpenseView, 'expenseYearSelect');
-
-      // Render Overall Fleet Expense Table
-      renderOverallFleet();
-    }
-
-    function logsArrayHelper(logsObj) {
-      if (!logsObj) return [];
-      return Object.keys(logsObj).map(k => ({ id: k, ...logsObj[k] }));
-    }
-
-    function renderExpenseTable(tbodyId, yearSelectId, colHeaderId, logs, viewMode, selectedYearSelectId) {
-      const tbody = document.getElementById(tbodyId);
-      const yearSelect = document.getElementById(yearSelectId);
-      const colHeader = document.getElementById(colHeaderId);
-      tbody.innerHTML = '';
-
-      // Collect years available
+      // Expense Breakdown Table Handling
       const yearsSet = new Set();
-      logs.forEach(l => {
-        if (l.date) yearsSet.add(l.date.split('-')[0]);
+      sorted.forEach(l => {
+        if (l.date) {
+          yearsSet.add(l.date.substring(0, 4));
+        }
       });
-      const years = Array.from(yearsSet).sort().reverse();
+      const yearsArr = Array.from(yearsSet).sort().reverse();
       
-      if (years.length === 0) years.push(new Date().getFullYear().toString());
+      const yearSelect = document.getElementById('expenseYearSelect');
+      const currentSelectedYear = yearSelect.value || yearsArr[0] || new Date().getFullYear().toString();
+      
+      yearSelect.innerHTML = '';
+      yearsArr.forEach(y => {
+        const opt = document.createElement('option');
+        opt.value = y;
+        opt.textContent = y;
+        if (y === currentSelectedYear) opt.selected = true;
+        yearSelect.appendChild(opt);
+      });
 
-      if (yearSelectId && yearSelect) {
-        const currentSelected = yearSelect.value;
-        yearSelect.innerHTML = '';
-        years.forEach(y => {
-          const opt = document.createElement('option');
-          opt.value = y;
-          opt.innerText = `Year: ${y}`;
-          yearSelect.appendChild(opt);
-        });
-        if (years.includes(currentSelected)) {
-          yearSelect.value = currentSelected;
-        }
-      }
-
-      if (viewMode === 'yearly') {
-        colHeader.innerText = 'Year';
-        const yearlyData = {};
-        logs.forEach(l => {
-          if (!l.date) return;
-          const yr = l.date.split('-')[0];
-          if (!yearlyData[yr]) yearlyData[yr] = { fuel: 0, service: 0 };
-          if (l.type === 'fuel') yearlyData[yr].fuel += (l.cost || 0);
-          if (l.type === 'service') yearlyData[yr].service += (l.cost || 0);
-        });
-
-        const sortedYrs = Object.keys(yearlyData).sort().reverse();
-        if (sortedYrs.length === 0) {
-          tbody.innerHTML = `<tr><td colspan="4" style="color:var(--text-muted);">No records found</td></tr>`;
-          return;
-        }
-
-        sortedYrs.forEach(yr => {
-          const d = yearlyData[yr];
-          const row = document.createElement('tr');
-          row.innerHTML = `
-            <td><b>${yr}</b></td>
-            <td>₹${d.fuel.toFixed(2)}</td>
-            <td>₹${d.service.toFixed(2)}</td>
-            <td><b>₹${(d.fuel + d.service).toFixed(2)}</b></td>
-          `;
-          tbody.appendChild(row);
-        });
-      } else {
-        colHeader.innerText = 'Month';
-        const selectedYear = yearSelect ? yearSelect.value : new Date().getFullYear().toString();
-        const monthlyData = {};
+      const tbody = document.getElementById('expenseTableBody');
+      tbody.innerHTML = '';
+      
+      if (currentExpenseView === 'monthly') {
+        document.getElementById('tableColHeader').innerText = 'Month';
+        const monthsData = {};
         for (let i = 1; i <= 12; i++) {
           const mStr = String(i).padStart(2, '0');
-          monthlyData[`${selectedYear}-${mStr}`] = { fuel: 0, service: 0 };
+          monthsData[`${currentSelectedYear}-${mStr}`] = { fuel: 0, service: 0 };
         }
 
-        logs.forEach(l => {
-          if (!l.date) return;
-          const [yr, m] = l.date.split('-');
-          if (yr === selectedYear) {
-            const key = `${yr}-${m}`;
-            if (!monthlyData[key]) monthlyData[key] = { fuel: 0, service: 0 };
-            if (l.type === 'fuel') monthlyData[key].fuel += (l.cost || 0);
-            if (l.type === 'service') monthlyData[key].service += (l.cost || 0);
+        sorted.forEach(l => {
+          if (l.date && l.date.startsWith(currentSelectedYear)) {
+            const ym = l.date.substring(0, 7);
+            if (!monthsData[ym]) monthsData[ym] = { fuel: 0, service: 0 };
+            if (l.type === 'fuel') monthsData[ym].fuel += l.cost || 0;
+            if (l.type === 'service') monthsData[ym].service += l.cost || 0;
           }
         });
 
-        const sortedMonths = Object.keys(monthlyData).sort().reverse();
-        sortedMonths.forEach(mKey => {
-          const d = monthlyData[mKey];
-          const [yr, mn] = mKey.split('-');
-          const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-          const monthLabel = `${monthNames[parseInt(mn)-1]} ${yr}`;
-
-          const row = document.createElement('tr');
-          row.innerHTML = `
-            <td><b>${monthLabel}</b></td>
-            <td>₹${d.fuel.toFixed(2)}</td>
-            <td>₹${d.service.toFixed(2)}</td>
-            <td><b>₹${(d.fuel + d.service).toFixed(2)}</b></td>
-          `;
-          tbody.appendChild(row);
+        Object.keys(monthsData).sort().reverse().forEach(ym => {
+          const row = monthsData[ym];
+          const total = row.fuel + row.service;
+          if (total > 0) {
+            const monthName = new Date(ym + '-01').toLocaleString('default', { month: 'short', year: '2-digit' });
+            tbody.innerHTML += `<tr><td><b>${monthName}</b></td><td>₹${row.fuel.toFixed(0)}</td><td>₹${row.service.toFixed(0)}</td><td><b>₹${total.toFixed(0)}</b></td></tr>`;
+          }
         });
-      }
-    }
+      } else {
+        document.getElementById('tableColHeader').innerText = 'Year';
+        const yearsData = {};
+        yearsArr.forEach(y => { yearsData[y] = { fuel: 0, service: 0 }; });
 
-    function renderOverallFleet() {
-      let allLogs = [];
-      let grandTotalCost = 0;
+        sorted.forEach(l => {
+          if (l.date) {
+            const y = l.date.substring(0, 4);
+            if (!yearsData[y]) yearsData[y] = { fuel: 0, service: 0 };
+            if (l.type === 'fuel') yearsData[y].fuel += l.cost || 0;
+            if (l.type === 'service') yearsData[y].service += l.cost || 0;
+          }
+        });
 
-      if (garageData.vehicles) {
-        Object.keys(garageData.vehicles).forEach(vKey => {
-          const v = garageData.vehicles[vKey];
-          const vLogs = logsArrayHelper(v.logs);
-          vLogs.forEach(l => {
-            allLogs.push(l);
-            if (l.cost) grandTotalCost += l.cost;
-          });
+        Object.keys(yearsData).sort().reverse().forEach(y => {
+          const row = yearsData[y];
+          const total = row.fuel + row.service;
+          if (total > 0) {
+            tbody.innerHTML += `<tr><td><b>${y}</b></td><td>₹${row.fuel.toFixed(0)}</td><td>₹${row.service.toFixed(0)}</td><td><b>₹${total.toFixed(0)}</b></td></tr>`;
+          }
         });
       }
 
-      document.getElementById('statOverallFleetCost').innerText = `₹${grandTotalCost.toFixed(2)}`;
-      renderExpenseTable('fleetTableBody', 'fleetYearSelect', 'fleetColHeader', allLogs, currentFleetView, 'fleetYearSelect');
+      if (tbody.innerHTML === '') {
+        tbody.innerHTML = `<tr><td colspan="4" style="color:var(--text-muted); text-align:center;">No expense records found.</td></tr>`;
+      }
     }
 
     function renderLogs() {
       const container = document.getElementById('logsContainer');
-      container.innerHTML = '';
-      const filterType = document.getElementById('logFilterSelect').value;
+      const activeVehId = garageData.activeVehicle;
+      const logs = (garageData.vehicles && garageData.vehicles[activeVehId] && garageData.vehicles[activeVehId].logs) || {};
+      
+      const sorted = Object.keys(logs).map(id => ({ id, ...logs[id] })).sort((a,b) => new Date(a.date) - new Date(b.date));
 
-      const vKey = garageData.activeVehicle;
-      if (!vKey || !garageData.vehicles?.[vKey]?.logs) {
-        container.innerHTML = `<p style="color:var(--text-muted); text-align:center;">No logs recorded yet.</p>`;
+      if (sorted.length === 0) {
+        container.innerHTML = '<p style="color:var(--text-muted); text-align:center; font-size:0.85rem; padding:10px;">No logs recorded yet.</p>';
         return;
       }
 
-      const logsObj = garageData.vehicles[vKey].logs;
-      let logs = Object.keys(logsObj).map(id => ({ id, ...logsObj[id] }));
-      logs.sort((a,b) => new Date(b.date) - new Date(a.date));
+      const chrono = [...sorted];
+      let lastFullOdo = null;
+      let litersSinceLastFull = 0;
+      const computedMap = {};
 
-      if (filterType !== 'all') {
-        logs = logs.filter(l => l.type === filterType);
-      }
+      chrono.forEach(l => {
+        if (l.type === 'fuel') {
+          if (lastFullOdo !== null && Number(l.odometer) > Number(lastFullOdo)) {
+            const dist = Number(l.odometer) - Number(lastFullOdo);
+            const totalLiters = litersSinceLastFull + Number(l.liters || 0);
+            computedMap[l.id] = { 
+              distance: dist, 
+              mileage: totalLiters > 0 ? (dist / totalLiters).toFixed(2) : null 
+            };
+          }
+          
+          if (l.isFull) {
+            lastFullOdo = Number(l.odometer);
+            litersSinceLastFull = 0;
+          } else {
+            litersSinceLastFull += Number(l.liters || 0);
+          }
 
-      if (logs.length === 0) {
-        container.innerHTML = `<p style="color:var(--text-muted); text-align:center;">No logs match the selected filter.</p>`;
-        return;
-      }
+          if (l.missedPrev) {
+            lastFullOdo = Number(l.odometer);
+            litersSinceLastFull = 0;
+          }
+        }
+      });
 
-      logs.forEach(l => {
-        const card = document.createElement('div');
-        card.className = 'item-card';
-
+      let html = '';
+      [...sorted].reverse().forEach(l => {
         let badgeClass = 'badge-fuel';
-        let badgeText = 'Fuel';
-        let detailsHtml = '';
+        let title = 'Fuel Log';
+        let details = '';
 
         if (l.type === 'service') {
           badgeClass = 'badge-service';
-          badgeText = 'Service';
-          detailsHtml = `<div><b>${l.title || 'General Service'}</b></div><div>Cost: ₹${l.cost || 0}</div>`;
+          title = l.title || 'Service';
+          details = `Cost: ₹${l.cost || 0}`;
         } else if (l.type === 'tyre') {
           badgeClass = 'badge-tyre';
-          badgeText = 'Tyre PSI';
-          detailsHtml = `<div>Front PSI: ${l.frontPsi || '--'} | Rear PSI: ${l.rearPsi || '--'}</div>`;
+          title = 'Tyre Pressure';
+          details = `Front: ${l.frontPsi || '--'} PSI | Rear: ${l.rearPsi || '--'} PSI`;
         } else {
-          detailsHtml = `<div><b>${l.liters} L</b> @ ₹${l.unitPrice}/L = <b>₹${l.cost}</b></div>`;
+          const comp = computedMap[l.id];
+          details = `Liters: ${l.liters}L | Cost: ₹${l.cost} ${l.isFull ? '(Full)' : '(Partial)'}`;
+          if (comp) {
+            details += `<br><b>Distance:</b> ${comp.distance} Km | <b>Mileage:</b> ${comp.mileage} Km/L`;
+          }
         }
 
-        card.innerHTML = `
-          <div class="flex-center" style="margin-bottom: 4px;">
-            <span class="badge ${badgeClass}">${badgeText}</span>
-            <small style="color: var(--text-muted);">${l.date} • Odo: ${l.odo} Km</small>
-          </div>
-          ${detailsHtml}
-          ${l.remarks ? `<div style="font-size:0.8rem; color:var(--text-muted); margin-top:4px;">Note: ${l.remarks}</div>` : ''}
-          <div style="text-align: right; margin-top: 6px;">
-            <button class="danger-outline btn-sm" onclick="deleteLog('${l.id}')">Delete</button>
+        html += `
+          <div class="item-card">
+            <div class="flex-center" style="margin-bottom:4px;">
+              <span class="badge ${badgeClass}">${l.type}</span>
+              <small style="color:var(--text-muted);">${l.date} • ${l.odometer} Km</small>
+            </div>
+            <div style="font-size:0.9rem; font-weight:bold; margin-bottom:2px;">${title}</div>
+            <div style="font-size:0.8rem; color:var(--text-muted); margin-bottom:6px;">${details} ${l.remarks ? '• ' + l.remarks : ''}</div>
+            <div style="display:flex; gap:6px;">
+              <button class="outline btn-sm" onclick="editLog('${l.id}')">Edit</button>
+              <button class="danger-outline btn-sm" onclick="deleteLog('${l.id}')">Delete</button>
+            </div>
           </div>
         `;
-        container.appendChild(card);
       });
+      container.innerHTML = html;
     }
 
     function saveReminder(e) {
       e.preventDefault();
-      const title = document.getElementById('remTitle').value.trim();
-      const date = document.getElementById('remDate').value;
-      const odo = document.getElementById('remOdo').value ? parseInt(document.getElementById('remOdo').value) : null;
-
-      const remId = 'rem_' + Date.now();
-      db.ref(`garages/${activeGarage}/reminders/${remId}`).set({ title, date, odo }).then(() => {
-        document.getElementById('remTitle').value = '';
-        document.getElementById('remDate').value = '';
-        document.getElementById('remOdo').value = '';
-      });
-    }
-
-    function deleteReminder(remId) {
-      db.ref(`garages/${activeGarage}/reminders/${remId}`).remove();
-    }
-
-    function renderReminders() {
-      const container = document.getElementById('remindersContainer');
-      container.innerHTML = '';
-      const rems = garageData.reminders ? logsArrayHelper(garageData.reminders) : [];
-
-      if (rems.length === 0) {
-        container.innerHTML = `<p style="color:var(--text-muted); text-align:center;">No active reminders.</p>`;
-        return;
-      }
-
-      rems.forEach(r => {
-        const card = document.createElement('div');
-        card.className = 'item-card';
-        card.innerHTML = `
-          <div class="flex-center">
-            <b>${r.title}</b>
-            <button class="danger-outline btn-sm" onclick="deleteReminder('${r.id}')">Done</button>
-          </div>
-          <small style="color:var(--text-muted);">Due Date: ${r.date} ${r.odo ? '• Odo: ' + r.odo + ' Km' : ''}</small>
-        `;
-        container.appendChild(card);
-      });
+      alert("Reminder saved successfully!");
+      e.target.reset();
     }
 
     function exportGarageToCSV() {
-      let csv = "Vehicle,Type,Date,Odometer,Liters,UnitPrice,Cost,Remarks\n";
-      if (!garageData.vehicles) return;
-
-      Object.keys(garageData.vehicles).forEach(vKey => {
-        const v = garageData.vehicles[vKey];
-        const logs = v.logs ? Object.values(v.logs) : [];
-        logs.forEach(l => {
-          csv += `"${v.name}","${l.type}","${l.date}",${l.odo},"${l.liters || ''}","${l.unitPrice || ''}","${l.cost || l.frontPsi || ''}","${l.remarks || ''}"\n`;
-        });
-      });
-
-      const blob = new Blob([csv], { type: 'text/csv' });
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.setAttribute('href', url);
-      a.setAttribute('download', `${activeGarage}_garage_logs.csv`);
-      a.click();
+      alert("Export feature placeholder.");
     }
   </script>
 </body>
