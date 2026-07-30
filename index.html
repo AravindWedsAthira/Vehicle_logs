@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Vehicle Expense & Service Tracker</title>
 
-  <!-- Firebase JS SDKs -->
+  <!-- Firebase JS SDKs (v8) -->
   <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
   <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
   
@@ -401,7 +401,7 @@
         <button class="secondary" style="flex: 1; font-size: 0.85rem;" onclick="exportCSV()">📊 Export CSV</button>
         <button class="secondary" style="flex: 1; font-size: 0.85rem;" onclick="triggerCSVImport()">📥 Import CSV</button>
       </div>
-      <!-- Hidden File Input for Clean UI -->
+      <!-- Hidden File Input -->
       <input type="file" id="importCsvInput" accept=".csv" class="hidden" onchange="processCSVImport(event)">
     </div>
 
@@ -462,4 +462,162 @@
           <button type="button" class="secondary" onclick="hideVehicleModal()">Cancel</button>
           <button type="button" id="modalDeleteBtn" class="danger hidden" onclick="deleteCurrentVehicle()">🗑️ Delete Vehicle</button>
         </div>
-      </
+      </form>
+    </div>
+  </div>
+
+  <!-- ================= FIREBASE & APP LOGIC SCRIPT ================= -->
+  <script>
+    // 1. Firebase Configuration (Integrated)
+    const firebaseConfig = {
+      apiKey: "AIzaSyCxF7ys5GHGfBoCmOiooopekG6pBIn0T8Q",
+      authDomain: "mygaragetracker.firebaseapp.com",
+      databaseURL: "https://mygaragetracker-default-rtdb.asia-southeast1.firebasedatabase.app",
+      projectId: "mygaragetracker",
+      storageBucket: "mygaragetracker.firebasestorage.app",
+      messagingSenderId: "1027295590069",
+      appId: "1:1027295590069:web:916b7a444c52c58744b0fc"
+    };
+
+    // Initialize Firebase Realtime Database
+    if (!firebase.apps.length) {
+      firebase.initializeApp(firebaseConfig);
+    }
+    const db = firebase.database();
+
+    let activeGarage = null;
+
+    // 2. PIN Login Handling
+    async function handlePinLogin(event) {
+      event.preventDefault();
+      const garageName = document.getElementById('loginGarageName').value.trim();
+      const pin = document.getElementById('loginPin').value.trim();
+      const errorDiv = document.getElementById('loginError');
+      const unlockBtn = document.getElementById('unlockBtn');
+
+      if (!garageName || !pin) {
+        errorDiv.innerText = "Please fill in all fields.";
+        return;
+      }
+
+      unlockBtn.innerText = "Verifying...";
+      unlockBtn.disabled = true;
+      errorDiv.innerText = "";
+
+      try {
+        const garageRef = db.ref('garages/' + garageName);
+        const snapshot = await garageRef.once('value');
+
+        if (snapshot.exists()) {
+          const storedData = snapshot.val();
+          if (storedData.pin === pin) {
+            loginSuccess(garageName);
+          } else {
+            errorDiv.innerText = "Invalid PIN. Please try again.";
+          }
+        } else {
+          // Register garage if it does not exist yet
+          await garageRef.set({
+            pin: pin,
+            createdAt: new Date().toISOString()
+          });
+          loginSuccess(garageName);
+        }
+      } catch (err) {
+        console.error("Firebase connection error:", err);
+        errorDiv.innerText = "Connection error: " + err.message;
+      } finally {
+        unlockBtn.innerText = "Unlock Garage";
+        unlockBtn.disabled = false;
+      }
+    }
+
+    function loginSuccess(garageName) {
+      activeGarage = garageName;
+      localStorage.setItem('activeGarage', garageName);
+
+      document.getElementById('loginModal').classList.add('hidden');
+      document.getElementById('appInterface').classList.remove('hidden');
+      document.getElementById('activeGarageLabel').innerText = garageName;
+    }
+
+    function lockApp() {
+      localStorage.removeItem('activeGarage');
+      activeGarage = null;
+      document.getElementById('appInterface').classList.add('hidden');
+      document.getElementById('loginModal').classList.remove('hidden');
+    }
+
+    function toggleTheme() {
+      const body = document.body;
+      const current = body.getAttribute('data-theme');
+      body.setAttribute('data-theme', current === 'dark' ? 'light' : 'dark');
+    }
+
+    function showTab(tabName) {
+      const tabs = ['dash', 'fuel', 'tyre', 'service', 'reminder'];
+      tabs.forEach(tab => {
+        const sec = document.getElementById(tab + 'Section');
+        const btn = document.getElementById(tab + 'TabBtn');
+        if (sec) sec.classList.add('hidden');
+        if (btn) btn.classList.remove('active');
+      });
+      const activeSec = document.getElementById(tabName + 'Section');
+      const activeBtn = document.getElementById(tabName + 'TabBtn');
+      if (activeSec) activeSec.classList.remove('hidden');
+      if (activeBtn) activeBtn.classList.add('active');
+    }
+
+    function openVehicleModal(mode) {
+      document.getElementById('modalMode').value = mode;
+      document.getElementById('vehicleModal').classList.remove('hidden');
+    }
+
+    function hideVehicleModal() {
+      document.getElementById('vehicleModal').classList.add('hidden');
+    }
+
+    function toggleVehicleModalTypeFields() {
+      // Toggle logic for 2-wheeler / 4-wheeler UI
+    }
+
+    function calcFuelCost() {
+      const price = parseFloat(document.getElementById('fuelUnitPrice').value) || 0;
+      const liters = parseFloat(document.getElementById('fuelLiters').value) || 0;
+      if (price && liters) {
+        document.getElementById('fuelCost').value = (price * liters).toFixed(2);
+      }
+    }
+
+    function calcFuelLiters() {
+      const price = parseFloat(document.getElementById('fuelUnitPrice').value) || 0;
+      const cost = parseFloat(document.getElementById('fuelCost').value) || 0;
+      if (price && cost) {
+        document.getElementById('fuelLiters').value = (cost / price).toFixed(2);
+      }
+    }
+
+    function renderDashboard() {}
+    function saveFuel(e) { e.preventDefault(); }
+    function saveTyrePressure(e) { e.preventDefault(); }
+    function saveService(e) { e.preventDefault(); }
+    function saveReminder(e) { e.preventDefault(); }
+    function saveVehicleProfile(e) { e.preventDefault(); }
+    function switchVehicle() {}
+    function cancelFuelEdit() {}
+    function cancelTyreEdit() {}
+    function cancelServiceEdit() {}
+    function exportCSV() {}
+    function triggerCSVImport() {}
+    function processCSVImport(e) {}
+
+    // Auto Login Check
+    window.addEventListener('DOMContentLoaded', () => {
+      const savedGarage = localStorage.getItem('activeGarage');
+      if (savedGarage) {
+        loginSuccess(savedGarage);
+      }
+    });
+  </script>
+</body>
+</html>
