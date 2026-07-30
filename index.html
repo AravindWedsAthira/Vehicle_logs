@@ -73,6 +73,10 @@
     .stat-box small { color: var(--text-muted); display: block; font-size: 0.7rem; text-transform: uppercase; font-weight: 600; margin-bottom: 2px; }
     .stat-box strong { font-size: 1.05rem; color: var(--primary); }
     
+    .comparison-table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 0.85rem; }
+    .comparison-table th, .comparison-table td { border: 1px solid var(--border); padding: 8px; text-align: center; }
+    .comparison-table th { background: var(--bg); color: var(--text-muted); font-size: 0.75rem; text-transform: uppercase; }
+
     .modal-overlay { position: fixed; inset: 0; background: rgba(15, 23, 42, 0.85); backdrop-filter: blur(4px); z-index: 1000; display: flex; align-items: center; justify-content: center; padding: 16px; }
     .modal-card { background: var(--card); padding: 20px; border-radius: 16px; width: 100%; max-width: 440px; max-height: 90vh; overflow-y: auto; border: 1px solid var(--border); }
     
@@ -256,21 +260,44 @@
         <div id="vehicleProfileDisplay" style="text-align:center; margin-bottom:10px;"></div>
         
         <div class="flex-center" style="margin-bottom: 6px;">
-          <h3 style="font-size:0.95rem;">Performance & Expenses</h3>
-          <select id="statFilterPeriod" style="width:130px; margin:0; padding:4px 8px; font-size:0.75rem;" onchange="renderDashboard()">
-            <option value="all">All Time</option>
-            <option value="monthly">This Month</option>
-            <option value="yearly">This Year</option>
-          </select>
+          <h3 style="font-size:0.95rem;">General Stats</h3>
         </div>
 
         <div class="stat-grid">
-          <div class="stat-box"><small>Total Expense</small><strong id="statTotalSpent">₹0</strong></div>
-          <div class="stat-box"><small>Fuel Expense</small><strong id="statFuelSpent">₹0</strong></div>
-          <div class="stat-box"><small>Service Expense</small><strong id="statServiceSpent">₹0</strong></div>
           <div class="stat-box"><small>Avg Mileage</small><strong id="statAvgMileage">0 Km/L</strong></div>
           <div class="stat-box"><small>Cost per Km</small><strong id="statCostPerKm">₹0/Km</strong></div>
-          <div class="stat-box"><small>Est. Distance to Refill</small><strong id="statDistToRefill">-- Km</strong></div>
+          <div class="stat-box"><small>All-Time Total</small><strong id="statAllTimeTotal">₹0</strong></div>
+          <div class="stat-box"><small>Est. Dist. to Refill</small><strong id="statDistToRefill">-- Km</strong></div>
+        </div>
+
+        <div style="margin-top: 16px;">
+          <h3 style="font-size:0.95rem; margin-bottom:6px;">Monthly vs Yearly Expenses</h3>
+          <table class="comparison-table">
+            <thead>
+              <tr>
+                <th>Category</th>
+                <th>This Month</th>
+                <th>This Year</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td style="font-weight:bold; text-align:left;">⛽ Fuel</td>
+                <td id="compMonthFuel">₹0</td>
+                <td id="compYearFuel">₹0</td>
+              </tr>
+              <tr>
+                <td style="font-weight:bold; text-align:left;">🔧 Service</td>
+                <td id="compMonthService">₹0</td>
+                <td id="compYearService">₹0</td>
+              </tr>
+              <tr style="background: var(--bg); font-weight:bold;">
+                <td style="text-align:left;">Total Expense</td>
+                <td id="compMonthTotal" style="color:var(--primary);">₹0</td>
+                <td id="compYearTotal" style="color:var(--primary);">₹0</td>
+              </tr>
+            </tbody>
+          </table>
         </div>
       </div>
     </div>
@@ -333,14 +360,12 @@
     let activeGarage = null;
     let garageData = {};
 
-    // Check localStorage on startup for seamless login
     window.addEventListener('DOMContentLoaded', () => {
       const savedGarage = localStorage.getItem('garageId');
       const savedPin = localStorage.getItem('garagePin');
       if (savedGarage && savedPin) {
         document.getElementById('loginGarageName').value = savedGarage;
         document.getElementById('loginPin').value = savedPin;
-        // Auto-login attempt
         verifyAndLogin(savedGarage, savedPin, true);
       }
     });
@@ -360,7 +385,6 @@
         .then(snapshot => {
           const val = snapshot.val();
           if (!val) {
-            // If garage doesn't exist yet, create default
             const defaultData = {
               pin: pin,
               activeVehicle: "v_classic_350",
@@ -719,17 +743,17 @@
         <p style="font-size:0.8rem; color:var(--text-muted);">${vData.model || ''} • Tank: ${vData.tankCapacity || '--'}L</p>
       `;
 
-      const filterPeriod = document.getElementById('statFilterPeriod').value;
       const sorted = getSortedLogs();
       const now = new Date();
       const currentYear = now.getFullYear();
       const currentMonth = now.getMonth();
 
-      let totalSpent = 0;
-      let fuelSpent = 0;
-      let serviceSpent = 0;
+      let allTimeSpent = 0;
       let totalDist = 0;
       let totalLiters = 0;
+
+      let monthFuel = 0, monthService = 0;
+      let yearFuel = 0, yearService = 0;
 
       let lastFullOdo = null;
       let lastOdo = sorted.length > 0 ? sorted[0].odometer : 0;
@@ -739,17 +763,19 @@
         const cost = parseFloat(l.cost) || 0;
         if (l.type === 'fuel' || l.type === 'service') {
           const d = new Date(l.date);
-          let matchPeriod = true;
-          if (filterPeriod === 'monthly') {
-            matchPeriod = (d.getFullYear() === currentYear && d.getMonth() === currentMonth);
-          } else if (filterPeriod === 'yearly') {
-            matchPeriod = (d.getFullYear() === currentYear);
+          const isThisYear = d.getFullYear() === currentYear;
+          const isThisMonth = isThisYear && d.getMonth() === currentMonth;
+
+          allTimeSpent += cost;
+
+          if (isThisMonth) {
+            if (l.type === 'fuel') monthFuel += cost;
+            if (l.type === 'service') monthService += cost;
           }
 
-          if (matchPeriod) {
-            totalSpent += cost;
-            if (l.type === 'fuel') fuelSpent += cost;
-            if (l.type === 'service') serviceSpent += cost;
+          if (isThisYear) {
+            if (l.type === 'fuel') yearFuel += cost;
+            if (l.type === 'service') yearService += cost;
           }
         }
 
@@ -768,19 +794,26 @@
 
       const avgMileage = totalLiters > 0 && totalDist > 0 ? (totalDist / totalLiters).toFixed(2) : 0;
       const overallDist = Math.max(0, lastOdo - firstOdo);
-      const costPerKm = overallDist > 0 ? (totalSpent / overallDist).toFixed(2) : 0;
+      const costPerKm = overallDist > 0 ? (allTimeSpent / overallDist).toFixed(2) : 0;
 
       let distToRefill = '--';
       if (avgMileage > 0 && vData.tankCapacity) {
         distToRefill = (vData.tankCapacity * avgMileage).toFixed(0);
       }
 
-      document.getElementById('statTotalSpent').innerText = `₹${totalSpent.toFixed(2)}`;
-      document.getElementById('statFuelSpent').innerText = `₹${fuelSpent.toFixed(2)}`;
-      document.getElementById('statServiceSpent').innerText = `₹${serviceSpent.toFixed(2)}`;
+      // Update General Stats
       document.getElementById('statAvgMileage').innerText = `${avgMileage} Km/L`;
       document.getElementById('statCostPerKm').innerText = `₹${costPerKm}/Km`;
+      document.getElementById('statAllTimeTotal').innerText = `₹${allTimeSpent.toFixed(2)}`;
       document.getElementById('statDistToRefill').innerText = `${distToRefill} Km`;
+
+      // Update Comparison Table
+      document.getElementById('compMonthFuel').innerText = `₹${monthFuel.toFixed(2)}`;
+      document.getElementById('compYearFuel').innerText = `₹${yearFuel.toFixed(2)}`;
+      document.getElementById('compMonthService').innerText = `₹${monthService.toFixed(2)}`;
+      document.getElementById('compYearService').innerText = `₹${yearService.toFixed(2)}`;
+      document.getElementById('compMonthTotal').innerText = `₹${(monthFuel + monthService).toFixed(2)}`;
+      document.getElementById('compYearTotal').innerText = `₹${(yearFuel + yearService).toFixed(2)}`;
     }
 
     function saveReminder(e) {
