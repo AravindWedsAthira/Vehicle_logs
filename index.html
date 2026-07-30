@@ -198,7 +198,10 @@
       </div>
 
       <div class="card">
-        <h3>Fuel History</h3>
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+          <h3>Fuel History</h3>
+          <button class="danger btn-small" onclick="clearFuelLogs()">Clear Logs</button>
+        </div>
         <div id="fuelHistory"></div>
       </div>
     </div>
@@ -322,7 +325,6 @@
 
     async function handlePinLogin(event) {
       event.preventDefault();
-      // Standardize input to lowercase to resolve case sensitivity discrepancies
       const rawGarage = document.getElementById('loginGarageName').value.trim();
       const garageName = rawGarage.toLowerCase();
       const pin = document.getElementById('loginPin').value.trim();
@@ -476,22 +478,35 @@
     function renderFuelHistory() {
       const container = document.getElementById('fuelHistory');
       container.innerHTML = '';
-      const entries = Object.entries(storeData.fuelLogs || {}).filter(([k, v]) => v && v.vehicleId === activeVehicleKey);
+      const entries = Object.entries(storeData.fuelLogs || {})
+        .filter(([k, v]) => v && v.vehicleId === activeVehicleKey)
+        .sort((a, b) => new Date(b[1].date) - new Date(a[1].date));
 
       if (entries.length === 0) return container.innerHTML = '<p style="color:var(--text-muted);">No records found.</p>';
 
       entries.forEach(([key, log]) => {
+        if (!log.date && !log.odo && !log.cost) return; // Skip broken empty headers
         const item = document.createElement('div');
         item.className = 'log-item';
         item.innerHTML = `
           <div style="display:flex; justify-content:space-between;">
-            <strong>${log.date} - ${log.odo} Km</strong>
-            <strong style="color:var(--primary);">₹${log.cost}</strong>
+            <strong>${log.date || 'N/A'} - ${log.odo || 0} Km</strong>
+            <strong style="color:var(--primary);">₹${(parseFloat(log.cost)||0).toFixed(2)}</strong>
           </div>
-          <small style="color:var(--text-muted);">${log.liters} L @ ₹${log.unitPrice}/L</small>
+          <small style="color:var(--text-muted);">${log.liters || 0} L @ ₹${log.unitPrice || 0}/L</small>
         `;
         container.appendChild(item);
       });
+    }
+
+    async function clearFuelLogs() {
+      if (!confirm("Are you sure you want to clear current fuel logs?")) return;
+      const logs = storeData.fuelLogs || {};
+      for (let k in logs) {
+        if (logs[k] && logs[k].vehicleId === activeVehicleKey) {
+          await db.ref(`garages/${activeGarage}/fuelLogs/${k}`).remove();
+        }
+      }
     }
 
     async function saveTyrePressure(e) {
@@ -595,9 +610,9 @@
     function exportCSV() {
       if (!activeVehicleKey) return alert("Select or create a vehicle first.");
       const fuels = Object.values(storeData.fuelLogs || {}).filter(x => x && x.vehicleId === activeVehicleKey);
-      let csv = "Type,Date,Odometer,Cost,Liters,UnitPrice,Remarks\n";
+      let csv = "Date,Odometer,Liters,UnitPrice,Cost,Remarks\n";
       fuels.forEach(f => {
-        csv += `Fuel,${f.date},${f.odo},${f.cost},${f.liters},${f.unitPrice},"${f.remarks || ''}"\n`;
+        csv += `${f.date},${f.odo},${f.liters},${f.unitPrice},${f.cost},"${f.remarks || ''}"\n`;
       });
       const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
       const url = window.URL.createObjectURL(blob);
@@ -615,11 +630,9 @@
       const file = e.target.files[0];
       if (!file) return;
 
-      // Automatically handle creating a fallback vehicle if none exists yet
       if (!activeVehicleKey) {
-        const autoVehicleRef = db.ref(`garages/${activeGarage}/vehicles`).push();
-        autoVehicleRef.set({ name: "Imported Vehicle", model: "CSV Backup" });
-        activeVehicleKey = autoVehicleRef.key;
+        alert("Please select or add a vehicle before importing.");
+        return;
       }
 
       const reader = new FileReader();
@@ -628,23 +641,47 @@
           const lines = evt.target.result.split(/\r\n|\n/);
           let importedCount = 0;
 
-          for (let i = 1; i < lines.length; i++) {
-            if (!lines[i].trim()) continue;
-            const parts = lines[i].split(',');
-            if (parts.length >= 6) {
+          for (let i = 0; i < lines.length; i++) {
+            const line = lines[i].trim();
+            if (!line) continue;
+
+            const parts = line.split(',').map(p => p.replace(/"/g, '').trim());
+
+            // Skip header lines
+            if (parts[0].toLowerCase().includes("date") || parts[0].toLowerCase().includes("type")) continue;
+
+            // Flexible column position detection
+            let date = parts[0];
+            let odo = parseFloat(parts[1]) || 0;
+            let liters = parseFloat(parts[2]) || 0;
+            let unitPrice = parseFloat(parts[3]) || 0;
+            let cost = parseFloat(parts[4]) || 0;
+            let remarks = parts[5] || '';
+
+            // If exported with "Fuel" prefix in column 0
+            if (isNaN(Date.parse(parts[0])) && !isNaN(Date.parse(parts[1]))) {
+              date = parts[1];
+              odo = parseFloat(parts[2]) || 0;
+              cost = parseFloat(parts[3]) || 0;
+              liters = parseFloat(parts[4]) || 0;
+              unitPrice = parseFloat(parts[5]) || 0;
+              remarks = parts[6] || '';
+            }
+
+            if (date) {
               await db.ref(`garages/${activeGarage}/fuelLogs`).push().set({
                 vehicleId: activeVehicleKey,
-                date: parts[1].trim(),
-                odo: parseFloat(parts[2]) || 0,
-                cost: parseFloat(parts[3]) || 0,
-                liters: parseFloat(parts[4]) || 0,
-                unitPrice: parseFloat(parts[5]) || 0,
-                remarks: parts[6] ? parts[6].replace(/"/g, '').trim() : ''
+                date: date,
+                odo: odo,
+                liters: liters,
+                unitPrice: unitPrice,
+                cost: cost,
+                remarks: remarks
               });
               importedCount++;
             }
           }
-          alert(`Successfully imported ${importedCount} records!`);
+          alert(`Import successful! ${importedCount} clean records added.`);
         } catch (err) {
           alert("Error parsing CSV: " + err.message);
         }
