@@ -8,7 +8,6 @@
   <!-- Firebase JS SDKs (v8) -->
   <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
   <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
   <style>
     :root {
@@ -49,6 +48,7 @@
     button { background: var(--primary); color: white; font-weight: bold; border: none; cursor: pointer; }
     button.secondary { background: var(--text-muted); color: white; }
     button.outline { background: transparent; border: 1px solid var(--border); color: var(--text); }
+    button.danger-outline { background: transparent; border: 1px solid var(--danger); color: var(--danger); }
     
     .card { background: var(--card); padding: 16px; border-radius: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.08); margin-bottom: 16px; border: 1px solid var(--border); }
     
@@ -72,7 +72,7 @@
     .badge-success { background: rgba(16, 185, 129, 0.15); color: var(--success); }
     .badge-info { background: rgba(99, 102, 241, 0.15); color: #6366f1; }
 
-    .expense-breakdown { font-size: 0.8rem; color: var(--text-muted); margin-top: 6px; display: flex; justify-content: space-around; background: var(--bg); padding: 8px; border-radius: 6px; border: 1px dashed var(--border); }
+    .expense-breakdown { font-size: 0.85rem; color: var(--text); margin-top: 8px; display: flex; justify-content: space-around; background: var(--bg); padding: 10px; border-radius: 8px; border: 1px dashed var(--border); }
     
     .modal-overlay { position: fixed; inset: 0; background: rgba(15, 23, 42, 0.85); backdrop-filter: blur(4px); z-index: 1000; display: flex; align-items: center; justify-content: center; padding: 16px; }
     .modal-card { background: var(--card); padding: 20px; border-radius: 16px; width: 100%; max-width: 420px; max-height: 90vh; overflow-y: auto; }
@@ -82,6 +82,7 @@
     .checkbox-group label { font-size: 0.85rem; }
 
     .btn-sm { width: auto; padding: 4px 10px; font-size: 0.75rem; margin: 0; }
+    .btn-action-group { display: flex; gap: 4px; }
     .filter-select { width: auto; margin: 0; padding: 4px 8px; font-size: 0.8rem; }
   </style>
 </head>
@@ -131,7 +132,8 @@
       <select id="vehicleSelect" onchange="switchVehicle()"></select>
       
       <div class="flex" style="margin-top: -4px;">
-        <button class="outline" style="padding: 6px; font-size: 0.8rem;" onclick="openEditVehicleModal()">✏️ Edit Vehicle Profile</button>
+        <button class="outline" style="padding: 6px; font-size: 0.8rem; flex: 2;" onclick="openEditVehicleModal()">✏️ Edit Profile</button>
+        <button class="danger-outline" style="padding: 6px; font-size: 0.8rem; flex: 1;" onclick="deleteActiveVehicle()">🗑️ Delete</button>
       </div>
     </div>
 
@@ -170,40 +172,27 @@
         </div>
 
         <!-- EXPENSE FILTER & BREAKDOWN -->
-        <div style="margin-top: 14px; border-top: 1px solid var(--border); padding-top: 12px;">
-          <div class="flex-center" style="margin-bottom: 8px;">
+        <div style="margin-top: 16px; border-top: 1px solid var(--border); padding-top: 14px;">
+          <div class="flex-center" style="margin-bottom: 10px;">
             <h3>Expenses Summary</h3>
             <select id="expenseTimeFilter" class="filter-select" onchange="renderDashboard()">
+              <option value="this_month" selected>This Month</option>
+              <option value="last_month">Last Month</option>
+              <option value="this_year">This Year</option>
+              <option value="last_year">Last Year</option>
               <option value="all">All Time</option>
-              <option value="year" selected>This Year</option>
-              <option value="month">This Month</option>
             </select>
           </div>
 
-          <div class="stat-box" style="margin-bottom: 6px;">
-            <small>Total Filtered Expense</small>
-            <strong id="totalExpenses" style="font-size: 1.3rem;">₹0</strong>
+          <div class="stat-box" style="margin-bottom: 8px;">
+            <small>Total Expenses</small>
+            <strong id="totalExpenses" style="font-size: 1.35rem;">₹0</strong>
           </div>
 
           <div class="expense-breakdown">
-            <span>⛽ Fuel: <b id="fuelExpenseSum">₹0</b></span>
-            <span>🔧 Service: <b id="serviceExpenseSum">₹0</b></span>
+            <span>⛽ Fuel: <b id="fuelExpenseSum" style="color:var(--primary);">₹0</b></span>
+            <span>🔧 Service: <b id="serviceExpenseSum" style="color:var(--primary);">₹0</b></span>
           </div>
-        </div>
-      </div>
-
-      <!-- CHART SECTION -->
-      <div class="card">
-        <div class="flex-center" style="margin-bottom: 10px;">
-          <h3>Mileage Trend</h3>
-          <select id="chartRangeFilter" class="filter-select" onchange="renderDashboard()">
-            <option value="6m" selected>Last 6 Months</option>
-            <option value="1y">This Year</option>
-            <option value="all">All Time</option>
-          </select>
-        </div>
-        <div style="position: relative; height:200px; width:100%;">
-          <canvas id="mileageChart"></canvas>
         </div>
       </div>
     </div>
@@ -257,7 +246,7 @@
     <div class="card">
       <h3 style="font-size: 0.95rem; margin-bottom: 8px;">Backup & Data Tools</h3>
       <div class="flex">
-        <button style="flex:1; padding: 10px; font-size: 0.85rem;" onclick="exportGarageToCSV()">📤 Export Garage CSV</button>
+        <button style="flex:1; padding: 10px; font-size: 0.85rem;" onclick="exportGarageToCSV()">📤 Export CSV</button>
         <button class="secondary" style="flex:1; padding: 10px; font-size: 0.85rem;" onclick="triggerFileInput()">📥 Import CSV</button>
       </div>
       <input type="file" id="importCsvInput" style="display: none;" onchange="processCleanCSVImport(event)">
@@ -457,7 +446,6 @@
     let serviceLogsData = {};
     let tyreLogsData = {};
     let remindersData = {};
-    let mileageChartInstance = null;
 
     window.onload = function() {
       const savedGarage = localStorage.getItem("garageId") || "nikhil";
@@ -574,13 +562,13 @@
       renderReminders();
     }
 
-    // Process fuel logs to calculate leg distances and mileages
+    // Process fuel logs to calculate leg distances and mileages for active vehicle
     function getProcessedFuelLogs() {
       const rawLogs = Object.keys(fuelLogsData)
         .map(key => ({ key, ...fuelLogsData[key] }))
         .filter(l => !l.vehicle || l.vehicle === activeVehicleName);
 
-      // Sort chronological (Oldest first) to compute leg distances correctly
+      // Sort chronological (Oldest first)
       rawLogs.sort((a, b) => {
         const dA = new Date(a.date || 0);
         const dB = new Date(b.date || 0);
@@ -625,29 +613,38 @@
 
       let totalKm = 0;
       let totalLiters = 0;
-      const mileages = [];
 
       logs.forEach(l => {
         if (l.legDistance && l.legMileage) {
           totalKm += l.legDistance;
           totalLiters += parseFloat(l.liters);
-          mileages.push(l.legMileage);
         }
       });
 
       const avgMileage = totalLiters > 0 ? (totalKm / totalLiters) : 0;
 
-      // Filtered Expenses Logic
+      // Expenses Time Filter Logic
       const expFilter = document.getElementById("expenseTimeFilter").value;
       const now = new Date();
-      const currentYear = now.getFullYear();
-      const currentMonth = now.getMonth();
+      const currYr = now.getFullYear();
+      const currMo = now.getMonth();
 
-      const filterByTime = (itemDate) => {
-        if (!itemDate || expFilter === "all") return true;
-        const d = new Date(itemDate);
-        if (expFilter === "year") return d.getFullYear() === currentYear;
-        if (expFilter === "month") return d.getFullYear() === currentYear && d.getMonth() === currentMonth;
+      const filterByTime = (dateStr) => {
+        if (!dateStr || expFilter === "all") return true;
+        const d = new Date(dateStr);
+        if (isNaN(d.getTime())) return false;
+
+        const y = d.getFullYear();
+        const m = d.getMonth();
+
+        if (expFilter === "this_month") return y === currYr && m === currMo;
+        if (expFilter === "last_month") {
+          const targetMo = currMo === 0 ? 11 : currMo - 1;
+          const targetYr = currMo === 0 ? currYr - 1 : currYr;
+          return y === targetYr && m === targetMo;
+        }
+        if (expFilter === "this_year") return y === currYr;
+        if (expFilter === "last_year") return y === currYr - 1;
         return true;
       };
 
@@ -689,58 +686,9 @@
         document.getElementById("estRange").innerText = "-- Km";
         document.getElementById("nextRefuelOdo").innerText = "-- Km";
       }
-
-      // Filtered Graph Logic
-      const chartRange = document.getElementById("chartRangeFilter").value;
-      const chartLogs = logs.filter(l => {
-        if (!l.legMileage || !l.date) return false;
-        const d = new Date(l.date);
-        if (chartRange === "6m") {
-          const sixMonthsAgo = new Date();
-          sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
-          return d >= sixMonthsAgo;
-        }
-        if (chartRange === "1y") return d.getFullYear() === currentYear;
-        return true;
-      });
-
-      renderChart(chartLogs.map(l => l.date), chartLogs.map(l => l.legMileage.toFixed(1)));
     }
 
-    function renderChart(labels, data) {
-      const ctx = document.getElementById('mileageChart').getContext('2d');
-      if (mileageChartInstance) mileageChartInstance.destroy();
-
-      mileageChartInstance = new Chart(ctx, {
-        type: 'line',
-        data: {
-          labels: labels,
-          datasets: [{
-            label: 'Mileage (Km/L)',
-            data: data,
-            borderColor: '#2563eb',
-            backgroundColor: 'rgba(37, 99, 235, 0.1)',
-            fill: true,
-            tension: 0.3,
-            pointRadius: 4,
-            pointBackgroundColor: '#2563eb'
-          }]
-        },
-        options: {
-          responsive: true,
-          maintainAspectRatio: false,
-          plugins: {
-            legend: { display: false }
-          },
-          scales: {
-            y: { beginAtZero: false, grid: { color: 'rgba(0,0,0,0.05)' } },
-            x: { grid: { display: false } }
-          }
-        }
-      });
-    }
-
-    // Renders fuel logs sorted latest on top, displaying leg distance and mileage
+    // Renders fuel logs sorted latest on top
     function renderFuelLogs() {
       const container = document.getElementById("fuelHistory");
       container.innerHTML = "";
@@ -752,7 +700,7 @@
         return;
       }
 
-      // Sort Latest First for UI display
+      // Latest First
       logs.reverse().forEach(log => {
         const item = document.createElement("div");
         item.className = "log-item flex-center";
@@ -771,7 +719,10 @@
             <small style="color:var(--text-muted);">${log.liters || 0}L | ₹${log.cost || 0} ${log.isFull ? '• <span class="badge badge-success">Full</span>' : ''}</small>
             ${log.remarks ? `<br><small style="color:var(--text-muted); font-style:italic;">"${log.remarks}"</small>` : ''}
           </div>
-          <button class="outline btn-sm" onclick="editFuelLog('${log.key}')">✏️ Edit</button>
+          <div class="btn-action-group">
+            <button class="outline btn-sm" onclick="editFuelLog('${log.key}')">✏️ Edit</button>
+            <button class="danger-outline btn-sm" onclick="deleteFuelLog('${log.key}')">🗑️ Delete</button>
+          </div>
         `;
         container.appendChild(item);
       });
@@ -791,6 +742,12 @@
 
       document.getElementById("fuelModalTitle").innerText = "Edit Fuel Entry";
       document.getElementById("fuelModal").classList.remove("hidden");
+    }
+
+    function deleteFuelLog(key) {
+      if (confirm("Are you sure you want to delete this fuel log entry?")) {
+        db.ref(`garages/${currentGarageId}/fuelLogs/${key}`).remove();
+      }
     }
 
     function openFuelModal() {
@@ -868,7 +825,10 @@
             <b>₹${s.cost || 0}</b> • <small style="color:var(--text-muted);">${s.center || 'Workshop'}</small><br>
             <small style="color:var(--text-muted);">${s.details || ''}</small>
           </div>
-          <button class="outline btn-sm" onclick="editServiceLog('${key}')">✏️ Edit</button>
+          <div class="btn-action-group">
+            <button class="outline btn-sm" onclick="editServiceLog('${key}')">✏️ Edit</button>
+            <button class="danger-outline btn-sm" onclick="deleteServiceLog('${key}')">🗑️ Delete</button>
+          </div>
         `;
         container.appendChild(item);
       });
@@ -897,6 +857,12 @@
       document.getElementById("serviceModal").classList.remove("hidden");
     }
 
+    function deleteServiceLog(key) {
+      if (confirm("Are you sure you want to delete this service log entry?")) {
+        db.ref(`garages/${currentGarageId}/serviceLogs/${key}`).remove();
+      }
+    }
+
     function saveServiceLog(e) {
       e.preventDefault();
       const key = document.getElementById("editServiceKey").value;
@@ -918,7 +884,7 @@
       closeModal("serviceModal");
     }
 
-    // Renders tyre logs sorted latest on top
+    // Renders tyre pressure logs sorted latest on top
     function renderTyreLogs() {
       const container = document.getElementById("tyreHistory");
       const recContainer = document.getElementById("tyreRecommendedDisplay");
@@ -953,7 +919,10 @@
             <strong>${t.date || 'N/A'}</strong> ${t.odo ? '- ' + t.odo + ' Km' : ''}<br>
             <small>Front: <b>${t.frontPsi} PSI</b> | Rear: <b>${t.rearPsi} PSI</b></small>
           </div>
-          <button class="outline btn-sm" onclick="editTyreLog('${key}')">✏️ Edit</button>
+          <div class="btn-action-group">
+            <button class="outline btn-sm" onclick="editTyreLog('${key}')">✏️ Edit</button>
+            <button class="danger-outline btn-sm" onclick="deleteTyreLog('${key}')">🗑️ Delete</button>
+          </div>
         `;
         container.appendChild(item);
       });
@@ -978,6 +947,12 @@
       document.getElementById("tRearPsi").value = t.rearPsi || "";
       document.getElementById("tyreModalTitle").innerText = "Edit Tyre Log";
       document.getElementById("tyreModal").classList.remove("hidden");
+    }
+
+    function deleteTyreLog(key) {
+      if (confirm("Are you sure you want to delete this tyre log entry?")) {
+        db.ref(`garages/${currentGarageId}/tyreLogs/${key}`).remove();
+      }
     }
 
     function saveTyreLog(e) {
@@ -1085,6 +1060,25 @@
 
       document.getElementById("vehicleModalTitle").innerText = "Edit Vehicle";
       document.getElementById("vehicleModal").classList.remove("hidden");
+    }
+
+    function deleteActiveVehicle() {
+      if (!activeVehicleName) return;
+      if (confirm(`Are you sure you want to delete "${activeVehicleName}"?`)) {
+        let activeKey = "";
+        Object.keys(vehiclesData).forEach(k => {
+          if (vehiclesData[k].name === activeVehicleName) {
+            activeKey = k;
+          }
+        });
+
+        if (activeKey) {
+          db.ref(`garages/${currentGarageId}/data/vehicleProfiles/${activeKey}`).remove();
+        }
+
+        activeVehicleName = "";
+        db.ref(`garages/${currentGarageId}/data/activeVehicle`).set("");
+      }
     }
 
     function saveVehicle(e) {
