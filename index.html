@@ -57,10 +57,6 @@
     .hidden { display: none !important; }
     .log-item { border-bottom: 1px solid var(--border); padding: 10px 0; }
     .log-item:last-child { border-bottom: none; }
-    .badge { display: inline-block; padding: 2px 8px; font-size: 0.75rem; border-radius: 4px; background: #dbeafe; color: #1e40af; font-weight: bold; }
-    .badge-gray { background: #f1f5f9; color: #64748b; }
-    .badge-warning { background: #fef3c7; color: #92400e; }
-    .badge-danger { background: #fee2e2; color: #991b1b; }
     .flex { display: flex; gap: 8px; }
     .actions { display: flex; gap: 6px; margin-top: 6px; }
     .checkbox-container { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; margin-top: 4px; }
@@ -71,18 +67,7 @@
     .stat-box strong { font-size: 1rem; color: var(--primary); }
     .vehicle-profile { text-align: center; margin-bottom: 12px; }
     .remarks-text { color: var(--text-muted); font-style: italic; font-size: 0.85rem; margin-top: 4px; }
-    
     .tyre-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 6px; }
-
-    .recommend-box {
-      background: var(--warning-bg);
-      border: 1px solid var(--warning-border);
-      color: var(--warning-text);
-      padding: 12px;
-      border-radius: 8px;
-      margin-bottom: 12px;
-      font-size: 0.85rem;
-    }
 
     #loginModal {
       position: fixed;
@@ -107,7 +92,7 @@
 </head>
 <body data-theme="light">
 
-  <!-- ================= FIREBASE LOGIN / AUTH MODAL ================= -->
+  <!-- LOGIN MODAL -->
   <div id="loginModal">
     <div class="auth-card">
       <div style="text-align: center; margin-bottom: 20px;">
@@ -129,7 +114,7 @@
     </div>
   </div>
 
-  <!-- ================= MAIN APP INTERFACE ================= -->
+  <!-- MAIN APPLICATION -->
   <div id="appInterface" class="hidden">
     <header>
       <div>
@@ -156,17 +141,11 @@
       <button class="tab-btn" id="reminderTabBtn" onclick="showTab('reminder')">🔔 Reminders</button>
     </div>
 
-    <!-- DASHBOARD SECTION -->
+    <!-- DASHBOARD -->
     <div id="dashSection">
       <div class="card">
         <div id="vehicleProfileDisplay" class="vehicle-profile"></div>
         <button class="secondary btn-small" style="width: 100%; margin-bottom: 12px; padding: 8px;" onclick="openVehicleModal('edit')">✏️ Edit Active Vehicle</button>
-        
-        <!-- Alerts & Reminders Banner -->
-        <div id="reminderAlertBox"></div>
-
-        <!-- Smart Refuel Recommendation Banner -->
-        <div id="refuelRecommendation"></div>
 
         <h3>Vehicle Metrics</h3>
         <div class="stat-grid" style="margin-top:10px;">
@@ -185,43 +164,19 @@
         </div>
       </div>
 
-      <!-- Mileage Chart Card -->
       <div class="card">
         <h3>Mileage Trend Chart</h3>
         <div style="position: relative; height:200px; width:100%; margin-top:10px;">
           <canvas id="mileageChart"></canvas>
         </div>
       </div>
-
-      <div class="card">
-        <h3>Expense Breakdown</h3>
-        <div class="flex" style="margin-top:10px;">
-          <div style="flex: 1;">
-            <label><small>View By</small></label>
-            <select id="expensePeriod" onchange="renderDashboard()">
-              <option value="month">Monthly</option>
-              <option value="year">Yearly</option>
-            </select>
-          </div>
-          <div style="flex: 1;">
-            <label><small>Filter Expense</small></label>
-            <select id="expenseCategoryFilter" onchange="renderDashboard()">
-              <option value="all">All Expenses</option>
-              <option value="fuel">Fuel Only</option>
-              <option value="service">Service Only</option>
-            </select>
-          </div>
-        </div>
-        <div id="expenseReport"></div>
-      </div>
     </div>
 
-    <!-- FUEL SECTION -->
+    <!-- FUEL TAB -->
     <div id="fuelSection" class="hidden">
       <div class="card">
-        <h3 id="fuelFormTitle">Add Fuel Fill-up</h3>
+        <h3>Add Fuel Fill-up</h3>
         <form id="fuelForm" onsubmit="saveFuel(event)">
-          <input type="hidden" id="fuelEditId" value="">
           <label>Date</label>
           <input type="date" id="fuelDate" required>
           <div class="flex">
@@ -250,16 +205,10 @@
 
           <div class="checkbox-container">
             <input type="checkbox" id="isFullTank" checked>
-            <label for="isFullTank"><b>Full Tank Fill-up?</b> (Required for mileage calculation)</label>
+            <label for="isFullTank"><b>Full Tank Fill-up?</b></label>
           </div>
 
-          <div class="checkbox-container">
-            <input type="checkbox" id="missedPrevious">
-            <label for="missedPrevious" style="color: #92400e;"><b>Missed Previous Fueling?</b> (Skips calculation spike)</label>
-          </div>
-
-          <button type="submit" id="fuelSubmitBtn">Save Fuel Log</button>
-          <button type="button" id="fuelCancelBtn" class="secondary hidden" onclick="cancelFuelEdit()">Cancel Edit</button>
+          <button type="submit">Save Fuel Log</button>
         </form>
       </div>
 
@@ -269,13 +218,11 @@
       </div>
     </div>
 
-    <!-- TYRE PRESSURE SECTION -->
+    <!-- TYRE PRESSURE TAB -->
     <div id="tyreSection" class="hidden">
       <div class="card">
-        <h3 id="tyreFormTitle">Record Tyre Pressure Fill</h3>
+        <h3>Record Tyre Pressure</h3>
         <form id="tyreForm" onsubmit="saveTyrePressure(event)">
-          <input type="hidden" id="tyreEditId" value="">
-          
           <div class="flex">
             <div style="flex:1;">
               <label>Date</label>
@@ -283,190 +230,93 @@
             </div>
             <div style="flex:1;">
               <label>Odometer (Km)</label>
-              <input type="number" step="0.1" id="tyreOdo" placeholder="e.g. 15200">
+              <input type="number" step="0.1" id="tyreOdo">
             </div>
           </div>
-
-          <label>Air Type</label>
-          <select id="tyreAirType">
-            <option value="Normal Air">Normal Air</option>
-            <option value="Nitrogen">Nitrogen</option>
-          </select>
-
-          <label>Pressure Values (PSI)</label>
           <div class="tyre-grid">
-            <div>
-              <small id="labelFL">Front Left (FL)</small>
-              <input type="number" step="0.5" id="tyreFL" placeholder="e.g. 33" required>
-            </div>
-            <div>
-              <small id="labelFR">Front Right (FR)</small>
-              <input type="number" step="0.5" id="tyreFR" placeholder="e.g. 33" required>
-            </div>
-            <div id="tyreRLContainer">
-              <small>Rear Left (RL)</small>
-              <input type="number" step="0.5" id="tyreRL" placeholder="e.g. 33">
-            </div>
-            <div id="tyreRRContainer">
-              <small>Rear Right (RR)</small>
-              <input type="number" step="0.5" id="tyreRR" placeholder="e.g. 33">
-            </div>
+            <div><small>Front Left (FL)</small><input type="number" step="0.5" id="tyreFL" required></div>
+            <div><small>Front Right (FR)</small><input type="number" step="0.5" id="tyreFR" required></div>
+            <div><small>Rear Left (RL)</small><input type="number" step="0.5" id="tyreRL"></div>
+            <div><small>Rear Right (RR)</small><input type="number" step="0.5" id="tyreRR"></div>
           </div>
-
-          <div>
-            <small>Spare Tyre (Optional)</small>
-            <input type="number" step="0.5" id="tyreSpare" placeholder="e.g. 35">
-          </div>
-
-          <label>Remarks / Notes</label>
-          <input type="text" id="tyreRemarks" placeholder="e.g. Checked cold morning">
-
-          <button type="submit" id="tyreSubmitBtn">Save Pressure Log</button>
-          <button type="button" id="tyreCancelBtn" class="secondary hidden" onclick="cancelTyreEdit()">Cancel Edit</button>
+          <button type="submit">Save Tyre Log</button>
         </form>
       </div>
-
       <div class="card">
-        <h3>Tyre Pressure History</h3>
+        <h3>Tyre History</h3>
         <div id="tyreHistory"></div>
       </div>
     </div>
 
-    <!-- SERVICE SECTION -->
+    <!-- SERVICE TAB -->
     <div id="serviceSection" class="hidden">
       <div class="card">
-        <h3 id="serviceFormTitle">Add Service Record</h3>
+        <h3>Add Service Record</h3>
         <form id="serviceForm" onsubmit="saveService(event)">
-          <input type="hidden" id="serviceEditId" value="">
           <label>Date</label>
           <input type="date" id="serviceDate" required>
           <div class="flex">
-            <div>
-              <label>Odometer (Km)</label>
-              <input type="number" step="0.1" id="serviceOdo" placeholder="e.g. 15000" required>
-            </div>
-            <div>
-              <label>Cost (₹)</label>
-              <input type="number" step="0.01" id="serviceCost" placeholder="e.g. 2500" required>
-            </div>
+            <div><label>Odometer (Km)</label><input type="number" step="0.1" id="serviceOdo" required></div>
+            <div><label>Cost (₹)</label><input type="number" step="0.01" id="serviceCost" required></div>
           </div>
           <label>Service Type / Details</label>
-          <input type="text" id="serviceType" placeholder="e.g. Engine Oil Change" required>
-          <label>Remarks / Notes</label>
-          <input type="text" id="serviceRemarks" placeholder="e.g. Done at authorized service center">
-          <button type="submit" id="serviceSubmitBtn">Save Service Log</button>
-          <button type="button" id="serviceCancelBtn" class="secondary hidden" onclick="cancelServiceEdit()">Cancel Edit</button>
+          <input type="text" id="serviceType" required>
+          <button type="submit">Save Service Log</button>
         </form>
       </div>
-
       <div class="card">
         <h3>Service History</h3>
         <div id="serviceHistory"></div>
       </div>
     </div>
 
-    <!-- REMINDERS SECTION -->
+    <!-- REMINDERS TAB -->
     <div id="reminderSection" class="hidden">
       <div class="card">
-        <h3 id="reminderFormTitle">Set Service / Maintenance Reminder</h3>
+        <h3>Set Reminder</h3>
         <form id="reminderForm" onsubmit="saveReminder(event)">
-          <label>Title / Task</label>
-          <input type="text" id="remTitle" placeholder="e.g. Engine Oil & Filter Replacement" required>
-          
-          <div class="flex">
-            <div style="flex:1;">
-              <label>Due Date (Optional)</label>
-              <input type="date" id="remDueDate">
-            </div>
-            <div style="flex:1;">
-              <label>Due Odometer Km (Optional)</label>
-              <input type="number" step="1" id="remDueOdo" placeholder="e.g. 20000">
-            </div>
-          </div>
-
+          <label>Task</label>
+          <input type="text" id="remTitle" required>
+          <label>Due Date</label>
+          <input type="date" id="remDueDate">
           <button type="submit">Set Reminder</button>
         </form>
       </div>
-
       <div class="card">
         <h3>Active Reminders</h3>
         <div id="reminderList"></div>
       </div>
     </div>
 
-    <!-- DATA OPERATIONS CARD (EXPORT & IMPORT) -->
+    <!-- IMPORT / EXPORT -->
     <div class="card">
       <h3 style="font-size: 0.95rem; margin-bottom: 8px;">Data Backup & Restore</h3>
       <div class="flex">
-        <button class="secondary" style="flex: 1; font-size: 0.85rem;" onclick="exportCSV()">📊 Export CSV</button>
-        <button class="secondary" style="flex: 1; font-size: 0.85rem;" onclick="triggerCSVImport()">📥 Import CSV</button>
+        <button class="secondary" style="flex: 1;" onclick="exportCSV()">📊 Export CSV</button>
+        <label class="secondary" style="flex: 1; text-align: center; padding: 10px; border-radius: 8px; font-weight: bold; cursor: pointer; background: var(--text-muted); color: white;">
+          📥 Import CSV
+          <input type="file" id="importCsvInput" accept=".csv" style="display: none;" onchange="processCSVImport(event)">
+        </label>
       </div>
-      <!-- Hidden File Input -->
-      <input type="file" id="importCsvInput" accept=".csv" class="hidden" onchange="processCSVImport(event)">
     </div>
 
-    <!-- VEHICLE CREATION & EDIT MODAL -->
-    <div id="vehicleModal" class="hidden card" style="position:fixed; top:5%; left:5%; right:5%; z-index:100; box-shadow:0 10px 25px rgba(0,0,0,0.3); max-width:550px; margin:0 auto; max-height: 90vh; overflow-y: auto;">
+    <!-- VEHICLE MODAL -->
+    <div id="vehicleModal" class="hidden card" style="position:fixed; top:10%; left:5%; right:5%; z-index:100; max-width:500px; margin:0 auto;">
       <h3 id="modalTitle">Add Vehicle</h3>
       <form id="vehicleForm" onsubmit="saveVehicleProfile(event)">
         <input type="hidden" id="modalMode" value="add">
-        
-        <label>Vehicle Nickname / ID</label>
-        <input type="text" id="modalVehicleName" placeholder="e.g. My Sonet" required>
-        
-        <label>Vehicle Model / Registration Number</label>
-        <input type="text" id="modalVehicleModel" placeholder="e.g. Kia Sonet HTX">
-
-        <div class="flex">
-          <div style="flex:1;">
-            <label>Vehicle Type</label>
-            <select id="modalVehicleType" onchange="toggleVehicleModalTypeFields()">
-              <option value="4wheeler">🚗 4-Wheeler (Car/SUV)</option>
-              <option value="2wheeler">🛵 2-Wheeler (Bike/Scooter)</option>
-            </select>
-          </div>
-          <div style="flex:1;">
-            <label>Tank Capacity (Liters)</label>
-            <input type="number" step="0.1" id="modalTankCapacity" placeholder="e.g. 45">
-          </div>
-        </div>
-
-        <label><b>Recommended Tyre Pressures (PSI)</b></label>
-        <div class="tyre-grid">
-          <div>
-            <small id="modalLabelFront">Front / FL PSI</small>
-            <input type="number" step="0.5" id="modalRecFront" placeholder="e.g. 33">
-          </div>
-          <div id="modalRecRearCol">
-            <small id="modalLabelRear">Rear / FR PSI</small>
-            <input type="number" step="0.5" id="modalRecRear" placeholder="e.g. 33">
-          </div>
-          <div id="modalRecRLCol">
-            <small>Rear-Left PSI</small>
-            <input type="number" step="0.5" id="modalRecRL" placeholder="e.g. 33">
-          </div>
-          <div id="modalRecRRCol">
-            <small>Rear-Right PSI</small>
-            <input type="number" step="0.5" id="modalRecRR" placeholder="e.g. 33">
-          </div>
-        </div>
-
-        <div>
-          <small>Spare Tyre PSI</small>
-          <input type="number" step="0.5" id="modalRecSpare" placeholder="e.g. 35">
-        </div>
-
-        <button type="submit" style="margin-top: 12px;">Save Vehicle</button>
-        
-        <div class="flex">
-          <button type="button" class="secondary" onclick="hideVehicleModal()">Cancel</button>
-          <button type="button" id="modalDeleteBtn" class="danger hidden" onclick="deleteCurrentVehicle()">🗑️ Delete Vehicle</button>
-        </div>
+        <label>Vehicle Name</label>
+        <input type="text" id="modalVehicleName" required>
+        <label>Model / Registration</label>
+        <input type="text" id="modalVehicleModel">
+        <button type="submit">Save Vehicle</button>
+        <button type="button" class="secondary" onclick="hideVehicleModal()">Cancel</button>
       </form>
     </div>
+
   </div>
 
-  <!-- ================= FIREBASE & APP LOGIC SCRIPT ================= -->
+  <!-- SCRIPT LOGIC -->
   <script>
     const firebaseConfig = {
       apiKey: "AIzaSyCxF7ys5GHGfBoCmOiooopekG6pBIn0T8Q",
@@ -488,22 +338,13 @@
     let storeData = { vehicles: {}, fuelLogs: {}, tyreLogs: {}, serviceLogs: {}, reminders: {} };
     let mileageChartInstance = null;
 
-    // --- AUTHENTICATION ---
     async function handlePinLogin(event) {
       event.preventDefault();
       const garageName = document.getElementById('loginGarageName').value.trim();
       const pin = document.getElementById('loginPin').value.trim();
       const errorDiv = document.getElementById('loginError');
-      const unlockBtn = document.getElementById('unlockBtn');
 
-      if (!garageName || !pin) {
-        errorDiv.innerText = "Please enter both Garage Name and PIN.";
-        return;
-      }
-
-      unlockBtn.innerText = "Verifying...";
-      unlockBtn.disabled = true;
-      errorDiv.innerText = "";
+      if (!garageName || !pin) return;
 
       try {
         const garageRef = db.ref('garages/' + garageName);
@@ -521,11 +362,7 @@
           loginSuccess(garageName);
         }
       } catch (err) {
-        console.error("Firebase Login Error:", err);
-        errorDiv.innerText = "Error: " + err.message;
-      } finally {
-        unlockBtn.innerText = "Unlock Garage";
-        unlockBtn.disabled = false;
+        errorDiv.innerText = "Connection error: " + err.message;
       }
     }
 
@@ -537,7 +374,6 @@
       document.getElementById('appInterface').classList.remove('hidden');
       document.getElementById('activeGarageLabel').innerText = garageName;
 
-      // Start listening to realtime database changes
       syncWithFirebase();
     }
 
@@ -549,16 +385,12 @@
       document.getElementById('loginModal').classList.remove('hidden');
     }
 
-    function toggleTheme() {
-      const body = document.body;
-      body.setAttribute('data-theme', body.getAttribute('data-theme') === 'dark' ? 'light' : 'dark');
-    }
-
-    // --- REALTIME FIREBASE SYNC ---
     function syncWithFirebase() {
       if (!activeGarage) return;
       db.ref('garages/' + activeGarage).on('value', (snapshot) => {
         const data = snapshot.val() || {};
+        
+        // Convert objects or arrays safely
         storeData.vehicles = data.vehicles || {};
         storeData.fuelLogs = data.fuelLogs || {};
         storeData.tyreLogs = data.tyreLogs || {};
@@ -571,6 +403,8 @@
         renderTyreHistory();
         renderServiceHistory();
         renderReminders();
+      }, (err) => {
+        console.error("Database Read Error:", err);
       });
     }
 
@@ -578,17 +412,20 @@
       const select = document.getElementById('vehicleSelect');
       select.innerHTML = '';
       const keys = Object.keys(storeData.vehicles);
+
       if (keys.length === 0) {
-        select.innerHTML = '<option value="">No vehicles found - Add One!</option>';
+        select.innerHTML = '<option value="">No vehicles found - Create One</option>';
         activeVehicleKey = null;
         return;
       }
+
       keys.forEach(k => {
         const opt = document.createElement('option');
         opt.value = k;
-        opt.innerText = storeData.vehicles[k].name + (storeData.vehicles[k].model ? ` (${storeData.vehicles[k].model})` : '');
+        opt.innerText = storeData.vehicles[k].name || 'Vehicle ' + k;
         select.appendChild(opt);
       });
+
       if (!activeVehicleKey || !storeData.vehicles[activeVehicleKey]) {
         activeVehicleKey = keys[0];
       }
@@ -604,113 +441,63 @@
       renderReminders();
     }
 
-    // --- DASHBOARD & CALCULATIONS ---
     function renderDashboard() {
       if (!activeVehicleKey || !storeData.vehicles[activeVehicleKey]) {
-        document.getElementById('vehicleProfileDisplay').innerHTML = '<p>Please add a vehicle to start tracking.</p>';
+        document.getElementById('vehicleProfileDisplay').innerHTML = '<p>No active vehicle selected.</p>';
         return;
       }
+
       const v = storeData.vehicles[activeVehicleKey];
       document.getElementById('vehicleProfileDisplay').innerHTML = `<h2>${v.name}</h2><p class="remarks-text">${v.model || ''}</p>`;
 
-      const fuels = Object.values(storeData.fuelLogs).filter(x => x.vehicleId === activeVehicleKey).sort((a,b) => a.odo - b.odo);
-      const services = Object.values(storeData.serviceLogs).filter(x => x.vehicleId === activeVehicleKey);
+      const fuels = Object.values(storeData.fuelLogs || {}).filter(x => x && x.vehicleId === activeVehicleKey);
+      const services = Object.values(storeData.serviceLogs || {}).filter(x => x && x.vehicleId === activeVehicleKey);
 
       let totalFuelCost = fuels.reduce((acc, x) => acc + (parseFloat(x.cost) || 0), 0);
       let totalServiceCost = services.reduce((acc, x) => acc + (parseFloat(x.cost) || 0), 0);
-      let totalExp = totalFuelCost + totalServiceCost;
-      document.getElementById('totalExpenses').innerText = '₹' + totalExp.toFixed(2);
 
-      let totalKm = 0, totalLitersCalc = 0;
-      let mileageData = [];
-
-      for (let i = 1; i < fuels.length; i++) {
-        if (fuels[i].isFullTank && fuels[i-1].isFullTank && !fuels[i].missedPrevious) {
-          let dist = fuels[i].odo - fuels[i-1].odo;
-          let liters = parseFloat(fuels[i].liters);
-          if (dist > 0 && liters > 0) {
-            let mpg = dist / liters;
-            mileageData.push({ date: fuels[i].date, mpg: mpg });
-            totalKm += dist;
-            totalLitersCalc += liters;
-          }
-        }
-      }
-
-      let avgM = totalLitersCalc > 0 ? (totalKm / totalLitersCalc) : 0;
-      document.getElementById('avgMileage').innerText = avgM > 0 ? avgM.toFixed(2) + ' Km/L' : '-- Km/L';
-
-      let costPerKm = (totalKm > 0 && totalFuelCost > 0) ? (totalFuelCost / totalKm) : 0;
-      document.getElementById('costPerKm').innerText = costPerKm > 0 ? '₹' + costPerKm.toFixed(2) + ' / Km' : '₹-- / Km';
-
-      updateChart(mileageData);
+      document.getElementById('totalExpenses').innerText = '₹' + (totalFuelCost + totalServiceCost).toFixed(2);
     }
 
-    function updateChart(data) {
-      const ctx = document.getElementById('mileageChart').getContext('2d');
-      if (mileageChartInstance) mileageChartInstance.destroy();
-      mileageChartInstance = new Chart(ctx, {
-        type: 'line',
-        data: {
-          labels: data.map(d => d.date),
-          datasets: [{
-            label: 'Mileage (Km/L)',
-            data: data.map(d => d.mpg.toFixed(2)),
-            borderColor: '#2563eb',
-            tension: 0.3,
-            fill: false
-          }]
-        },
-        options: { responsive: true, maintainAspectRatio: false }
-      });
-    }
-
-    // --- LOG SAVING & HISTORY RENDER ---
     function calcFuelCost() {
-      const price = parseFloat(document.getElementById('fuelUnitPrice').value) || 0;
-      const liters = parseFloat(document.getElementById('fuelLiters').value) || 0;
-      if (price && liters) document.getElementById('fuelCost').value = (price * liters).toFixed(2);
+      const p = parseFloat(document.getElementById('fuelUnitPrice').value) || 0;
+      const l = parseFloat(document.getElementById('fuelLiters').value) || 0;
+      if (p && l) document.getElementById('fuelCost').value = (p * l).toFixed(2);
     }
 
     function calcFuelLiters() {
-      const price = parseFloat(document.getElementById('fuelUnitPrice').value) || 0;
-      const cost = parseFloat(document.getElementById('fuelCost').value) || 0;
-      if (price && cost) document.getElementById('fuelLiters').value = (cost / price).toFixed(2);
+      const p = parseFloat(document.getElementById('fuelUnitPrice').value) || 0;
+      const c = parseFloat(document.getElementById('fuelCost').value) || 0;
+      if (p && c) document.getElementById('fuelLiters').value = (c / p).toFixed(2);
     }
 
     async function saveFuel(e) {
       e.preventDefault();
-      if (!activeGarage || !activeVehicleKey) return alert("Select a vehicle first.");
+      if (!activeGarage || !activeVehicleKey) return alert("Please add or select a vehicle first.");
       
-      const editId = document.getElementById('fuelEditId').value;
       const data = {
         vehicleId: activeVehicleKey,
         date: document.getElementById('fuelDate').value,
-        odo: parseFloat(document.getElementById('fuelOdo').value),
+        odo: parseFloat(document.getElementById('fuelOdo').value) || 0,
         unitPrice: parseFloat(document.getElementById('fuelUnitPrice').value) || 0,
-        liters: parseFloat(document.getElementById('fuelLiters').value),
-        cost: parseFloat(document.getElementById('fuelCost').value),
-        remarks: document.getElementById('fuelRemarks').value,
-        isFullTank: document.getElementById('isFullTank').checked,
-        missedPrevious: document.getElementById('missedPrevious').checked
+        liters: parseFloat(document.getElementById('fuelLiters').value) || 0,
+        cost: parseFloat(document.getElementById('fuelCost').value) || 0,
+        remarks: document.getElementById('fuelRemarks').value || '',
+        isFullTank: document.getElementById('isFullTank').checked
       };
 
-      const ref = editId ? db.ref(`garages/${activeGarage}/fuelLogs/${editId}`) : db.ref(`garages/${activeGarage}/fuelLogs`).push();
-      await ref.set(data);
+      await db.ref(`garages/${activeGarage}/fuelLogs`).push().set(data);
       document.getElementById('fuelForm').reset();
-      cancelFuelEdit();
     }
 
     function renderFuelHistory() {
       const container = document.getElementById('fuelHistory');
       container.innerHTML = '';
-      const logs = Object.entries(storeData.fuelLogs)
-        .filter(([k, v]) => v.vehicleId === activeVehicleKey)
-        .sort((a,b) => new Date(b[1].date) - new Date(a[1].date));
+      const entries = Object.entries(storeData.fuelLogs || {}).filter(([k, v]) => v && v.vehicleId === activeVehicleKey);
 
-      if (logs.length === 0) return container.innerHTML = '<p style="color:var(--text-muted);">No fuel logs recorded.</p>';
+      if (entries.length === 0) return container.innerHTML = '<p style="color:var(--text-muted);">No records found.</p>';
 
-      logs.forEach(([key, log]) => {
+      entries.forEach(([key, log]) => {
         const item = document.createElement('div');
         item.className = 'log-item';
         item.innerHTML = `
@@ -718,10 +505,7 @@
             <strong>${log.date} - ${log.odo} Km</strong>
             <strong style="color:var(--primary);">₹${log.cost}</strong>
           </div>
-          <small style="color:var(--text-muted);">${log.liters} L @ ₹${log.unitPrice}/L ${log.remarks ? '| ' + log.remarks : ''}</small>
-          <div class="actions">
-            <button class="secondary btn-small" onclick="deleteEntry('fuelLogs', '${key}')">Delete</button>
-          </div>
+          <small style="color:var(--text-muted);">${log.liters} L @ ₹${log.unitPrice}/L</small>
         `;
         container.appendChild(item);
       });
@@ -729,90 +513,53 @@
 
     async function saveTyrePressure(e) {
       e.preventDefault();
-      if (!activeGarage || !activeVehicleKey) return alert("Select a vehicle first.");
-      const editId = document.getElementById('tyreEditId').value;
+      if (!activeGarage || !activeVehicleKey) return alert("Select vehicle first.");
       const data = {
         vehicleId: activeVehicleKey,
         date: document.getElementById('tyreDate').value,
-        odo: parseFloat(document.getElementById('tyreOdo').value) || 0,
-        airType: document.getElementById('tyreAirType').value,
         fl: document.getElementById('tyreFL').value,
         fr: document.getElementById('tyreFR').value,
         rl: document.getElementById('tyreRL').value,
-        rr: document.getElementById('tyreRR').value,
-        spare: document.getElementById('tyreSpare').value,
-        remarks: document.getElementById('tyreRemarks').value
+        rr: document.getElementById('tyreRR').value
       };
-      const ref = editId ? db.ref(`garages/${activeGarage}/tyreLogs/${editId}`) : db.ref(`garages/${activeGarage}/tyreLogs`).push();
-      await ref.set(data);
+      await db.ref(`garages/${activeGarage}/tyreLogs`).push().set(data);
       document.getElementById('tyreForm').reset();
     }
 
     function renderTyreHistory() {
       const container = document.getElementById('tyreHistory');
       container.innerHTML = '';
-      const logs = Object.entries(storeData.tyreLogs)
-        .filter(([k, v]) => v.vehicleId === activeVehicleKey)
-        .sort((a,b) => new Date(b[1].date) - new Date(a[1].date));
-
-      if (logs.length === 0) return container.innerHTML = '<p style="color:var(--text-muted);">No tyre pressure logs.</p>';
-
-      logs.forEach(([key, log]) => {
+      const entries = Object.entries(storeData.tyreLogs || {}).filter(([k, v]) => v && v.vehicleId === activeVehicleKey);
+      entries.forEach(([key, log]) => {
         const item = document.createElement('div');
         item.className = 'log-item';
-        item.innerHTML = `
-          <div style="display:flex; justify-content:space-between;">
-            <strong>${log.date} (${log.airType})</strong>
-            <small>${log.odo ? log.odo + ' Km' : ''}</small>
-          </div>
-          <small style="color:var(--text-muted);">FL: ${log.fl} | FR: ${log.fr} | RL: ${log.rl || '--'} | RR: ${log.rr || '--'} | Spare: ${log.spare || '--'}</small>
-          <div class="actions">
-            <button class="secondary btn-small" onclick="deleteEntry('tyreLogs', '${key}')">Delete</button>
-          </div>
-        `;
+        item.innerHTML = `<strong>${log.date}</strong><br><small>FL: ${log.fl} | FR: ${log.fr} | RL: ${log.rl} | RR: ${log.rr}</small>`;
         container.appendChild(item);
       });
     }
 
     async function saveService(e) {
       e.preventDefault();
-      if (!activeGarage || !activeVehicleKey) return alert("Select a vehicle first.");
-      const editId = document.getElementById('serviceEditId').value;
+      if (!activeGarage || !activeVehicleKey) return alert("Select vehicle first.");
       const data = {
         vehicleId: activeVehicleKey,
         date: document.getElementById('serviceDate').value,
-        odo: parseFloat(document.getElementById('serviceOdo').value),
-        cost: parseFloat(document.getElementById('serviceCost').value),
-        type: document.getElementById('serviceType').value,
-        remarks: document.getElementById('serviceRemarks').value
+        odo: parseFloat(document.getElementById('serviceOdo').value) || 0,
+        cost: parseFloat(document.getElementById('serviceCost').value) || 0,
+        type: document.getElementById('serviceType').value
       };
-      const ref = editId ? db.ref(`garages/${activeGarage}/serviceLogs/${editId}`) : db.ref(`garages/${activeGarage}/serviceLogs`).push();
-      await ref.set(data);
+      await db.ref(`garages/${activeGarage}/serviceLogs`).push().set(data);
       document.getElementById('serviceForm').reset();
     }
 
     function renderServiceHistory() {
       const container = document.getElementById('serviceHistory');
       container.innerHTML = '';
-      const logs = Object.entries(storeData.serviceLogs)
-        .filter(([k, v]) => v.vehicleId === activeVehicleKey)
-        .sort((a,b) => new Date(b[1].date) - new Date(a[1].date));
-
-      if (logs.length === 0) return container.innerHTML = '<p style="color:var(--text-muted);">No service records found.</p>';
-
-      logs.forEach(([key, log]) => {
+      const entries = Object.entries(storeData.serviceLogs || {}).filter(([k, v]) => v && v.vehicleId === activeVehicleKey);
+      entries.forEach(([key, log]) => {
         const item = document.createElement('div');
         item.className = 'log-item';
-        item.innerHTML = `
-          <div style="display:flex; justify-content:space-between;">
-            <strong>${log.type} (${log.date})</strong>
-            <strong style="color:var(--primary);">₹${log.cost}</strong>
-          </div>
-          <small style="color:var(--text-muted);">${log.odo} Km ${log.remarks ? '| ' + log.remarks : ''}</small>
-          <div class="actions">
-            <button class="secondary btn-small" onclick="deleteEntry('serviceLogs', '${key}')">Delete</button>
-          </div>
-        `;
+        item.innerHTML = `<strong>${log.type} (${log.date})</strong> - ₹${log.cost}`;
         container.appendChild(item);
       });
     }
@@ -823,8 +570,7 @@
       const data = {
         vehicleId: activeVehicleKey,
         title: document.getElementById('remTitle').value,
-        dueDate: document.getElementById('remDueDate').value,
-        dueOdo: parseFloat(document.getElementById('remDueOdo').value) || null
+        dueDate: document.getElementById('remDueDate').value
       };
       await db.ref(`garages/${activeGarage}/reminders`).push().set(data);
       document.getElementById('reminderForm').reset();
@@ -833,43 +579,18 @@
     function renderReminders() {
       const container = document.getElementById('reminderList');
       container.innerHTML = '';
-      const logs = Object.entries(storeData.reminders).filter(([k, v]) => v.vehicleId === activeVehicleKey);
-      if (logs.length === 0) return container.innerHTML = '<p style="color:var(--text-muted);">No reminders active.</p>';
-
-      logs.forEach(([key, rem]) => {
+      const entries = Object.entries(storeData.reminders || {}).filter(([k, v]) => v && v.vehicleId === activeVehicleKey);
+      entries.forEach(([key, rem]) => {
         const item = document.createElement('div');
         item.className = 'log-item';
-        item.innerHTML = `
-          <div style="display:flex; justify-content:space-between;">
-            <strong>${rem.title}</strong>
-            <button class="secondary btn-small" onclick="deleteEntry('reminders', '${key}')">Done / Delete</button>
-          </div>
-          <small style="color:var(--text-muted);">${rem.dueDate ? 'Due: ' + rem.dueDate : ''} ${rem.dueOdo ? 'Due Km: ' + rem.dueOdo : ''}</small>
-        `;
+        item.innerHTML = `<strong>${rem.title}</strong> - Due: ${rem.dueDate || 'N/A'}`;
         container.appendChild(item);
       });
     }
 
-    async function deleteEntry(type, key) {
-      if (confirm("Delete this entry?")) {
-        await db.ref(`garages/${activeGarage}/${type}/${key}`).remove();
-      }
-    }
-
-    // --- VEHICLE MODAL OPERATIONS ---
     function openVehicleModal(mode) {
       document.getElementById('modalMode').value = mode;
       document.getElementById('vehicleModal').classList.remove('hidden');
-      if (mode === 'edit' && activeVehicleKey) {
-        const v = storeData.vehicles[activeVehicleKey];
-        document.getElementById('modalVehicleName').value = v.name || '';
-        document.getElementById('modalVehicleModel').value = v.model || '';
-        document.getElementById('modalTankCapacity').value = v.tankCapacity || '';
-        document.getElementById('modalDeleteBtn').classList.remove('hidden');
-      } else {
-        document.getElementById('vehicleForm').reset();
-        document.getElementById('modalDeleteBtn').classList.add('hidden');
-      }
     }
 
     function hideVehicleModal() {
@@ -879,35 +600,18 @@
     async function saveVehicleProfile(e) {
       e.preventDefault();
       if (!activeGarage) return;
-      const mode = document.getElementById('modalMode').value;
       const name = document.getElementById('modalVehicleName').value.trim();
       const model = document.getElementById('modalVehicleModel').value.trim();
-      const tankCapacity = parseFloat(document.getElementById('modalTankCapacity').value) || 0;
 
-      const vehicleData = { name, model, tankCapacity };
-
-      if (mode === 'edit' && activeVehicleKey) {
-        await db.ref(`garages/${activeGarage}/vehicles/${activeVehicleKey}`).update(vehicleData);
-      } else {
-        const newRef = await db.ref(`garages/${activeGarage}/vehicles`).push();
-        await newRef.set(vehicleData);
-        activeVehicleKey = newRef.key;
-      }
+      const newRef = await db.ref(`garages/${activeGarage}/vehicles`).push();
+      await newRef.set({ name, model });
+      activeVehicleKey = newRef.key;
       hideVehicleModal();
     }
 
-    async function deleteCurrentVehicle() {
-      if (activeVehicleKey && confirm("Are you sure? This will delete the vehicle record.")) {
-        await db.ref(`garages/${activeGarage}/vehicles/${activeVehicleKey}`).remove();
-        activeVehicleKey = null;
-        hideVehicleModal();
-      }
-    }
-
-    // --- CSV IMPORT / EXPORT LOGIC ---
     function exportCSV() {
       if (!activeVehicleKey) return alert("Select a vehicle first.");
-      const fuels = Object.values(storeData.fuelLogs).filter(x => x.vehicleId === activeVehicleKey);
+      const fuels = Object.values(storeData.fuelLogs || {}).filter(x => x && x.vehicleId === activeVehicleKey);
       let csv = "Type,Date,Odometer,Cost,Liters,UnitPrice,Remarks\n";
       fuels.forEach(f => {
         csv += `Fuel,${f.date},${f.odo},${f.cost},${f.liters},${f.unitPrice},"${f.remarks || ''}"\n`;
@@ -920,13 +624,9 @@
       a.click();
     }
 
-    function triggerCSVImport() {
-      document.getElementById('importCsvInput').click();
-    }
-
     function processCSVImport(e) {
       const file = e.target.files[0];
-      if (!file || !activeGarage || !activeVehicleKey) return alert("Select a vehicle and file.");
+      if (!file || !activeGarage || !activeVehicleKey) return alert("Select a vehicle first.");
       const reader = new FileReader();
       reader.onload = async function(evt) {
         const lines = evt.target.result.split('\n');
@@ -942,12 +642,11 @@
               liters: parseFloat(parts[4]) || 0,
               unitPrice: parseFloat(parts[5]) || 0,
               remarks: parts[6] ? parts[6].replace(/"/g, '') : '',
-              isFullTank: true,
-              missedPrevious: false
+              isFullTank: true
             });
           }
         }
-        alert("Import completed successfully!");
+        alert("Import complete!");
       };
       reader.readAsText(file);
     }
@@ -961,10 +660,9 @@
       document.getElementById(tabName + 'TabBtn').classList.add('active');
     }
 
-    function cancelFuelEdit() {
-      document.getElementById('fuelEditId').value = '';
-      document.getElementById('fuelSubmitBtn').innerText = 'Save Fuel Log';
-      document.getElementById('fuelCancelBtn').classList.add('hidden');
+    function toggleTheme() {
+      const body = document.body;
+      body.setAttribute('data-theme', body.getAttribute('data-theme') === 'dark' ? 'light' : 'dark');
     }
 
     window.addEventListener('DOMContentLoaded', () => {
