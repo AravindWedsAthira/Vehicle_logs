@@ -21,6 +21,7 @@
       --text-muted: #64748b;
       --border: #e2e8f0;
       --danger: #ef4444;
+      --success: #10b981;
       --input-bg: #ffffff;
     }
 
@@ -32,6 +33,7 @@
       --text-muted: #94a3b8;
       --border: #334155;
       --danger: #f87171;
+      --success: #34d399;
       --input-bg: #0f172a;
     }
 
@@ -46,38 +48,23 @@
     .btn-small { width: auto; padding: 4px 10px; font-size: 0.75rem; margin: 0; }
     .card { background: var(--card); padding: 16px; border-radius: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); margin-bottom: 16px; border: 1px solid var(--border); }
     .tabs { display: flex; gap: 6px; margin-bottom: 16px; flex-wrap: wrap; }
-    .tab-btn { flex: 1; min-width: 20%; padding: 8px 4px; background: var(--border); color: var(--text); border-radius: 6px; font-weight: bold; border: none; font-size: 0.8rem; text-align: center; }
+    .tab-btn { flex: 1; min-width: 18%; padding: 8px 4px; background: var(--border); color: var(--text); border-radius: 6px; font-weight: bold; border: none; font-size: 0.8rem; text-align: center; }
     .tab-btn.active { background: var(--primary); color: white; }
     .hidden { display: none !important; }
     .log-item { border-bottom: 1px solid var(--border); padding: 10px 0; }
     .log-item:last-child { border-bottom: none; }
     .flex { display: flex; gap: 8px; }
-    .stat-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 12px; }
+    .stat-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; margin-bottom: 12px; }
     .stat-box { background: var(--bg); border: 1px solid var(--border); padding: 10px 6px; border-radius: 8px; text-align: center; }
     .stat-box small { color: var(--text-muted); display: block; font-size: 0.7rem; }
-    .stat-box strong { font-size: 1rem; color: var(--primary); }
+    .stat-box strong { font-size: 1.05rem; color: var(--primary); }
     .vehicle-profile { text-align: center; margin-bottom: 12px; }
     .tyre-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 6px; }
 
     #loginModal {
-      position: fixed;
-      inset: 0;
-      background: rgba(15, 23, 42, 0.85);
-      backdrop-filter: blur(4px);
-      z-index: 1000;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      padding: 16px;
+      position: fixed; inset: 0; background: rgba(15, 23, 42, 0.85); backdrop-filter: blur(4px); z-index: 1000; display: flex; align-items: center; justify-content: center; padding: 16px;
     }
-    .auth-card {
-      background: var(--card);
-      padding: 24px;
-      border-radius: 16px;
-      width: 100%;
-      max-width: 380px;
-      box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
-    }
+    .auth-card { background: var(--card); padding: 24px; border-radius: 16px; width: 100%; max-width: 380px; box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1); }
   </style>
 </head>
 <body data-theme="light">
@@ -88,7 +75,7 @@
       <div style="text-align: center; margin-bottom: 20px;">
         <span style="font-size: 2.5rem;">🚗</span>
         <h2 style="font-size: 1.25rem; margin-top: 8px;">Garage Login & Sync</h2>
-        <p style="font-size: 0.8rem; color: var(--text-muted); margin-top: 4px;">Enter Garage Name and PIN to unlock.</p>
+        <p style="font-size: 0.8rem; color: var(--text-muted); margin-top: 4px;">Enter Garage ID & PIN to connect to Cloud Database.</p>
       </div>
       <form id="loginForm" onsubmit="handlePinLogin(event)">
         <label style="font-size: 0.75rem; font-weight: bold; text-transform: uppercase; color: var(--text-muted);">Garage ID / Name</label>
@@ -99,7 +86,7 @@
 
         <div id="loginError" style="color: var(--danger); font-size: 0.8rem; text-align: center; margin-bottom: 8px; min-height: 18px;"></div>
 
-        <button type="submit" id="unlockBtn" style="padding: 12px; margin-top: 4px;">Unlock Garage</button>
+        <button type="submit" id="unlockBtn" style="padding: 12px; margin-top: 4px;">Unlock Cloud Garage</button>
       </form>
     </div>
   </div>
@@ -137,7 +124,7 @@
         <div id="vehicleProfileDisplay" class="vehicle-profile"></div>
         <button class="secondary btn-small" style="width: 100%; margin-bottom: 12px; padding: 8px;" onclick="openVehicleModal('edit')">✏️ Edit Active Vehicle</button>
 
-        <h3>Vehicle Metrics</h3>
+        <h3>Performance & Predictions</h3>
         <div class="stat-grid" style="margin-top:10px;">
           <div class="stat-box">
             <small>Avg Mileage</small>
@@ -148,7 +135,15 @@
             <strong id="costPerKm">₹-- / Km</strong>
           </div>
           <div class="stat-box">
-            <small>Total Expenses</small>
+            <small>Est. Range Left</small>
+            <strong id="estRange" style="color:var(--success);">-- Km</strong>
+          </div>
+          <div class="stat-box">
+            <small>Next Refuel Odo</small>
+            <strong id="nextRefuelOdo">-- Km</strong>
+          </div>
+          <div class="stat-box" style="grid-column: span 2;">
+            <small>Total Tracked Expenses</small>
             <strong id="totalExpenses">₹0</strong>
           </div>
         </div>
@@ -172,26 +167,26 @@
           <div class="flex">
             <div>
               <label>Odometer (Km)</label>
-              <input type="number" step="0.1" id="fuelOdo" placeholder="e.g. 15200" required>
+              <input type="number" step="0.1" id="fuelOdo" placeholder="e.g. 3793" required>
             </div>
             <div>
               <label>Price / Litre (₹)</label>
-              <input type="number" step="0.01" id="fuelUnitPrice" placeholder="e.g. 102.5" oninput="calcFuelCost()">
+              <input type="number" step="0.01" id="fuelUnitPrice" placeholder="e.g. 101.22" oninput="calcFuelCost()">
             </div>
           </div>
           <div class="flex">
             <div>
               <label>Fuel (Liters)</label>
-              <input type="number" step="0.01" id="fuelLiters" placeholder="e.g. 35" oninput="calcFuelCost()" required>
+              <input type="number" step="0.01" id="fuelLiters" placeholder="e.g. 8.0" oninput="calcFuelCost()" required>
             </div>
             <div>
               <label>Total Cost (₹)</label>
-              <input type="number" step="0.01" id="fuelCost" placeholder="e.g. 3587.5" oninput="calcFuelLiters()" required>
+              <input type="number" step="0.01" id="fuelCost" placeholder="e.g. 809.76" oninput="calcFuelLiters()" required>
             </div>
           </div>
           
           <label>Remarks / Notes</label>
-          <input type="text" id="fuelRemarks" placeholder="e.g. Shell V-power">
+          <input type="text" id="fuelRemarks" placeholder="e.g. Full Tank">
 
           <button type="submit">Save Fuel Log</button>
         </form>
@@ -221,13 +216,11 @@
               <input type="number" step="0.1" id="tyreOdo">
             </div>
           </div>
-          <div class="tyre-grid">
-            <div><small>Front Left (FL)</small><input type="number" step="0.5" id="tyreFL" required></div>
-            <div><small>Front Right (FR)</small><input type="number" step="0.5" id="tyreFR" required></div>
-            <div><small>Rear Left (RL)</small><input type="number" step="0.5" id="tyreRL"></div>
-            <div><small>Rear Right (RR)</small><input type="number" step="0.5" id="tyreRR"></div>
-          </div>
-          <button type="submit">Save Tyre Log</button>
+          
+          <!-- Dynamic Tyres Layout -->
+          <div id="tyreFieldsContainer" class="tyre-grid"></div>
+
+          <button type="submit" style="margin-top:12px;">Save Tyre Log</button>
         </form>
       </div>
       <div class="card">
@@ -248,7 +241,7 @@
             <div><label>Cost (₹)</label><input type="number" step="0.01" id="serviceCost" required></div>
           </div>
           <label>Service Type / Details</label>
-          <input type="text" id="serviceType" required>
+          <input type="text" id="serviceType" placeholder="e.g. Oil change, Chain Lube" required>
           <button type="submit">Save Service Log</button>
         </form>
       </div>
@@ -264,7 +257,7 @@
         <h3>Set Reminder</h3>
         <form id="reminderForm" onsubmit="saveReminder(event)">
           <label>Task</label>
-          <input type="text" id="remTitle" required>
+          <input type="text" id="remTitle" placeholder="e.g. Next Oil Service / Insurance Renewal" required>
           <label>Due Date</label>
           <input type="date" id="remDueDate">
           <button type="submit">Set Reminder</button>
@@ -276,9 +269,9 @@
       </div>
     </div>
 
-    <!-- IMPORT / EXPORT -->
+    <!-- BACKUP & RESTORE -->
     <div class="card">
-      <h3 style="font-size: 0.95rem; margin-bottom: 8px;">Data Backup & Restore</h3>
+      <h3 style="font-size: 0.95rem; margin-bottom: 8px;">Data Backup & Cloud Import</h3>
       <div class="flex">
         <button class="secondary" style="flex: 1;" onclick="exportCSV()">📊 Export CSV</button>
         <button class="secondary" style="flex: 1;" onclick="triggerFileInput()">📥 Import CSV</button>
@@ -288,13 +281,31 @@
 
     <!-- VEHICLE MODAL -->
     <div id="vehicleModal" class="hidden card" style="position:fixed; top:10%; left:5%; right:5%; z-index:100; max-width:500px; margin:0 auto;">
-      <h3 id="modalTitle">Add Vehicle</h3>
+      <h3 id="modalTitle">Add / Edit Vehicle</h3>
       <form id="vehicleForm" onsubmit="saveVehicleProfile(event)">
         <input type="hidden" id="modalMode" value="add">
+        
         <label>Vehicle Name</label>
-        <input type="text" id="modalVehicleName" required placeholder="e.g. Kia Sonet">
-        <label>Model / Registration</label>
-        <input type="text" id="modalVehicleModel" placeholder="e.g. TN-45-XX-1234">
+        <input type="text" id="modalVehicleName" required placeholder="e.g. Classic 350">
+        
+        <label>Registration / Model Number</label>
+        <input type="text" id="modalVehicleModel" placeholder="e.g. TN 81 AY 9672">
+        
+        <label>Vehicle Type</label>
+        <select id="modalVehicleType">
+          <option value="2wheeler">2-Wheeler (Bike/Scooter)</option>
+          <option value="4wheeler">4-Wheeler (Car/SUV)</option>
+        </select>
+
+        <label>Fuel Tank Capacity (Liters)</label>
+        <input type="number" step="0.1" id="modalTankCapacity" placeholder="e.g. 13.5 (for Classic 350)">
+
+        <label>Recommended Tyre Pressure (PSI)</label>
+        <div class="flex">
+          <input type="number" step="0.5" id="modalFrontPsi" placeholder="Front: e.g. 32">
+          <input type="number" step="0.5" id="modalRearPsi" placeholder="Rear: e.g. 36">
+        </div>
+
         <button type="submit">Save Vehicle</button>
         <button type="button" class="secondary" onclick="hideVehicleModal()">Cancel</button>
       </form>
@@ -322,6 +333,7 @@
     let activeGarage = null;
     let activeVehicleKey = null;
     let storeData = { vehicles: {}, fuelLogs: {}, tyreLogs: {}, serviceLogs: {}, reminders: {} };
+    let chartInstance = null;
 
     async function handlePinLogin(event) {
       event.preventDefault();
@@ -371,6 +383,7 @@
       document.getElementById('loginModal').classList.remove('hidden');
     }
 
+    // REALTIME DATABASE SYNC
     function syncWithFirebase() {
       if (!activeGarage) return;
       db.ref('garages/' + activeGarage).on('value', (snapshot) => {
@@ -388,8 +401,6 @@
         renderTyreHistory();
         renderServiceHistory();
         renderReminders();
-      }, (err) => {
-        console.error("Database Read Error:", err);
       });
     }
 
@@ -399,7 +410,7 @@
       const keys = Object.keys(storeData.vehicles);
 
       if (keys.length === 0) {
-        select.innerHTML = '<option value="">No vehicles found - Create One</option>';
+        select.innerHTML = '<option value="">No vehicles found - Add or Import CSV</option>';
         activeVehicleKey = null;
         return;
       }
@@ -407,7 +418,7 @@
       keys.forEach(k => {
         const opt = document.createElement('option');
         opt.value = k;
-        opt.innerText = storeData.vehicles[k].name || 'Vehicle ' + k;
+        opt.innerText = `${storeData.vehicles[k].name} (${storeData.vehicles[k].model || ''})`;
         select.appendChild(opt);
       });
 
@@ -415,10 +426,12 @@
         activeVehicleKey = keys[0];
       }
       select.value = activeVehicleKey;
+      setupTyreInputs();
     }
 
     function switchVehicle() {
       activeVehicleKey = document.getElementById('vehicleSelect').value;
+      setupTyreInputs();
       renderDashboard();
       renderFuelHistory();
       renderTyreHistory();
@@ -434,15 +447,88 @@
       }
 
       const v = storeData.vehicles[activeVehicleKey];
-      document.getElementById('vehicleProfileDisplay').innerHTML = `<h2>${v.name}</h2><p style="color:var(--text-muted); font-size:0.85rem; margin-top:4px;">${v.model || ''}</p>`;
+      document.getElementById('vehicleProfileDisplay').innerHTML = `
+        <h2>${v.name}</h2>
+        <p style="color:var(--text-muted); font-size:0.85rem; margin-top:4px;">${v.model || ''} • ${v.type === '4wheeler' ? '🚗 4-Wheeler' : '🏍️ 2-Wheeler'}</p>
+        <small style="color:var(--text-muted);">Rec. Pressure: Front ${v.frontPsi || '--'} PSI | Rear ${v.rearPsi || '--'} PSI</small>
+      `;
 
-      const fuels = Object.values(storeData.fuelLogs || {}).filter(x => x && x.vehicleId === activeVehicleKey);
+      // Get Sorted Fuel Logs
+      const fuels = Object.values(storeData.fuelLogs || {})
+        .filter(x => x && x.vehicleId === activeVehicleKey && x.odo > 0)
+        .sort((a, b) => a.odo - b.odo);
+
       const services = Object.values(storeData.serviceLogs || {}).filter(x => x && x.vehicleId === activeVehicleKey);
 
       let totalFuelCost = fuels.reduce((acc, x) => acc + (parseFloat(x.cost) || 0), 0);
       let totalServiceCost = services.reduce((acc, x) => acc + (parseFloat(x.cost) || 0), 0);
-
       document.getElementById('totalExpenses').innerText = '₹' + (totalFuelCost + totalServiceCost).toFixed(2);
+
+      // Calculations for Mileage, Range, and Next Refuel
+      if (fuels.length >= 2) {
+        let totalDistance = fuels[fuels.length - 1].odo - fuels[0].odo;
+        let totalFuelUsed = fuels.slice(1).reduce((acc, x) => acc + (parseFloat(x.liters) || 0), 0);
+
+        let avgKmpl = totalFuelUsed > 0 ? (totalDistance / totalFuelUsed) : 0;
+        let costKm = totalDistance > 0 ? (totalFuelCost / totalDistance) : 0;
+
+        document.getElementById('avgMileage').innerText = avgKmpl.toFixed(1) + ' Km/L';
+        document.getElementById('costPerKm').innerText = '₹' + costKm.toFixed(2) + ' / Km';
+
+        // Auto Calc Range & Next Refuel
+        let tankCap = parseFloat(v.tankCapacity) || 13.5;
+        let lastLog = fuels[fuels.length - 1];
+        let estRange = avgKmpl * (parseFloat(lastLog.liters) || tankCap);
+        let nextRefuelOdo = lastLog.odo + estRange;
+
+        document.getElementById('estRange').innerText = '~' + estRange.toFixed(0) + ' Km';
+        document.getElementById('nextRefuelOdo').innerText = '~' + nextRefuelOdo.toFixed(0) + ' Km';
+
+        renderChart(fuels);
+      } else {
+        document.getElementById('avgMileage').innerText = '-- Km/L';
+        document.getElementById('costPerKm').innerText = '₹-- / Km';
+        document.getElementById('estRange').innerText = '-- Km';
+        document.getElementById('nextRefuelOdo').innerText = '-- Km';
+      }
+    }
+
+    function renderChart(fuels) {
+      const ctx = document.getElementById('mileageChart').getContext('2d');
+      if (chartInstance) chartInstance.destroy();
+
+      let labels = [];
+      let dataPoints = [];
+
+      for (let i = 1; i < fuels.length; i++) {
+        let dist = fuels[i].odo - fuels[i-1].odo;
+        let lit = parseFloat(fuels[i].liters);
+        if (lit > 0 && dist > 0) {
+          labels.push(fuels[i].date);
+          dataPoints.push((dist / lit).toFixed(1));
+        }
+      }
+
+      chartInstance = new Chart(ctx, {
+        type: 'line',
+        data: {
+          labels: labels,
+          datasets: [{
+            label: 'Km/L',
+            data: dataPoints,
+            borderColor: '#2563eb',
+            tension: 0.3,
+            fill: false
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          scales: {
+            y: { beginAtZero: false }
+          }
+        }
+      });
     }
 
     function calcFuelCost() {
@@ -459,7 +545,7 @@
 
     async function saveFuel(e) {
       e.preventDefault();
-      if (!activeGarage || !activeVehicleKey) return alert("Please create or select a vehicle first.");
+      if (!activeGarage || !activeVehicleKey) return alert("Select a vehicle first.");
       
       const data = {
         vehicleId: activeVehicleKey,
@@ -485,7 +571,6 @@
       if (entries.length === 0) return container.innerHTML = '<p style="color:var(--text-muted);">No records found.</p>';
 
       entries.forEach(([key, log]) => {
-        if (!log.date && !log.odo && !log.cost) return; // Skip broken empty headers
         const item = document.createElement('div');
         item.className = 'log-item';
         item.innerHTML = `
@@ -493,14 +578,14 @@
             <strong>${log.date || 'N/A'} - ${log.odo || 0} Km</strong>
             <strong style="color:var(--primary);">₹${(parseFloat(log.cost)||0).toFixed(2)}</strong>
           </div>
-          <small style="color:var(--text-muted);">${log.liters || 0} L @ ₹${log.unitPrice || 0}/L</small>
+          <small style="color:var(--text-muted);">${log.liters || 0} L @ ₹${log.unitPrice || 0}/L ${log.remarks ? '• ' + log.remarks : ''}</small>
         `;
         container.appendChild(item);
       });
     }
 
     async function clearFuelLogs() {
-      if (!confirm("Are you sure you want to clear current fuel logs?")) return;
+      if (!confirm("Are you sure you want to clear current vehicle fuel logs?")) return;
       const logs = storeData.fuelLogs || {};
       for (let k in logs) {
         if (logs[k] && logs[k].vehicleId === activeVehicleKey) {
@@ -509,17 +594,41 @@
       }
     }
 
+    function setupTyreInputs() {
+      const container = document.getElementById('tyreFieldsContainer');
+      const v = storeData.vehicles[activeVehicleKey];
+      const is4W = v && v.type === '4wheeler';
+
+      if (is4W) {
+        container.innerHTML = `
+          <div><small>Front Left (FL)</small><input type="number" step="0.5" id="tyreFL" required></div>
+          <div><small>Front Right (FR)</small><input type="number" step="0.5" id="tyreFR" required></div>
+          <div><small>Rear Left (RL)</small><input type="number" step="0.5" id="tyreRL"></div>
+          <div><small>Rear Right (RR)</small><input type="number" step="0.5" id="tyreRR"></div>
+        `;
+      } else {
+        container.innerHTML = `
+          <div><small>Front Tyre</small><input type="number" step="0.5" id="tyreFL" required></div>
+          <div><small>Rear Tyre</small><input type="number" step="0.5" id="tyreRR" required></div>
+        `;
+      }
+    }
+
     async function saveTyrePressure(e) {
       e.preventDefault();
-      if (!activeGarage || !activeVehicleKey) return alert("Select or create a vehicle first.");
+      if (!activeGarage || !activeVehicleKey) return;
+      const v = storeData.vehicles[activeVehicleKey];
+
       const data = {
         vehicleId: activeVehicleKey,
         date: document.getElementById('tyreDate').value,
-        fl: document.getElementById('tyreFL').value,
-        fr: document.getElementById('tyreFR').value,
-        rl: document.getElementById('tyreRL').value,
-        rr: document.getElementById('tyreRR').value
+        odo: document.getElementById('tyreOdo').value || 0,
+        fl: document.getElementById('tyreFL')?.value || '',
+        fr: document.getElementById('tyreFR')?.value || '',
+        rl: document.getElementById('tyreRL')?.value || '',
+        rr: document.getElementById('tyreRR')?.value || ''
       };
+
       await db.ref(`garages/${activeGarage}/tyreLogs`).push().set(data);
       document.getElementById('tyreForm').reset();
     }
@@ -528,17 +637,21 @@
       const container = document.getElementById('tyreHistory');
       container.innerHTML = '';
       const entries = Object.entries(storeData.tyreLogs || {}).filter(([k, v]) => v && v.vehicleId === activeVehicleKey);
+
       entries.forEach(([key, log]) => {
         const item = document.createElement('div');
         item.className = 'log-item';
-        item.innerHTML = `<strong>${log.date}</strong><br><small>FL: ${log.fl} | FR: ${log.fr} | RL: ${log.rl} | RR: ${log.rr}</small>`;
+        item.innerHTML = `
+          <strong>${log.date} (${log.odo || '--'} Km)</strong><br>
+          <small>${log.fr ? `FL: ${log.fl} | FR: ${log.fr} | RL: ${log.rl} | RR: ${log.rr}` : `Front: ${log.fl} PSI | Rear: ${log.rr} PSI`}</small>
+        `;
         container.appendChild(item);
       });
     }
 
     async function saveService(e) {
       e.preventDefault();
-      if (!activeGarage || !activeVehicleKey) return alert("Select or create a vehicle first.");
+      if (!activeGarage || !activeVehicleKey) return;
       const data = {
         vehicleId: activeVehicleKey,
         date: document.getElementById('serviceDate').value,
@@ -557,7 +670,7 @@
       entries.forEach(([key, log]) => {
         const item = document.createElement('div');
         item.className = 'log-item';
-        item.innerHTML = `<strong>${log.type} (${log.date})</strong> - ₹${log.cost}`;
+        item.innerHTML = `<strong>${log.type} (${log.date})</strong> - ₹${log.cost} [${log.odo} Km]`;
         container.appendChild(item);
       });
     }
@@ -588,6 +701,17 @@
 
     function openVehicleModal(mode) {
       document.getElementById('modalMode').value = mode;
+      if (mode === 'edit' && activeVehicleKey && storeData.vehicles[activeVehicleKey]) {
+        const v = storeData.vehicles[activeVehicleKey];
+        document.getElementById('modalVehicleName').value = v.name || '';
+        document.getElementById('modalVehicleModel').value = v.model || '';
+        document.getElementById('modalVehicleType').value = v.type || '2wheeler';
+        document.getElementById('modalTankCapacity').value = v.tankCapacity || '';
+        document.getElementById('modalFrontPsi').value = v.frontPsi || '';
+        document.getElementById('modalRearPsi').value = v.rearPsi || '';
+      } else {
+        document.getElementById('vehicleForm').reset();
+      }
       document.getElementById('vehicleModal').classList.remove('hidden');
     }
 
@@ -598,27 +722,45 @@
     async function saveVehicleProfile(e) {
       e.preventDefault();
       if (!activeGarage) return;
-      const name = document.getElementById('modalVehicleName').value.trim();
-      const model = document.getElementById('modalVehicleModel').value.trim();
+      const mode = document.getElementById('modalMode').value;
 
-      const newRef = await db.ref(`garages/${activeGarage}/vehicles`).push();
-      await newRef.set({ name, model });
-      activeVehicleKey = newRef.key;
+      const profile = {
+        name: document.getElementById('modalVehicleName').value.trim(),
+        model: document.getElementById('modalVehicleModel').value.trim(),
+        type: document.getElementById('modalVehicleType').value,
+        tankCapacity: parseFloat(document.getElementById('modalTankCapacity').value) || 13.5,
+        frontPsi: parseFloat(document.getElementById('modalFrontPsi').value) || 32,
+        rearPsi: parseFloat(document.getElementById('modalRearPsi').value) || 36
+      };
+
+      if (mode === 'edit' && activeVehicleKey) {
+        await db.ref(`garages/${activeGarage}/vehicles/${activeVehicleKey}`).update(profile);
+      } else {
+        const newRef = await db.ref(`garages/${activeGarage}/vehicles`).push();
+        await newRef.set(profile);
+        activeVehicleKey = newRef.key;
+      }
+
       hideVehicleModal();
     }
 
     function exportCSV() {
-      if (!activeVehicleKey) return alert("Select or create a vehicle first.");
+      if (!activeVehicleKey) return alert("Select a vehicle first.");
+      const v = storeData.vehicles[activeVehicleKey];
       const fuels = Object.values(storeData.fuelLogs || {}).filter(x => x && x.vehicleId === activeVehicleKey);
-      let csv = "Date,Odometer,Liters,UnitPrice,Cost,Remarks\n";
+      
+      let csv = `=== VEHICLE: ${v.name} (${v.model || ''}) - ${v.type || '2wheeler'} ===\n--- FUEL LOGS ---\n`;
+      csv += "Type,Date,Odometer (Km),Liters,Price/L,Total Cost (INR),Full Tank,Missed Prev Fueling,Remarks\n";
+      
       fuels.forEach(f => {
-        csv += `${f.date},${f.odo},${f.liters},${f.unitPrice},${f.cost},"${f.remarks || ''}"\n`;
+        csv += `Fuel,${f.date},${f.odo},${f.liters},${f.unitPrice},${f.cost},No,No,"${f.remarks || ''}"\n`;
       });
+
       const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `vehicle_tracker_${activeGarage}.csv`;
+      a.download = `${v.name.replace(/\s+/g, '_')}_export.csv`;
       a.click();
     }
 
@@ -626,64 +768,86 @@
       document.getElementById('importCsvInput').click();
     }
 
+    // MULTI-VEHICLE ADVANCED CSV IMPORTER
     function processCSVImport(e) {
       const file = e.target.files[0];
-      if (!file) return;
-
-      if (!activeVehicleKey) {
-        alert("Please select or add a vehicle before importing.");
-        return;
-      }
+      if (!file || !activeGarage) return;
 
       const reader = new FileReader();
       reader.onload = async function(evt) {
         try {
           const lines = evt.target.result.split(/\r\n|\n/);
+          let currentVehicleKey = activeVehicleKey;
+          let currentSection = 'FUEL';
           let importedCount = 0;
 
           for (let i = 0; i < lines.length; i++) {
             const line = lines[i].trim();
             if (!line) continue;
 
+            // Header Check: === VEHICLE: Name (Model) - Type ===
+            if (line.startsWith('===')) {
+              const nameMatch = line.match(/=== VEHICLE:\s*(.*?)\s*\((.*?)\)\s*-\s*(.*?)\s*===/);
+              let name = "Imported Vehicle";
+              let model = "";
+              let type = "2wheeler";
+
+              if (nameMatch) {
+                name = nameMatch[1].trim();
+                model = nameMatch[2].trim();
+                type = nameMatch[3].trim();
+              }
+
+              // Search existing vehicle in DB or create new
+              let existingKey = Object.keys(storeData.vehicles).find(
+                k => storeData.vehicles[k].name === name || storeData.vehicles[k].model === model
+              );
+
+              if (existingKey) {
+                currentVehicleKey = existingKey;
+              } else {
+                const newVRef = await db.ref(`garages/${activeGarage}/vehicles`).push();
+                await newVRef.set({ name, model, type, tankCapacity: 13.5, frontPsi: 32, rearPsi: 36 });
+                currentVehicleKey = newVRef.key;
+              }
+              continue;
+            }
+
+            // Section Check
+            if (line.includes('FUEL LOGS')) { currentSection = 'FUEL'; continue; }
+            if (line.includes('TYRE PRESSURE')) { currentSection = 'TYRE'; continue; }
+            if (line.includes('SERVICE LOGS')) { currentSection = 'SERVICE'; continue; }
+
             const parts = line.split(',').map(p => p.replace(/"/g, '').trim());
 
-            // Skip header lines
-            if (parts[0].toLowerCase().includes("date") || parts[0].toLowerCase().includes("type")) continue;
+            // Skip table header lines
+            if (parts[0].toLowerCase() === 'type' || parts[0].toLowerCase() === 'date') continue;
 
-            // Flexible column position detection
-            let date = parts[0];
-            let odo = parseFloat(parts[1]) || 0;
-            let liters = parseFloat(parts[2]) || 0;
-            let unitPrice = parseFloat(parts[3]) || 0;
-            let cost = parseFloat(parts[4]) || 0;
-            let remarks = parts[5] || '';
+            if (currentSection === 'FUEL' && currentVehicleKey) {
+              let date = parts[1];
+              let odo = parseFloat(parts[2]) || 0;
+              let liters = parseFloat(parts[3]) || 0;
+              let unitPrice = parseFloat(parts[4]) || 0;
+              let cost = parseFloat(parts[5]) || 0;
+              let remarks = parts[8] || '';
 
-            // If exported with "Fuel" prefix in column 0
-            if (isNaN(Date.parse(parts[0])) && !isNaN(Date.parse(parts[1]))) {
-              date = parts[1];
-              odo = parseFloat(parts[2]) || 0;
-              cost = parseFloat(parts[3]) || 0;
-              liters = parseFloat(parts[4]) || 0;
-              unitPrice = parseFloat(parts[5]) || 0;
-              remarks = parts[6] || '';
-            }
-
-            if (date) {
-              await db.ref(`garages/${activeGarage}/fuelLogs`).push().set({
-                vehicleId: activeVehicleKey,
-                date: date,
-                odo: odo,
-                liters: liters,
-                unitPrice: unitPrice,
-                cost: cost,
-                remarks: remarks
-              });
-              importedCount++;
+              if (date && !isNaN(odo) && odo > 0) {
+                await db.ref(`garages/${activeGarage}/fuelLogs`).push().set({
+                  vehicleId: currentVehicleKey,
+                  date: date,
+                  odo: odo,
+                  liters: liters,
+                  unitPrice: unitPrice,
+                  cost: cost,
+                  remarks: remarks
+                });
+                importedCount++;
+              }
             }
           }
-          alert(`Import successful! ${importedCount} clean records added.`);
+          alert(`Successfully imported ${importedCount} clean records from Cloud CSV!`);
         } catch (err) {
-          alert("Error parsing CSV: " + err.message);
+          alert("Error importing file: " + err.message);
         }
       };
       reader.readAsText(file);
