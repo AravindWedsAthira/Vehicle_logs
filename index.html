@@ -68,9 +68,6 @@
     .stat-box small { color: var(--text-muted); display: block; font-size: 0.7rem; }
     .stat-box strong { font-size: 1rem; color: var(--primary); }
     
-    .badge { background: rgba(37, 99, 235, 0.15); color: var(--primary); font-weight: bold; padding: 2px 6px; border-radius: 4px; font-size: 0.75rem; display: inline-block; margin-top: 4px; }
-    .badge-success { background: rgba(16, 185, 129, 0.15); color: var(--success); }
-    
     .modal-overlay { position: fixed; inset: 0; background: rgba(15, 23, 42, 0.85); backdrop-filter: blur(4px); z-index: 1000; display: flex; align-items: center; justify-content: center; padding: 16px; }
     .modal-card { background: var(--card); padding: 20px; border-radius: 16px; width: 100%; max-width: 420px; max-height: 90vh; overflow-y: auto; }
     
@@ -78,7 +75,7 @@
     .checkbox-group input { width: auto; margin: 0; }
     .checkbox-group label { font-size: 0.85rem; }
 
-    .action-btn { width: auto; padding: 3px 8px; font-size: 0.7rem; margin: 0; }
+    .btn-sm { width: auto; padding: 4px 10px; font-size: 0.75rem; margin: 0; }
   </style>
 </head>
 <body data-theme="light">
@@ -93,10 +90,10 @@
       </div>
       <form id="loginForm" onsubmit="handlePinLogin(event)">
         <label style="font-size: 0.75rem; font-weight: bold; text-transform: uppercase; color: var(--text-muted);">Garage ID / Name</label>
-        <input type="text" id="loginGarageName" value="" required placeholder="Enter Garage Name" autocomplete="off" />
+        <input type="text" id="loginGarageName" required placeholder="e.g. nikhil" autocomplete="on" />
         
         <label style="font-size: 0.75rem; font-weight: bold; text-transform: uppercase; color: var(--text-muted);">Security PIN</label>
-        <input type="password" id="loginPin" value="" required maxlength="6" placeholder="******" style="text-align: center; letter-spacing: 4px; font-weight: bold;" autocomplete="new-password" />
+        <input type="password" id="loginPin" required placeholder="******" style="text-align: center; letter-spacing: 4px; font-weight: bold;" autocomplete="on" />
 
         <div id="loginError" style="color: var(--danger); font-size: 0.8rem; text-align: center; margin-bottom: 8px; min-height: 18px;"></div>
 
@@ -113,8 +110,8 @@
         <small style="color: var(--text-muted); font-size: 0.75rem;">Garage ID: <b id="activeGarageLabel" style="color: var(--primary);">--</b></small>
       </div>
       <div style="display: flex; gap: 6px;">
-        <button class="secondary" style="width: auto; padding: 6px 10px; font-size: 0.8rem;" onclick="toggleTheme()">🌙 Mode</button>
-        <button class="secondary" style="width: auto; padding: 6px 10px; font-size: 0.8rem;" onclick="lockApp()">🔒 Lock</button>
+        <button class="secondary btn-sm" onclick="toggleTheme()">🌙 Mode</button>
+        <button class="secondary btn-sm" onclick="lockApp()">🔒 Lock</button>
       </div>
     </header>
 
@@ -122,13 +119,9 @@
     <div class="card">
       <div class="flex-center" style="margin-bottom: 6px;">
         <label><b>Active Vehicle</b></label>
-        <button class="outline" style="width: auto; padding: 4px 8px; font-size: 0.75rem; margin: 0;" onclick="openAddVehicleModal()">+ Add Vehicle</button>
+        <button class="outline btn-sm" onclick="openAddVehicleModal()">+ Add Vehicle</button>
       </div>
       <select id="vehicleSelect" onchange="switchVehicle()"></select>
-      
-      <div class="flex" style="margin-top: -4px;">
-        <button class="outline" style="padding: 6px; font-size: 0.8rem;" onclick="openEditVehicleModal()">✏️ Edit Vehicle Details</button>
-      </div>
     </div>
 
     <!-- TABS -->
@@ -137,15 +130,13 @@
       <button class="tab-btn" id="fuelTabBtn" onclick="showTab('fuel')">⛽ Fuel</button>
       <button class="tab-btn" id="serviceTabBtn" onclick="showTab('service')">🔧 Service</button>
       <button class="tab-btn" id="tyreTabBtn" onclick="showTab('tyre')">🛞 Tyre</button>
-      <button class="tab-btn" id="reminderTabBtn" onclick="showTab('reminder')">🔔 Reminders</button>
     </div>
 
     <!-- DASHBOARD TAB -->
     <div id="dashSection">
       <div class="card">
         <div id="vehicleProfileDisplay" style="text-align:center; margin-bottom:12px;"></div>
-
-        <h3>Performance & Predictions</h3>
+        <h3>Performance Stats</h3>
         <div class="stat-grid" style="margin-top:10px;">
           <div class="stat-box">
             <small>Avg Mileage</small>
@@ -155,25 +146,6 @@
             <small>Cost / Km</small>
             <strong id="costPerKm">₹-- / Km</strong>
           </div>
-          <div class="stat-box">
-            <small>Est. Range Left</small>
-            <strong id="estRange" style="color:var(--success);">-- Km</strong>
-          </div>
-          <div class="stat-box">
-            <small>Next Refuel Odo</small>
-            <strong id="nextRefuelOdo">-- Km</strong>
-          </div>
-          <div class="stat-box" style="grid-column: span 2;">
-            <small>Total Tracked Expenses</small>
-            <strong id="totalExpenses">₹0</strong>
-          </div>
-        </div>
-      </div>
-
-      <div class="card">
-        <h3>Mileage Trend Chart</h3>
-        <div style="position: relative; height:200px; width:100%; margin-top:10px;">
-          <canvas id="mileageChart"></canvas>
         </div>
       </div>
     </div>
@@ -183,7 +155,7 @@
       <div class="card">
         <div class="flex-center" style="margin-bottom: 10px;">
           <h3>Fuel History</h3>
-          <button style="width: auto; padding: 6px 12px; font-size: 0.8rem; margin: 0;" onclick="openFuelModal()">+ Add Fuel Log</button>
+          <button class="btn-sm" onclick="openFuelModal()">+ Add Fuel Log</button>
         </div>
         <div id="fuelHistory"></div>
       </div>
@@ -194,9 +166,9 @@
       <div class="card">
         <div class="flex-center" style="margin-bottom: 10px;">
           <h3>Service History</h3>
-          <button style="width: auto; padding: 6px 12px; font-size: 0.8rem; margin: 0;" onclick="openServiceModal()">+ Add Service Log</button>
+          <button class="btn-sm" onclick="openServiceModal()">+ Add Service Log</button>
         </div>
-        <div id="serviceHistory"><p style="color:var(--text-muted); font-size:0.85rem;">No service logs recorded.</p></div>
+        <div id="serviceHistory"></div>
       </div>
     </div>
 
@@ -205,176 +177,205 @@
       <div class="card">
         <div class="flex-center" style="margin-bottom: 10px;">
           <h3>Tyre Pressure Logs</h3>
-          <button style="width: auto; padding: 6px 12px; font-size: 0.8rem; margin: 0;" onclick="openTyreModal()">+ Add Pressure Check</button>
+          <button class="btn-sm" onclick="openTyreModal()">+ Add Tyre Check</button>
         </div>
-        <div id="tyreRecommendedDisplay" style="margin-bottom: 12px; font-size: 0.85rem; color: var(--text-muted);"></div>
-        <div id="tyreHistory"><p style="color:var(--text-muted); font-size:0.85rem;">No tyre pressure logs recorded.</p></div>
+        <div id="tyreHistory"></div>
       </div>
-    </div>
-
-    <!-- REMINDERS TAB -->
-    <div id="reminderSection" class="hidden">
-      <div class="card">
-        <div class="flex-center" style="margin-bottom: 10px;">
-          <h3>Vehicle Reminders</h3>
-          <button style="width: auto; padding: 6px 12px; font-size: 0.8rem; margin: 0;" onclick="openReminderModal()">+ Add Reminder</button>
-        </div>
-        <div id="reminderList"><p style="color:var(--text-muted); font-size:0.85rem;">No reminders set.</p></div>
-      </div>
-    </div>
-
-    <!-- DATA EXPORT & SYNC -->
-    <div class="card">
-      <h3 style="font-size: 0.95rem; margin-bottom: 8px;">Backup & Data Tools</h3>
-      <div class="flex">
-        <button style="flex:1; padding: 10px; font-size: 0.85rem;" onclick="exportGarageToCSV()">📤 Export Garage Data (CSV)</button>
-        <button class="secondary" style="flex:1; padding: 10px; font-size: 0.85rem;" onclick="triggerFileInput()">📥 Import CSV</button>
-      </div>
-      <input type="file" id="importCsvInput" style="display: none;" onchange="processCleanCSVImport(event)">
     </div>
   </div>
 
-  <!-- MODALS FOR DATA ENTRY & EDITING -->
-
-  <!-- Add/Edit Vehicle Modal -->
-  <div id="vehicleModal" class="modal-overlay hidden">
-    <div class="modal-card">
-      <h3 id="vehicleModalTitle" style="margin-bottom: 12px;">Add New Vehicle</h3>
-      <form onsubmit="saveVehicle(event)">
-        <input type="hidden" id="editVehicleKey">
-        <label style="font-size:0.75rem; font-weight:bold; color:var(--text-muted);">Vehicle Name / Title</label>
-        <input type="text" id="vName" placeholder="e.g. Classic 350, Nexon, Pleasure" required>
-
-        <label style="font-size:0.75rem; font-weight:bold; color:var(--text-muted);">Registration Number / Subtitle</label>
-        <input type="text" id="vModel" placeholder="e.g. TN 81 AY 9672">
-
-        <label style="font-size:0.75rem; font-weight:bold; color:var(--text-muted);">Vehicle Type</label>
-        <select id="vType">
-          <option value="Motorcycle">Motorcycle</option>
-          <option value="Scooter">Scooter</option>
-          <option value="Car">Car</option>
-        </select>
-
-        <div class="flex">
-          <div style="flex:1;">
-            <label style="font-size:0.75rem; font-weight:bold; color:var(--text-muted);">Tank Capacity (L)</label>
-            <input type="number" step="0.1" id="vTank" placeholder="13.5" required>
-          </div>
-        </div>
-
-        <div class="flex">
-          <div style="flex:1;">
-            <label style="font-size:0.75rem; font-weight:bold; color:var(--text-muted);">Front PSI</label>
-            <input type="number" id="vFrontPsi" placeholder="32">
-          </div>
-          <div style="flex:1;">
-            <label style="font-size:0.75rem; font-weight:bold; color:var(--text-muted);">Rear PSI</label>
-            <input type="number" id="vRearPsi" placeholder="36">
-          </div>
-        </div>
-
-        <div class="flex" style="margin-top:10px;">
-          <button type="submit" style="flex:1;">Save Vehicle</button>
-          <button type="button" class="secondary" style="flex:1;" onclick="closeModal('vehicleModal')">Cancel</button>
-        </div>
-      </form>
-    </div>
-  </div>
-
-  <!-- Add/Edit Fuel Log Modal -->
+  <!-- EDIT / ADD FUEL MODAL -->
   <div id="fuelModal" class="modal-overlay hidden">
     <div class="modal-card">
-      <h3 id="fuelModalTitle" style="margin-bottom: 12px;">Add Fuel Entry</h3>
+      <h3 id="fuelModalTitle" style="margin-bottom: 12px;">Fuel Entry</h3>
       <form onsubmit="saveFuelLog(event)">
         <input type="hidden" id="editFuelKey">
         <label style="font-size:0.75rem; font-weight:bold; color:var(--text-muted);">Date</label>
         <input type="date" id="fDate" required>
 
         <label style="font-size:0.75rem; font-weight:bold; color:var(--text-muted);">Odometer Reading (Km)</label>
-        <input type="number" step="0.1" id="fOdo" required placeholder="e.g. 34064">
+        <input type="number" step="0.1" id="fOdo" required placeholder="34064">
 
         <div class="flex">
           <div style="flex:1;">
             <label style="font-size:0.75rem; font-weight:bold; color:var(--text-muted);">Liters Filled</label>
-            <input type="number" step="0.01" id="fLiters" required placeholder="3.85" oninput="calcFuelCost()">
+            <input type="number" step="0.01" id="fLiters" required placeholder="3.85">
           </div>
           <div style="flex:1;">
-            <label style="font-size:0.75rem; font-weight:bold; color:var(--text-muted);">Price / Liter (₹)</label>
-            <input type="number" step="0.01" id="fUnitPrice" placeholder="108.16" oninput="calcFuelCost()">
+            <label style="font-size:0.75rem; font-weight:bold; color:var(--text-muted);">Total Cost (₹)</label>
+            <input type="number" step="0.01" id="fCost" required placeholder="416.42">
           </div>
         </div>
-
-        <label style="font-size:0.75rem; font-weight:bold; color:var(--text-muted);">Total Cost (₹)</label>
-        <input type="number" step="0.01" id="fCost" required placeholder="416.42">
 
         <div class="checkbox-group">
           <input type="checkbox" id="fIsFull" checked>
-          <label for="fIsFull">Filled Full Tank?</label>
+          <label for="fIsFull">Full Tank</label>
         </div>
-
-        <div class="checkbox-group">
-          <input type="checkbox" id="fMissedPrevious">
-          <label for="fMissedPrevious">Missed previous fuel entry? (Skip mileage calc)</label>
-        </div>
-
-        <label style="font-size:0.75rem; font-weight:bold; color:var(--text-muted);">Remarks / Notes</label>
-        <input type="text" id="fRemarks" placeholder="Optional notes">
 
         <div class="flex" style="margin-top:10px;">
-          <button type="submit" style="flex:1;">Save Fuel Log</button>
+          <button type="submit" style="flex:1;">Save Log</button>
           <button type="button" class="secondary" style="flex:1;" onclick="closeModal('fuelModal')">Cancel</button>
         </div>
       </form>
     </div>
   </div>
 
-  <!-- Add/Edit Service Log Modal -->
-  <div id="serviceModal" class="modal-overlay hidden">
-    <div class="modal-card">
-      <h3 id="serviceModalTitle" style="margin-bottom: 12px;">Add Service Record</h3>
-      <form onsubmit="saveServiceLog(event)">
-        <input type="hidden" id="editServiceKey">
-        <label style="font-size:0.75rem; font-weight:bold; color:var(--text-muted);">Date</label>
-        <input type="date" id="sDate" required>
+  <script>
+    // Config Placeholder - Ensure Firebase Realtime Database is accessible
+    const firebaseConfig = {
+      databaseURL: "https://mygaragetracker-default-rtdb.asia-southeast1.firebasedatabase.app"
+    };
 
-        <label style="font-size:0.75rem; font-weight:bold; color:var(--text-muted);">Odometer Reading (Km)</label>
-        <input type="number" id="sOdo" required placeholder="e.g. 35000">
+    if (!firebase.apps.length) {
+      firebase.initializeApp(firebaseConfig);
+    }
+    const db = firebase.database();
 
-        <label style="font-size:0.75rem; font-weight:bold; color:var(--text-muted);">Service Center / Workshop</label>
-        <input type="text" id="sCenter" placeholder="e.g. Authorized Service Center">
+    let currentGarageId = "";
+    let activeVehicleKey = "";
 
-        <label style="font-size:0.75rem; font-weight:bold; color:var(--text-muted);">Work Done / Details</label>
-        <textarea id="sDetails" rows="3" placeholder="Oil change, Air filter replacement..." required></textarea>
+    // Load saved login details on startup (Autofill support)
+    window.onload = function() {
+      const savedGarage = localStorage.getItem("garageId") || "nikhil";
+      const savedPin = localStorage.getItem("garagePin") || "";
 
-        <label style="font-size:0.75rem; font-weight:bold; color:var(--text-muted);">Total Cost (₹)</label>
-        <input type="number" step="0.01" id="sCost" required placeholder="1250.00">
+      document.getElementById("loginGarageName").value = savedGarage;
+      document.getElementById("loginPin").value = savedPin;
 
-        <div class="flex" style="margin-top:10px;">
-          <button type="submit" style="flex:1;">Save Service Log</button>
-          <button type="button" class="secondary" style="flex:1;" onclick="closeModal('serviceModal')">Cancel</button>
-        </div>
-      </form>
-    </div>
-  </div>
+      if (savedGarage && savedPin) {
+        attemptLogin(savedGarage, savedPin);
+      }
+    };
 
-  <!-- Add/Edit Tyre Log Modal -->
-  <div id="tyreModalI can certainly help you design or code the logic to add an edit option for your logs (fuel, service, tyre pressure, etc.), as well as ensure login details aren't automatically stored or prefilled in your app! 
+    function handlePinLogin(e) {
+      e.preventDefault();
+      const gId = document.getElementById("loginGarageName").value.trim().toLowerCase();
+      const pin = document.getElementById("loginPin").value.trim();
 
-Here is how you can handle both of these requirements in your application design:
+      if (!gId || !pin) return;
+      attemptLogin(gId, pin);
+    }
 
----
+    function attemptLogin(gId, pin) {
+      const errDiv = document.getElementById("loginError");
+      errDiv.innerText = "Connecting...";
 
-## 1. Adding an Edit Feature for Logs
+      const garageRef = db.ref("garages/" + gId);
 
-To allow users to edit existing entries (fuel, service, tyre pressure), you typically need two main components in your code or database structure:
+      garageRef.once("value", (snapshot) => {
+        const val = snapshot.val();
 
-*   **Unique Identifier (ID):** Ensure every log entry (whether it's fuel, maintenance, or tyre pressure) has a unique `id` (e.g., `log_id: 101`).
-*   **Update Endpoint / Function:** Create a function or database query that accepts the existing `log_id` along with the updated fields and overwrites the record.
+        // If garage exists but pin is missing from root (as seen in database screenshot)
+        if (!val || !val.pin) {
+          garageRef.child("pin").set(pin);
+        } else if (val.pin !== pin) {
+          errDiv.innerText = "Incorrect PIN!";
+          return;
+        }
 
-### Example Schema / Logic Flow
-1. **Fetch:** When the user clicks **Edit**, fetch the specific log record using its ID and populate an edit modal/form with the current values.
-2. **Submit:** When submitted, execute an `UPDATE` query (or API request):
-   ```sql
-   UPDATE maintenance_logs 
-   SET service_date = '2026-07-30', pressure_psi = 33, notes = 'Rotated tyres'
-   WHERE log_id = 101;
+        // Save credentials to localStorage for Autofill
+        localStorage.setItem("garageId", gId);
+        localStorage.setItem("garagePin", pin);
+        currentGarageId = gId;
+
+        document.getElementById("activeGarageLabel").innerText = gId;
+        document.getElementById("loginModal").classList.add("hidden");
+        document.getElementById("appInterface").classList.remove("hidden");
+
+        listenToData();
+      });
+    }
+
+    function lockApp() {
+      localStorage.removeItem("garagePin");
+      location.reload();
+    }
+
+    function listenToData() {
+      db.ref("garages/" + currentGarageId + "/fuelLogs").on("value", (snapshot) => {
+        renderFuelLogs(snapshot.val());
+      });
+    }
+
+    function renderFuelLogs(logs) {
+      const container = document.getElementById("fuelHistory");
+      container.innerHTML = "";
+      if (!logs) {
+        container.innerHTML = "<p style='color:var(--text-muted);'>No fuel logs found.</p>";
+        return;
+      }
+
+      Object.keys(logs).reverse().forEach(key => {
+        const log = logs[key];
+        const item = document.createElement("div");
+        item.className = "log-item flex-center";
+        item.innerHTML = `
+          <div>
+            <strong>${log.date || 'N/A'}</strong> - ${log.odo || 0} Km<br>
+            <small style="color:var(--text-muted);">${log.liters || 0}L | ₹${log.cost || 0}</small>
+          </div>
+          <button class="outline btn-sm" onclick="editFuelLog('${key}', ${JSON.stringify(log).replace(/"/g, '&quot;')})">✏️ Edit</button>
+        `;
+        container.appendChild(item);
+      });
+    }
+
+    function editFuelLog(key, log) {
+      document.getElementById("editFuelKey").value = key;
+      document.getElementById("fDate").value = log.date || "";
+      document.getElementById("fOdo").value = log.odo || "";
+      document.getElementById("fLiters").value = log.liters || "";
+      document.getElementById("fCost").value = log.cost || "";
+      document.getElementById("fIsFull").checked = log.isFull !== false;
+      document.getElementById("fuelModal").classList.remove("hidden");
+    }
+
+    function saveFuelLog(e) {
+      e.preventDefault();
+      const key = document.getElementById("editFuelKey").value;
+      const logData = {
+        date: document.getElementById("fDate").value,
+        odo: parseFloat(document.getElementById("fOdo").value),
+        liters: parseFloat(document.getElementById("fLiters").value),
+        cost: parseFloat(document.getElementById("fCost").value),
+        isFull: document.getElementById("fIsFull").checked
+      };
+
+      if (key) {
+        db.ref(`garages/${currentGarageId}/fuelLogs/${key}`).update(logData);
+      } else {
+        db.ref(`garages/${currentGarageId}/fuelLogs`).push(logData);
+      }
+
+      closeModal("fuelModal");
+    }
+
+    function openFuelModal() {
+      document.getElementById("editFuelKey").value = "";
+      document.getElementById("fDate").value = new Date().toISOString().split('T')[0];
+      document.getElementById("fOdo").value = "";
+      document.getElementById("fLiters").value = "";
+      document.getElementById("fCost").value = "";
+      document.getElementById("fuelModal").classList.remove("hidden");
+    }
+
+    function closeModal(id) {
+      document.getElementById(id).classList.add("hidden");
+    }
+
+    function showTab(tabName) {
+      ['dash', 'fuel', 'service', 'tyre'].forEach(t => {
+        document.getElementById(t + 'Section').classList.add('hidden');
+        document.getElementById(t + 'TabBtn').classList.remove('active');
+      });
+      document.getElementById(tabName + 'Section').classList.remove('hidden');
+      document.getElementById(tabName + 'TabBtn').classList.add('active');
+    }
+
+    function toggleTheme() {
+      const current = document.body.getAttribute("data-theme");
+      document.body.setAttribute("data-theme", current === "dark" ? "light" : "dark");
+    }
+  </script>
+</body>
+</html>
