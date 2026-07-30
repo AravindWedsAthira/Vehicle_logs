@@ -21,9 +21,6 @@
       --text-muted: #64748b;
       --border: #e2e8f0;
       --danger: #ef4444;
-      --warning-bg: #fffbebf5;
-      --warning-border: #fef08a;
-      --warning-text: #854d0e;
       --input-bg: #ffffff;
     }
 
@@ -35,9 +32,6 @@
       --text-muted: #94a3b8;
       --border: #334155;
       --danger: #f87171;
-      --warning-bg: #422006;
-      --warning-border: #78350f;
-      --warning-text: #fef08a;
       --input-bg: #0f172a;
     }
 
@@ -58,15 +52,11 @@
     .log-item { border-bottom: 1px solid var(--border); padding: 10px 0; }
     .log-item:last-child { border-bottom: none; }
     .flex { display: flex; gap: 8px; }
-    .actions { display: flex; gap: 6px; margin-top: 6px; }
-    .checkbox-container { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; margin-top: 4px; }
-    .checkbox-container input { width: auto; margin: 0; }
     .stat-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 12px; }
     .stat-box { background: var(--bg); border: 1px solid var(--border); padding: 10px 6px; border-radius: 8px; text-align: center; }
     .stat-box small { color: var(--text-muted); display: block; font-size: 0.7rem; }
     .stat-box strong { font-size: 1rem; color: var(--primary); }
     .vehicle-profile { text-align: center; margin-bottom: 12px; }
-    .remarks-text { color: var(--text-muted); font-style: italic; font-size: 0.85rem; margin-top: 4px; }
     .tyre-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 6px; }
 
     #loginModal {
@@ -102,7 +92,7 @@
       </div>
       <form id="loginForm" onsubmit="handlePinLogin(event)">
         <label style="font-size: 0.75rem; font-weight: bold; text-transform: uppercase; color: var(--text-muted);">Garage ID / Name</label>
-        <input type="text" id="loginGarageName" required placeholder="e.g. MyGarage" style="margin-top: 4px;" />
+        <input type="text" id="loginGarageName" required placeholder="e.g. nikhil" style="margin-top: 4px;" />
         
         <label style="font-size: 0.75rem; font-weight: bold; text-transform: uppercase; color: var(--text-muted);">Security PIN</label>
         <input type="password" id="loginPin" required maxlength="6" placeholder="****" style="text-align: center; letter-spacing: 4px; font-weight: bold; margin-top: 4px;" />
@@ -203,11 +193,6 @@
           <label>Remarks / Notes</label>
           <input type="text" id="fuelRemarks" placeholder="e.g. Shell V-power">
 
-          <div class="checkbox-container">
-            <input type="checkbox" id="isFullTank" checked>
-            <label for="isFullTank"><b>Full Tank Fill-up?</b></label>
-          </div>
-
           <button type="submit">Save Fuel Log</button>
         </form>
       </div>
@@ -293,10 +278,8 @@
       <h3 style="font-size: 0.95rem; margin-bottom: 8px;">Data Backup & Restore</h3>
       <div class="flex">
         <button class="secondary" style="flex: 1;" onclick="exportCSV()">📊 Export CSV</button>
-        <label class="secondary" style="flex: 1; text-align: center; padding: 10px; border-radius: 8px; font-weight: bold; cursor: pointer; background: var(--text-muted); color: white;">
-          📥 Import CSV
-          <input type="file" id="importCsvInput" accept=".csv" style="display: none;" onchange="processCSVImport(event)">
-        </label>
+        <button class="secondary" style="flex: 1;" onclick="triggerFileInput()">📥 Import CSV</button>
+        <input type="file" id="importCsvInput" style="display: none;" onchange="processCSVImport(event)">
       </div>
     </div>
 
@@ -306,9 +289,9 @@
       <form id="vehicleForm" onsubmit="saveVehicleProfile(event)">
         <input type="hidden" id="modalMode" value="add">
         <label>Vehicle Name</label>
-        <input type="text" id="modalVehicleName" required>
+        <input type="text" id="modalVehicleName" required placeholder="e.g. Kia Sonet">
         <label>Model / Registration</label>
-        <input type="text" id="modalVehicleModel">
+        <input type="text" id="modalVehicleModel" placeholder="e.g. TN-45-XX-1234">
         <button type="submit">Save Vehicle</button>
         <button type="button" class="secondary" onclick="hideVehicleModal()">Cancel</button>
       </form>
@@ -336,11 +319,12 @@
     let activeGarage = null;
     let activeVehicleKey = null;
     let storeData = { vehicles: {}, fuelLogs: {}, tyreLogs: {}, serviceLogs: {}, reminders: {} };
-    let mileageChartInstance = null;
 
     async function handlePinLogin(event) {
       event.preventDefault();
-      const garageName = document.getElementById('loginGarageName').value.trim();
+      // Standardize input to lowercase to resolve case sensitivity discrepancies
+      const rawGarage = document.getElementById('loginGarageName').value.trim();
+      const garageName = rawGarage.toLowerCase();
       const pin = document.getElementById('loginPin').value.trim();
       const errorDiv = document.getElementById('loginError');
 
@@ -353,26 +337,26 @@
         if (snapshot.exists()) {
           const storedData = snapshot.val();
           if (storedData.pin === pin) {
-            loginSuccess(garageName);
+            loginSuccess(garageName, rawGarage);
           } else {
-            errorDiv.innerText = "Incorrect PIN.";
+            errorDiv.innerText = "Incorrect PIN for garage: " + rawGarage;
           }
         } else {
           await garageRef.set({ pin: pin, createdAt: new Date().toISOString() });
-          loginSuccess(garageName);
+          loginSuccess(garageName, rawGarage);
         }
       } catch (err) {
         errorDiv.innerText = "Connection error: " + err.message;
       }
     }
 
-    function loginSuccess(garageName) {
+    function loginSuccess(garageName, displayName) {
       activeGarage = garageName;
       localStorage.setItem('activeGarage', garageName);
 
       document.getElementById('loginModal').classList.add('hidden');
       document.getElementById('appInterface').classList.remove('hidden');
-      document.getElementById('activeGarageLabel').innerText = garageName;
+      document.getElementById('activeGarageLabel').innerText = displayName || garageName;
 
       syncWithFirebase();
     }
@@ -390,7 +374,6 @@
       db.ref('garages/' + activeGarage).on('value', (snapshot) => {
         const data = snapshot.val() || {};
         
-        // Convert objects or arrays safely
         storeData.vehicles = data.vehicles || {};
         storeData.fuelLogs = data.fuelLogs || {};
         storeData.tyreLogs = data.tyreLogs || {};
@@ -443,12 +426,13 @@
 
     function renderDashboard() {
       if (!activeVehicleKey || !storeData.vehicles[activeVehicleKey]) {
-        document.getElementById('vehicleProfileDisplay').innerHTML = '<p>No active vehicle selected.</p>';
+        document.getElementById('vehicleProfileDisplay').innerHTML = '<p style="color:var(--text-muted);">No active vehicle selected.</p>';
+        document.getElementById('totalExpenses').innerText = '₹0';
         return;
       }
 
       const v = storeData.vehicles[activeVehicleKey];
-      document.getElementById('vehicleProfileDisplay').innerHTML = `<h2>${v.name}</h2><p class="remarks-text">${v.model || ''}</p>`;
+      document.getElementById('vehicleProfileDisplay').innerHTML = `<h2>${v.name}</h2><p style="color:var(--text-muted); font-size:0.85rem; margin-top:4px;">${v.model || ''}</p>`;
 
       const fuels = Object.values(storeData.fuelLogs || {}).filter(x => x && x.vehicleId === activeVehicleKey);
       const services = Object.values(storeData.serviceLogs || {}).filter(x => x && x.vehicleId === activeVehicleKey);
@@ -473,7 +457,7 @@
 
     async function saveFuel(e) {
       e.preventDefault();
-      if (!activeGarage || !activeVehicleKey) return alert("Please add or select a vehicle first.");
+      if (!activeGarage || !activeVehicleKey) return alert("Please create or select a vehicle first.");
       
       const data = {
         vehicleId: activeVehicleKey,
@@ -482,8 +466,7 @@
         unitPrice: parseFloat(document.getElementById('fuelUnitPrice').value) || 0,
         liters: parseFloat(document.getElementById('fuelLiters').value) || 0,
         cost: parseFloat(document.getElementById('fuelCost').value) || 0,
-        remarks: document.getElementById('fuelRemarks').value || '',
-        isFullTank: document.getElementById('isFullTank').checked
+        remarks: document.getElementById('fuelRemarks').value || ''
       };
 
       await db.ref(`garages/${activeGarage}/fuelLogs`).push().set(data);
@@ -513,7 +496,7 @@
 
     async function saveTyrePressure(e) {
       e.preventDefault();
-      if (!activeGarage || !activeVehicleKey) return alert("Select vehicle first.");
+      if (!activeGarage || !activeVehicleKey) return alert("Select or create a vehicle first.");
       const data = {
         vehicleId: activeVehicleKey,
         date: document.getElementById('tyreDate').value,
@@ -540,7 +523,7 @@
 
     async function saveService(e) {
       e.preventDefault();
-      if (!activeGarage || !activeVehicleKey) return alert("Select vehicle first.");
+      if (!activeGarage || !activeVehicleKey) return alert("Select or create a vehicle first.");
       const data = {
         vehicleId: activeVehicleKey,
         date: document.getElementById('serviceDate').value,
@@ -610,43 +593,61 @@
     }
 
     function exportCSV() {
-      if (!activeVehicleKey) return alert("Select a vehicle first.");
+      if (!activeVehicleKey) return alert("Select or create a vehicle first.");
       const fuels = Object.values(storeData.fuelLogs || {}).filter(x => x && x.vehicleId === activeVehicleKey);
       let csv = "Type,Date,Odometer,Cost,Liters,UnitPrice,Remarks\n";
       fuels.forEach(f => {
         csv += `Fuel,${f.date},${f.odo},${f.cost},${f.liters},${f.unitPrice},"${f.remarks || ''}"\n`;
       });
-      const blob = new Blob([csv], { type: 'text/csv' });
+      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `garage_backup_${activeGarage}.csv`;
+      a.download = `vehicle_tracker_${activeGarage}.csv`;
       a.click();
+    }
+
+    function triggerFileInput() {
+      document.getElementById('importCsvInput').click();
     }
 
     function processCSVImport(e) {
       const file = e.target.files[0];
-      if (!file || !activeGarage || !activeVehicleKey) return alert("Select a vehicle first.");
+      if (!file) return;
+
+      // Automatically handle creating a fallback vehicle if none exists yet
+      if (!activeVehicleKey) {
+        const autoVehicleRef = db.ref(`garages/${activeGarage}/vehicles`).push();
+        autoVehicleRef.set({ name: "Imported Vehicle", model: "CSV Backup" });
+        activeVehicleKey = autoVehicleRef.key;
+      }
+
       const reader = new FileReader();
       reader.onload = async function(evt) {
-        const lines = evt.target.result.split('\n');
-        for (let i = 1; i < lines.length; i++) {
-          if (!lines[i].trim()) continue;
-          const parts = lines[i].split(',');
-          if (parts[0] === 'Fuel' && parts.length >= 6) {
-            await db.ref(`garages/${activeGarage}/fuelLogs`).push().set({
-              vehicleId: activeVehicleKey,
-              date: parts[1],
-              odo: parseFloat(parts[2]) || 0,
-              cost: parseFloat(parts[3]) || 0,
-              liters: parseFloat(parts[4]) || 0,
-              unitPrice: parseFloat(parts[5]) || 0,
-              remarks: parts[6] ? parts[6].replace(/"/g, '') : '',
-              isFullTank: true
-            });
+        try {
+          const lines = evt.target.result.split(/\r\n|\n/);
+          let importedCount = 0;
+
+          for (let i = 1; i < lines.length; i++) {
+            if (!lines[i].trim()) continue;
+            const parts = lines[i].split(',');
+            if (parts.length >= 6) {
+              await db.ref(`garages/${activeGarage}/fuelLogs`).push().set({
+                vehicleId: activeVehicleKey,
+                date: parts[1].trim(),
+                odo: parseFloat(parts[2]) || 0,
+                cost: parseFloat(parts[3]) || 0,
+                liters: parseFloat(parts[4]) || 0,
+                unitPrice: parseFloat(parts[5]) || 0,
+                remarks: parts[6] ? parts[6].replace(/"/g, '').trim() : ''
+              });
+              importedCount++;
+            }
           }
+          alert(`Successfully imported ${importedCount} records!`);
+        } catch (err) {
+          alert("Error parsing CSV: " + err.message);
         }
-        alert("Import complete!");
       };
       reader.readAsText(file);
     }
@@ -668,7 +669,7 @@
     window.addEventListener('DOMContentLoaded', () => {
       const savedGarage = localStorage.getItem('activeGarage');
       if (savedGarage) {
-        loginSuccess(savedGarage);
+        loginSuccess(savedGarage, savedGarage);
       }
     });
   </script>
