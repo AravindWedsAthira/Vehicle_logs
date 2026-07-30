@@ -76,7 +76,7 @@
       <div style="text-align: center; margin-bottom: 20px;">
         <span style="font-size: 2.5rem;">☁️</span>
         <h2 style="font-size: 1.25rem; margin-top: 8px;">Fetch Garage From Cloud</h2>
-        <p style="font-size: 0.8rem; color: var(--text-muted); margin-top: 4px;">Enter your Garage ID and PIN to pull live data.</p>
+        <p style="font-size: 0.8rem; color: var(--text-muted); margin-top: 4px;">Enter Garage ID & PIN to connect.</p>
       </div>
       <form id="loginForm" onsubmit="handlePinLogin(event)">
         <label style="font-size: 0.75rem; font-weight: bold; text-transform: uppercase; color: var(--text-muted);">Garage ID / Name</label>
@@ -97,7 +97,7 @@
     <header>
       <div>
         <h1>🚗 Garage Tracker</h1>
-        <small style="color: var(--text-muted); font-size: 0.75rem;">Cloud Garage: <b id="activeGarageLabel" style="color: var(--primary);">--</b></small>
+        <small style="color: var(--text-muted); font-size: 0.75rem;">Garage ID: <b id="activeGarageLabel" style="color: var(--primary);">--</b></small>
       </div>
       <div style="display: flex; gap: 6px;">
         <button class="secondary" style="width: auto; padding: 6px 10px; font-size: 0.8rem;" onclick="toggleTheme()">🌙 Mode</button>
@@ -201,7 +201,7 @@
       </div>
     </div>
 
-    <!-- TYRE PRESSURE TAB -->
+    <!-- TYRE TAB -->
     <div id="tyreSection" class="hidden">
       <div class="card">
         <h3>Record Tyre Pressure</h3>
@@ -216,9 +216,7 @@
               <input type="number" step="0.1" id="tyreOdo">
             </div>
           </div>
-          
           <div id="tyreFieldsContainer" class="tyre-grid"></div>
-
           <button type="submit" style="margin-top:12px;">Save Tyre Log</button>
         </form>
       </div>
@@ -256,7 +254,7 @@
         <h3>Set Reminder</h3>
         <form id="reminderForm" onsubmit="saveReminder(event)">
           <label>Task</label>
-          <input type="text" id="remTitle" placeholder="e.g. Next Oil Service / Insurance Renewal" required>
+          <input type="text" id="remTitle" placeholder="e.g. Next Oil Service" required>
           <label>Due Date</label>
           <input type="date" id="remDueDate">
           <button type="submit">Set Reminder</button>
@@ -266,6 +264,14 @@
         <h3>Active Reminders</h3>
         <div id="reminderList"></div>
       </div>
+    </div>
+
+    <!-- CLEAN CLOUD RE-IMPORT TOOL -->
+    <div class="card">
+      <h3 style="font-size: 0.95rem; margin-bottom: 8px;">Re-Import Clean CSV to Cloud</h3>
+      <p style="font-size: 0.75rem; color: var(--text-muted); margin-bottom: 8px;">Upload your CSV to cleanly separate vehicles into individual cloud nodes.</p>
+      <button class="secondary" style="width: 100%;" onclick="triggerFileInput()">📥 Select CSV & Repair Cloud Garage</button>
+      <input type="file" id="importCsvInput" style="display: none;" onchange="processCleanCSVImport(event)">
     </div>
 
     <!-- VEHICLE MODAL -->
@@ -396,7 +402,7 @@
       const keys = Object.keys(storeData.vehicles);
 
       if (keys.length === 0) {
-        select.innerHTML = '<option value="">No vehicles found in Cloud Garage</option>';
+        select.innerHTML = '<option value="">No vehicles in cloud. Click Re-Import clean CSV</option>';
         activeVehicleKey = null;
         return;
       }
@@ -427,7 +433,7 @@
 
     function renderDashboard() {
       if (!activeVehicleKey || !storeData.vehicles[activeVehicleKey]) {
-        document.getElementById('vehicleProfileDisplay').innerHTML = '<p style="color:var(--text-muted);">No active vehicle. Click "+ Vehicle" above to add one.</p>';
+        document.getElementById('vehicleProfileDisplay').innerHTML = '<p style="color:var(--text-muted);">No active vehicle selected.</p>';
         document.getElementById('totalExpenses').innerText = '₹0';
         return;
       }
@@ -514,6 +520,129 @@
       });
     }
 
+    function renderFuelHistory() {
+      const container = document.getElementById('fuelHistory');
+      container.innerHTML = '';
+
+      const vehicleFuels = Object.values(storeData.fuelLogs || {})
+        .filter(v => v && v.vehicleId === activeVehicleKey && parseFloat(v.odo) > 0)
+        .sort((a, b) => parseFloat(a.odo) - parseFloat(b.odo));
+
+      if (vehicleFuels.length === 0) return container.innerHTML = '<p style="color:var(--text-muted);">No fuel logs found for this vehicle.</p>';
+
+      let logListWithMileage = vehicleFuels.map((log, index) => {
+        let mileage = null;
+        if (index > 0) {
+          let dist = parseFloat(log.odo) - parseFloat(vehicleFuels[index - 1].odo);
+          let liters = parseFloat(log.liters);
+          if (dist > 0 && liters > 0) {
+            mileage = (dist / liters).toFixed(1);
+          }
+        }
+        return { ...log, mileage };
+      });
+
+      logListWithMileage.reverse().forEach(log => {
+        const item = document.createElement('div');
+        item.className = 'log-item';
+        item.innerHTML = `
+          <div style="display:flex; justify-content:space-between; align-items:flex-start;">
+            <div>
+              <strong>${log.date || 'N/A'} — ${log.odo || 0} Km</strong>
+              <div>
+                <small style="color:var(--text-muted);">${log.liters || 0} L @ ₹${log.unitPrice || 0}/L ${log.remarks ? '• ' + log.remarks : ''}</small>
+              </div>
+              ${log.mileage ? `<div class="mileage-tag">⚡ ${log.mileage} Km/L</div>` : '<div style="font-size:0.7rem; color:var(--text-muted); margin-top:2px;">Initial log (Base reading)</div>'}
+            </div>
+            <strong style="color:var(--primary);">₹${(parseFloat(log.cost)||0).toFixed(2)}</strong>
+          </div>
+        `;
+        container.appendChild(item);
+      });
+    }
+
+    function triggerFileInput() {
+      document.getElementById('importCsvInput').click();
+    }
+
+    async function processCleanCSVImport(e) {
+      const file = e.target.files[0];
+      if (!file || !activeGarage) return;
+
+      const reader = new FileReader();
+      reader.onload = async function(evt) {
+        try {
+          const text = evt.target.result;
+          const sections = text.split('=== VEHICLE:');
+          
+          if (sections.length <= 1) return alert("Invalid CSV format. Header '=== VEHICLE:' missing.");
+
+          // First wipe existing scrambled nodes to ensure clean state
+          await db.ref(`garages/${activeGarage}/vehicles`).remove();
+          await db.ref(`garages/${activeGarage}/fuelLogs`).remove();
+
+          let totalImported = 0;
+
+          for (let s = 1; s < sections.length; s++) {
+            const sectionContent = sections[s];
+            const lines = sectionContent.split(/\r\n|\n/);
+            const headerLine = lines[0].trim();
+            
+            // Extract Vehicle details
+            const match = headerLine.match(/(.*?)\s*\((.*?)\)\s*-\s*(.*?)===/);
+            let name = "Vehicle " + s;
+            let model = "";
+            let type = "2wheeler";
+
+            if (match) {
+              name = match[1].trim();
+              model = match[2].trim();
+              type = match[3].trim();
+            }
+
+            // Create explicit unique key per vehicle name
+            const cleanKey = "v_" + name.replace(/[^a-zA-Z0-9]/g, "_").toLowerCase();
+            
+            await db.ref(`garages/${activeGarage}/vehicles/${cleanKey}`).set({
+              name, model, type, tankCapacity: 13.5, frontPsi: 32, rearPsi: 36
+            });
+
+            // Parse fuel logs in this vehicle section
+            let isFuelSection = false;
+            for (let i = 1; i < lines.length; i++) {
+              const line = lines[i].trim();
+              if (line.includes('--- FUEL LOGS ---')) { isFuelSection = true; continue; }
+              if (line.startsWith('---')) { isFuelSection = false; continue; }
+
+              if (isFuelSection && line.startsWith('Fuel,')) {
+                const parts = line.split(',').map(p => p.replace(/"/g, '').trim());
+                if (parts.length >= 6) {
+                  let date = parts[1];
+                  let odo = parseFloat(parts[2]) || 0;
+                  let liters = parseFloat(parts[3]) || 0;
+                  let unitPrice = parseFloat(parts[4]) || 0;
+                  let cost = parseFloat(parts[5]) || 0;
+                  let remarks = parts[8] || '';
+
+                  if (odo > 0) {
+                    await db.ref(`garages/${activeGarage}/fuelLogs`).push().set({
+                      vehicleId: cleanKey,
+                      date, odo, liters, unitPrice, cost, remarks
+                    });
+                    totalImported++;
+                  }
+                }
+              }
+            }
+          }
+          alert(`Success! Unmixed and uploaded ${totalImported} logs into 2 distinct vehicle profiles!`);
+        } catch (err) {
+          alert("Error fixing database: " + err.message);
+        }
+      };
+      reader.readAsText(file);
+    }
+
     function calcFuelCost() {
       const p = parseFloat(document.getElementById('fuelUnitPrice').value) || 0;
       const l = parseFloat(document.getElementById('fuelLiters').value) || 0;
@@ -542,50 +671,6 @@
 
       await db.ref(`garages/${activeGarage}/fuelLogs`).push().set(data);
       document.getElementById('fuelForm').reset();
-    }
-
-    function renderFuelHistory() {
-      const container = document.getElementById('fuelHistory');
-      container.innerHTML = '';
-
-      // Get all fuel logs for this specific active vehicle, sorted chronologically ascending to calculate mileage
-      const vehicleFuels = Object.values(storeData.fuelLogs || {})
-        .filter(v => v && v.vehicleId === activeVehicleKey && parseFloat(v.odo) > 0)
-        .sort((a, b) => parseFloat(a.odo) - parseFloat(b.odo));
-
-      if (vehicleFuels.length === 0) return container.innerHTML = '<p style="color:var(--text-muted);">No fuel logs found for this vehicle.</p>';
-
-      // Map mileage for each step
-      let logListWithMileage = vehicleFuels.map((log, index) => {
-        let mileage = null;
-        if (index > 0) {
-          let dist = parseFloat(log.odo) - parseFloat(vehicleFuels[index - 1].odo);
-          let liters = parseFloat(log.liters);
-          if (dist > 0 && liters > 0) {
-            mileage = (dist / liters).toFixed(1);
-          }
-        }
-        return { ...log, mileage };
-      });
-
-      // Reverse array so newest refueling appears on top
-      logListWithMileage.reverse().forEach(log => {
-        const item = document.createElement('div');
-        item.className = 'log-item';
-        item.innerHTML = `
-          <div style="display:flex; justify-content:space-between; align-items:flex-start;">
-            <div>
-              <strong>${log.date || 'N/A'} — ${log.odo || 0} Km</strong>
-              <div>
-                <small style="color:var(--text-muted);">${log.liters || 0} L @ ₹${log.unitPrice || 0}/L ${log.remarks ? '• ' + log.remarks : ''}</small>
-              </div>
-              ${log.mileage ? `<div class="mileage-tag">⚡ ${log.mileage} Km/L</div>` : '<div style="font-size:0.7rem; color:var(--text-muted); margin-top:2px;">Initial log (Base reading)</div>'}
-            </div>
-            <strong style="color:var(--primary);">₹${(parseFloat(log.cost)||0).toFixed(2)}</strong>
-          </div>
-        `;
-        container.appendChild(item);
-      });
     }
 
     function setupTyreInputs() {
