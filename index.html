@@ -77,6 +77,8 @@
     .checkbox-group { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
     .checkbox-group input { width: auto; margin: 0; }
     .checkbox-group label { font-size: 0.85rem; }
+
+    .action-btn { width: auto; padding: 3px 8px; font-size: 0.7rem; margin: 0; }
   </style>
 </head>
 <body data-theme="light">
@@ -87,14 +89,14 @@
       <div style="text-align: center; margin-bottom: 20px;">
         <span style="font-size: 2.5rem;">🚗</span>
         <h2 style="font-size: 1.25rem; margin-top: 8px;">Garage Access & Sync</h2>
-        <p style="font-size: 0.8rem; color: var(--text-muted); margin-top: 4px;">Enter your Garage ID & Security PIN</p>
+        <p style="font-size: 0.8rem; color: var(--text-muted); margin-top: 4px;">Enter Garage ID & Security PIN to access</p>
       </div>
       <form id="loginForm" onsubmit="handlePinLogin(event)">
         <label style="font-size: 0.75rem; font-weight: bold; text-transform: uppercase; color: var(--text-muted);">Garage ID / Name</label>
-        <input type="text" id="loginGarageName" value="nikhil" required placeholder="e.g. nikhil" />
+        <input type="text" id="loginGarageName" value="" required placeholder="Enter Garage Name" autocomplete="off" />
         
         <label style="font-size: 0.75rem; font-weight: bold; text-transform: uppercase; color: var(--text-muted);">Security PIN</label>
-        <input type="password" id="loginPin" value="159357" required maxlength="6" placeholder="******" style="text-align: center; letter-spacing: 4px; font-weight: bold;" />
+        <input type="password" id="loginPin" value="" required maxlength="6" placeholder="******" style="text-align: center; letter-spacing: 4px; font-weight: bold;" autocomplete="new-password" />
 
         <div id="loginError" style="color: var(--danger); font-size: 0.8rem; text-align: center; margin-bottom: 8px; min-height: 18px;"></div>
 
@@ -108,7 +110,7 @@
     <header>
       <div>
         <h1>🚘 Garage Tracker</h1>
-        <small style="color: var(--text-muted); font-size: 0.75rem;">Garage ID: <b id="activeGarageLabel" style="color: var(--primary);">nikhil</b></small>
+        <small style="color: var(--text-muted); font-size: 0.75rem;">Garage ID: <b id="activeGarageLabel" style="color: var(--primary);">--</b></small>
       </div>
       <div style="display: flex; gap: 6px;">
         <button class="secondary" style="width: auto; padding: 6px 10px; font-size: 0.8rem;" onclick="toggleTheme()">🌙 Mode</button>
@@ -232,7 +234,7 @@
     </div>
   </div>
 
-  <!-- MODALS FOR DATA ENTRY -->
+  <!-- MODALS FOR DATA ENTRY & EDITING -->
 
   <!-- Add/Edit Vehicle Modal -->
   <div id="vehicleModal" class="modal-overlay hidden">
@@ -279,11 +281,12 @@
     </div>
   </div>
 
-  <!-- Add Fuel Log Modal -->
+  <!-- Add/Edit Fuel Log Modal -->
   <div id="fuelModal" class="modal-overlay hidden">
     <div class="modal-card">
-      <h3 style="margin-bottom: 12px;">Add Fuel Entry</h3>
+      <h3 id="fuelModalTitle" style="margin-bottom: 12px;">Add Fuel Entry</h3>
       <form onsubmit="saveFuelLog(event)">
+        <input type="hidden" id="editFuelKey">
         <label style="font-size:0.75rem; font-weight:bold; color:var(--text-muted);">Date</label>
         <input type="date" id="fDate" required>
 
@@ -325,11 +328,12 @@
     </div>
   </div>
 
-  <!-- Add Service Log Modal -->
+  <!-- Add/Edit Service Log Modal -->
   <div id="serviceModal" class="modal-overlay hidden">
     <div class="modal-card">
-      <h3 style="margin-bottom: 12px;">Add Service Record</h3>
+      <h3 id="serviceModalTitle" style="margin-bottom: 12px;">Add Service Record</h3>
       <form onsubmit="saveServiceLog(event)">
+        <input type="hidden" id="editServiceKey">
         <label style="font-size:0.75rem; font-weight:bold; color:var(--text-muted);">Date</label>
         <input type="date" id="sDate" required>
 
@@ -340,7 +344,7 @@
         <input type="text" id="sCenter" placeholder="e.g. Authorized Service Center">
 
         <label style="font-size:0.75rem; font-weight:bold; color:var(--text-muted);">Work Done / Details</label>
-        <textarea id="sDetails" rows="3" placeholder="Oil change, Air filter replacement, Chain lubrication..." required></textarea>
+        <textarea id="sDetails" rows="3" placeholder="Oil change, Air filter replacement..." required></textarea>
 
         <label style="font-size:0.75rem; font-weight:bold; color:var(--text-muted);">Total Cost (₹)</label>
         <input type="number" step="0.01" id="sCost" required placeholder="1250.00">
@@ -353,677 +357,24 @@
     </div>
   </div>
 
-  <!-- Add Tyre Log Modal -->
-  <div id="tyreModal" class="modal-overlay hidden">
-    <div class="modal-card">
-      <h3 style="margin-bottom: 12px;">Log Tyre Pressure Check</h3>
-      <form onsubmit="saveTyreLog(event)">
-        <label style="font-size:0.75rem; font-weight:bold; color:var(--text-muted);">Date</label>
-        <input type="date" id="tDate" required>
+  <!-- Add/Edit Tyre Log Modal -->
+  <div id="tyreModalI can certainly help you design or code the logic to add an edit option for your logs (fuel, service, tyre pressure, etc.), as well as ensure login details aren't automatically stored or prefilled in your app! 
 
-        <label style="font-size:0.75rem; font-weight:bold; color:var(--text-muted);">Odometer Reading (Km)</label>
-        <input type="number" id="tOdo" placeholder="Optional">
+Here is how you can handle both of these requirements in your application design:
 
-        <div class="flex">
-          <div style="flex:1;">
-            <label style="font-size:0.75rem; font-weight:bold; color:var(--text-muted);">Front Pressure (PSI)</label>
-            <input type="number" id="tFront" placeholder="32" required>
-          </div>
-          <div style="flex:1;">
-            <label style="font-size:0.75rem; font-weight:bold; color:var(--text-muted);">Rear Pressure (PSI)</label>
-            <input type="number" id="tRear" placeholder="36" required>
-          </div>
-        </div>
+---
 
-        <div class="flex" style="margin-top:10px;">
-          <button type="submit" style="flex:1;">Save Check</button>
-          <button type="button" class="secondary" style="flex:1;" onclick="closeModal('tyreModal')">Cancel</button>
-        </div>
-      </form>
-    </div>
-  </div>
+## 1. Adding an Edit Feature for Logs
 
-  <!-- Add Reminder Modal -->
-  <div id="reminderModal" class="modal-overlay hidden">
-    <div class="modal-card">
-      <h3 style="margin-bottom: 12px;">Add Vehicle Reminder</h3>
-      <form onsubmit="saveReminder(event)">
-        <label style="font-size:0.75rem; font-weight:bold; color:var(--text-muted);">Reminder Title</label>
-        <input type="text" id="rTitle" placeholder="e.g. Engine Oil Change, PUC, Insurance" required>
+To allow users to edit existing entries (fuel, service, tyre pressure), you typically need two main components in your code or database structure:
 
-        <label style="font-size:0.75rem; font-weight:bold; color:var(--text-muted);">Due Date (Optional)</label>
-        <input type="date" id="rDueDate">
+*   **Unique Identifier (ID):** Ensure every log entry (whether it's fuel, maintenance, or tyre pressure) has a unique `id` (e.g., `log_id: 101`).
+*   **Update Endpoint / Function:** Create a function or database query that accepts the existing `log_id` along with the updated fields and overwrites the record.
 
-        <label style="font-size:0.75rem; font-weight:bold; color:var(--text-muted);">Due Odometer (Km, Optional)</label>
-        <input type="number" id="rDueOdo" placeholder="e.g. 38000">
-
-        <div class="flex" style="margin-top:10px;">
-          <button type="submit" style="flex:1;">Save Reminder</button>
-          <button type="button" class="secondary" style="flex:1;" onclick="closeModal('reminderModal')">Cancel</button>
-        </div>
-      </form>
-    </div>
-  </div>
-
-  <script>
-    const firebaseConfig = {
-      apiKey: "AIzaSyCxF7ys5GHGfBoCmOiooopekG6pBIn0T8Q",
-      authDomain: "mygaragetracker.firebaseapp.com",
-      databaseURL: "https://mygaragetracker-default-rtdb.asia-southeast1.firebasedatabase.app",
-      projectId: "mygaragetracker",
-      storageBucket: "mygaragetracker.firebasestorage.app",
-      messagingSenderId: "1027295590069",
-      appId: "1:1027295590069:web:916b7a444c52c58744b0fc"
-    };
-
-    if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
-    const db = firebase.database();
-
-    let activeGarage = "nikhil";
-    let activeVehicleKey = null;
-    let storeData = { vehicles: {}, fuelLogs: {}, serviceLogs: {}, tyreLogs: {}, reminders: {} };
-    let chartInstance = null;
-
-    // LOGIN & AUTH
-    async function handlePinLogin(event) {
-      if (event) event.preventDefault();
-      const rawGarage = document.getElementById('loginGarageName').value.trim();
-      activeGarage = rawGarage.toLowerCase();
-      const pin = document.getElementById('loginPin').value.trim();
-      const errorDiv = document.getElementById('loginError');
-
-      try {
-        const garageRef = db.ref('garages/' + activeGarage);
-        const snapshot = await garageRef.once('value');
-
-        if (snapshot.exists() && snapshot.val().pin && snapshot.val().pin !== pin) {
-          errorDiv.innerText = "Incorrect Security PIN";
-          return;
-        }
-
-        if (!snapshot.exists()) {
-          await garageRef.set({ pin: pin, createdAt: new Date().toISOString() });
-        }
-
-        localStorage.setItem('activeGarage', activeGarage);
-        document.getElementById('loginModal').classList.add('hidden');
-        document.getElementById('appInterface').classList.remove('hidden');
-        document.getElementById('activeGarageLabel').innerText = activeGarage;
-
-        syncWithFirebase();
-      } catch (err) {
-        errorDiv.innerText = err.message;
-      }
-    }
-
-    function lockApp() {
-      if (activeGarage) db.ref('garages/' + activeGarage).off();
-      localStorage.removeItem('activeGarage');
-      document.getElementById('appInterface').classList.add('hidden');
-      document.getElementById('loginModal').classList.remove('hidden');
-    }
-
-    function syncWithFirebase() {
-      db.ref('garages/' + activeGarage).on('value', (snapshot) => {
-        const data = snapshot.val() || {};
-        storeData.vehicles = data.vehicles || {};
-        storeData.fuelLogs = data.fuelLogs || {};
-        storeData.serviceLogs = data.serviceLogs || {};
-        storeData.tyreLogs = data.tyreLogs || {};
-        storeData.reminders = data.reminders || {};
-
-        populateVehicleDropdown();
-        renderDashboard();
-        renderFuelHistory();
-        renderServiceHistory();
-        renderTyreHistory();
-        renderReminders();
-      });
-    }
-
-    function populateVehicleDropdown() {
-      const select = document.getElementById('vehicleSelect');
-      select.innerHTML = '';
-      const keys = Object.keys(storeData.vehicles);
-
-      if (keys.length === 0) {
-        select.innerHTML = '<option value="">No vehicles found. Add one above.</option>';
-        activeVehicleKey = null;
-        return;
-      }
-
-      keys.forEach(k => {
-        const opt = document.createElement('option');
-        opt.value = k;
-        opt.innerText = `${storeData.vehicles[k].name} (${storeData.vehicles[k].model || ''})`;
-        select.appendChild(opt);
-      });
-
-      if (!activeVehicleKey || !storeData.vehicles[activeVehicleKey]) {
-        activeVehicleKey = keys[0];
-      }
-      select.value = activeVehicleKey;
-    }
-
-    function switchVehicle() {
-      activeVehicleKey = document.getElementById('vehicleSelect').value;
-      renderDashboard();
-      renderFuelHistory();
-      renderServiceHistory();
-      renderTyreHistory();
-      renderReminders();
-    }
-
-    // VEHICLE MANAGEMENT
-    function openAddVehicleModal() {
-      document.getElementById('vehicleModalTitle').innerText = "Add New Vehicle";
-      document.getElementById('editVehicleKey').value = "";
-      document.getElementById('vName').value = "";
-      document.getElementById('vModel').value = "";
-      document.getElementById('vType').value = "Motorcycle";
-      document.getElementById('vTank').value = "13.5";
-      document.getElementById('vFrontPsi').value = "32";
-      document.getElementById('vRearPsi').value = "36";
-      document.getElementById('vehicleModal').classList.remove('hidden');
-    }
-
-    function openEditVehicleModal() {
-      if (!activeVehicleKey || !storeData.vehicles[activeVehicleKey]) return;
-      const v = storeData.vehicles[activeVehicleKey];
-      document.getElementById('vehicleModalTitle').innerText = "Edit Vehicle Details";
-      document.getElementById('editVehicleKey').value = activeVehicleKey;
-      document.getElementById('vName').value = v.name || '';
-      document.getElementById('vModel').value = v.model || '';
-      document.getElementById('vType').value = v.type || 'Motorcycle';
-      document.getElementById('vTank').value = v.tankCapacity || '';
-      document.getElementById('vFrontPsi').value = v.frontPsi || '';
-      document.getElementById('vRearPsi').value = v.rearPsi || '';
-      document.getElementById('vehicleModal').classList.remove('hidden');
-    }
-
-    async function saveVehicle(e) {
-      e.preventDefault();
-      const editKey = document.getElementById('editVehicleKey').value;
-      const name = document.getElementById('vName').value.trim();
-      const model = document.getElementById('vModel').value.trim();
-      const type = document.getElementById('vType').value;
-      const tankCapacity = parseFloat(document.getElementById('vTank').value) || 0;
-      const frontPsi = parseInt(document.getElementById('vFrontPsi').value) || 0;
-      const rearPsi = parseInt(document.getElementById('vRearPsi').value) || 0;
-
-      const vKey = editKey || ("v_" + name.toLowerCase().replace(/[^a-z0-9]/g, "_"));
-
-      await db.ref(`garages/${activeGarage}/vehicles/${vKey}`).set({
-        name, model, type, tankCapacity, frontPsi, rearPsi
-      });
-
-      activeVehicleKey = vKey;
-      closeModal('vehicleModal');
-    }
-
-    // DASHBOARD & CALCULATION LOGIC
-    function renderDashboard() {
-      if (!activeVehicleKey || !storeData.vehicles[activeVehicleKey]) return;
-
-      const v = storeData.vehicles[activeVehicleKey];
-      document.getElementById('vehicleProfileDisplay').innerHTML = `
-        <h2>${v.name}</h2>
-        <p style="color:var(--text-muted); font-size:0.85rem; margin-top:4px;">${v.model || ''} • ${v.type || 'Vehicle'}</p>
-      `;
-
-      const fuels = Object.values(storeData.fuelLogs || {})
-        .filter(x => x && x.vehicleId === activeVehicleKey && parseFloat(x.odo) > 0)
-        .sort((a, b) => parseFloat(a.odo) - parseFloat(b.odo));
-
-      const services = Object.values(storeData.serviceLogs || {})
-        .filter(x => x && x.vehicleId === activeVehicleKey);
-
-      let totalFuelCost = fuels.reduce((acc, x) => acc + (parseFloat(x.cost) || 0), 0);
-      let totalServiceCost = services.reduce((acc, x) => acc + (parseFloat(x.cost) || 0), 0);
-      let grandTotal = totalFuelCost + totalServiceCost;
-
-      document.getElementById('totalExpenses').innerText = '₹' + grandTotal.toFixed(2);
-
-      // Mileage calculation using Full Tank logic
-      let validIntervalsDistance = 0;
-      let validIntervalsFuel = 0;
-
-      for (let i = 1; i < fuels.length; i++) {
-        let current = fuels[i];
-        let prev = fuels[i - 1];
-
-        // Only calculate mileage if current fill is full AND previous fill was not missed
-        if (current.isFull !== false && !current.missedPrevious) {
-          let dist = parseFloat(current.odo) - parseFloat(prev.odo);
-          let liters = parseFloat(current.liters);
-          if (dist > 0 && liters > 0) {
-            validIntervalsDistance += dist;
-            validIntervalsFuel += liters;
-          }
-        }
-      }
-
-      if (validIntervalsFuel > 0) {
-        let avgKmpl = validIntervalsDistance / validIntervalsFuel;
-        let totalDistanceTracked = fuels.length >= 2 ? (parseFloat(fuels[fuels.length - 1].odo) - parseFloat(fuels[0].odo)) : 0;
-        let costKm = totalDistanceTracked > 0 ? (grandTotal / totalDistanceTracked) : 0;
-
-        document.getElementById('avgMileage').innerText = avgKmpl.toFixed(1) + ' Km/L';
-        document.getElementById('costPerKm').innerText = '₹' + costKm.toFixed(2) + ' / Km';
-
-        let lastLog = fuels[fuels.length - 1];
-        let estRange = avgKmpl * (v.tankCapacity || 5);
-        let nextRefuelOdo = parseFloat(lastLog.odo) + estRange;
-
-        document.getElementById('estRange').innerText = '~' + estRange.toFixed(0) + ' Km';
-        document.getElementById('nextRefuelOdo').innerText = '~' + nextRefuelOdo.toFixed(0) + ' Km';
-
-        renderChart(fuels);
-      } else {
-        document.getElementById('avgMileage').innerText = '-- Km/L';
-        document.getElementById('costPerKm').innerText = '₹-- / Km';
-        document.getElementById('estRange').innerText = '-- Km';
-        document.getElementById('nextRefuelOdo').innerText = '-- Km';
-      }
-    }
-
-    function renderChart(fuels) {
-      const ctx = document.getElementById('mileageChart').getContext('2d');
-      if (chartInstance) chartInstance.destroy();
-
-      let labels = [];
-      let dataPoints = [];
-
-      for (let i = 1; i < fuels.length; i++) {
-        let current = fuels[i];
-        let prev = fuels[i - 1];
-
-        if (current.isFull !== false && !current.missedPrevious) {
-          let dist = parseFloat(current.odo) - parseFloat(prev.odo);
-          let lit = parseFloat(current.liters);
-          if (lit > 0 && dist > 0) {
-            labels.push(current.date);
-            dataPoints.push((dist / lit).toFixed(1));
-          }
-        }
-      }
-
-      chartInstance = new Chart(ctx, {
-        type: 'line',
-        data: {
-          labels: labels,
-          datasets: [{
-            label: 'Km/L',
-            data: dataPoints,
-            borderColor: '#2563eb',
-            tension: 0.3,
-            fill: false
-          }]
-        },
-        options: { responsive: true, maintainAspectRatio: false }
-      });
-    }
-
-    // FUEL LOGS
-    function openFuelModal() {
-      document.getElementById('fDate').value = new Date().toISOString().split('T')[0];
-      document.getElementById('fOdo').value = '';
-      document.getElementById('fLiters').value = '';
-      document.getElementById('fUnitPrice').value = '';
-      document.getElementById('fCost').value = '';
-      document.getElementById('fIsFull').checked = true;
-      document.getElementById('fMissedPrevious').checked = false;
-      document.getElementById('fRemarks').value = '';
-      document.getElementById('fuelModal').classList.remove('hidden');
-    }
-
-    function calcFuelCost() {
-      let liters = parseFloat(document.getElementById('fLiters').value) || 0;
-      let price = parseFloat(document.getElementById('fUnitPrice').value) || 0;
-      if (liters > 0 && price > 0) {
-        document.getElementById('fCost').value = (liters * price).toFixed(2);
-      }
-    }
-
-    async function saveFuelLog(e) {
-      e.preventDefault();
-      if (!activeVehicleKey) return;
-
-      const date = document.getElementById('fDate').value;
-      const odo = parseFloat(document.getElementById('fOdo').value);
-      const liters = parseFloat(document.getElementById('fLiters').value);
-      const unitPrice = parseFloat(document.getElementById('fUnitPrice').value) || 0;
-      const cost = parseFloat(document.getElementById('fCost').value);
-      const isFull = document.getElementById('fIsFull').checked;
-      const missedPrevious = document.getElementById('fMissedPrevious').checked;
-      const remarks = document.getElementById('fRemarks').value.trim();
-
-      await db.ref(`garages/${activeGarage}/fuelLogs`).push().set({
-        vehicleId: activeVehicleKey, date, odo, liters, unitPrice, cost, isFull, missedPrevious, remarks
-      });
-
-      closeModal('fuelModal');
-    }
-
-    function renderFuelHistory() {
-      const container = document.getElementById('fuelHistory');
-      container.innerHTML = '';
-
-      const vehicleFuels = Object.values(storeData.fuelLogs || {})
-        .filter(v => v && v.vehicleId === activeVehicleKey && parseFloat(v.odo) > 0)
-        .sort((a, b) => parseFloat(a.odo) - parseFloat(b.odo));
-
-      if (vehicleFuels.length === 0) return container.innerHTML = '<p style="color:var(--text-muted); font-size:0.85rem;">No fuel logs found.</p>';
-
-      let processedLogs = vehicleFuels.map((log, index) => {
-        let mileage = null;
-        let distanceBetween = null;
-
-        if (index > 0) {
-          distanceBetween = parseFloat(log.odo) - parseFloat(vehicleFuels[index - 1].odo);
-          if (log.isFull !== false && !log.missedPrevious && distanceBetween > 0 && parseFloat(log.liters) > 0) {
-            mileage = (distanceBetween / parseFloat(log.liters)).toFixed(1);
-          }
-        }
-        return { ...log, mileage, distanceBetween };
-      });
-
-      processedLogs.reverse().forEach(log => {
-        const item = document.createElement('div');
-        item.className = 'log-item';
-        item.innerHTML = `
-          <div style="display:flex; justify-content:space-between; align-items:flex-start;">
-            <div>
-              <strong>${log.date} — ${log.odo} Km</strong>
-              <div style="font-size:0.8rem; color:var(--text-muted); margin-top:2px;">
-                ${log.liters} L @ ₹${log.unitPrice || '--'}/L
-                ${log.distanceBetween ? ` • 📍 +${log.distanceBetween.toFixed(1)} Km since last refill` : ''}
-              </div>
-              <div style="margin-top: 4px;">
-                ${log.mileage ? `<span class="badge badge-success">⚡ ${log.mileage} Km/L</span>` : ''}
-                ${log.isFull === false ? `<span class="badge" style="background:rgba(239, 68, 68, 0.15); color:var(--danger);">Partial Fill</span>` : ''}
-                ${log.missedPrevious ? `<span class="badge" style="background:rgba(245, 158, 11, 0.15); color:#d97706;">Missed Prev Fill</span>` : ''}
-              </div>
-              ${log.remarks ? `<small style="color:var(--text-muted); display:block; margin-top:2px;">Note: ${log.remarks}</small>` : ''}
-            </div>
-            <strong style="color:var(--primary);">₹${parseFloat(log.cost).toFixed(2)}</strong>
-          </div>
-        `;
-        container.appendChild(item);
-      });
-    }
-
-    // SERVICE LOGS
-    function openServiceModal() {
-      document.getElementById('sDate').value = new Date().toISOString().split('T')[0];
-      document.getElementById('sOdo').value = '';
-      document.getElementById('sCenter').value = '';
-      document.getElementById('sDetails').value = '';
-      document.getElementById('sCost').value = '';
-      document.getElementById('serviceModal').classList.remove('hidden');
-    }
-
-    async function saveServiceLog(e) {
-      e.preventDefault();
-      if (!activeVehicleKey) return;
-
-      const date = document.getElementById('sDate').value;
-      const odo = parseFloat(document.getElementById('sOdo').value);
-      const center = document.getElementById('sCenter').value.trim();
-      const details = document.getElementById('sDetails').value.trim();
-      const cost = parseFloat(document.getElementById('sCost').value);
-
-      await db.ref(`garages/${activeGarage}/serviceLogs`).push().set({
-        vehicleId: activeVehicleKey, date, odo, center, details, cost
-      });
-
-      closeModal('serviceModal');
-    }
-
-    function renderServiceHistory() {
-      const container = document.getElementById('serviceHistory');
-      container.innerHTML = '';
-
-      const services = Object.values(storeData.serviceLogs || {})
-        .filter(s => s && s.vehicleId === activeVehicleKey)
-        .sort((a, b) => new Date(b.date) - new Date(a.date));
-
-      if (services.length === 0) return container.innerHTML = '<p style="color:var(--text-muted); font-size:0.85rem;">No service logs recorded.</p>';
-
-      services.forEach(log => {
-        const item = document.createElement('div');
-        item.className = 'log-item';
-        item.innerHTML = `
-          <div style="display:flex; justify-content:space-between; align-items:flex-start;">
-            <div>
-              <strong>${log.date} — ${log.odo} Km</strong>
-              ${log.center ? `<div style="font-size:0.8rem; font-weight:bold; color:var(--primary);">${log.center}</div>` : ''}
-              <p style="font-size:0.85rem; margin-top:4px;">${log.details}</p>
-            </div>
-            <strong style="color:var(--primary);">₹${parseFloat(log.cost).toFixed(2)}</strong>
-          </div>
-        `;
-        container.appendChild(item);
-      });
-    }
-
-    // TYRE LOGS
-    function openTyreModal() {
-      document.getElementById('tDate').value = new Date().toISOString().split('T')[0];
-      document.getElementById('tOdo').value = '';
-      const v = storeData.vehicles[activeVehicleKey] || {};
-      document.getElementById('tFront').value = v.frontPsi || 32;
-      document.getElementById('tRear').value = v.rearPsi || 36;
-      document.getElementById('tyreModal').classList.remove('hidden');
-    }
-
-    async function saveTyreLog(e) {
-      e.preventDefault();
-      if (!activeVehicleKey) return;
-
-      const date = document.getElementById('tDate').value;
-      const odo = document.getElementById('tOdo').value ? parseFloat(document.getElementById('tOdo').value) : null;
-      const front = parseInt(document.getElementById('tFront').value);
-      const rear = parseInt(document.getElementById('tRear').value);
-
-      await db.ref(`garages/${activeGarage}/tyreLogs`).push().set({
-        vehicleId: activeVehicleKey, date, odo, front, rear
-      });
-
-      closeModal('tyreModal');
-    }
-
-    function renderTyreHistory() {
-      const container = document.getElementById('tyreHistory');
-      const recDisplay = document.getElementById('tyreRecommendedDisplay');
-      container.innerHTML = '';
-
-      const v = storeData.vehicles[activeVehicleKey] || {};
-      recDisplay.innerHTML = `⚙️ <b>Recommended Pressure:</b> Front ${v.frontPsi || 32} PSI | Rear ${v.rearPsi || 36} PSI`;
-
-      const tyres = Object.values(storeData.tyreLogs || {})
-        .filter(t => t && t.vehicleId === activeVehicleKey)
-        .sort((a, b) => new Date(b.date) - new Date(a.date));
-
-      if (tyres.length === 0) return container.innerHTML = '<p style="color:var(--text-muted); font-size:0.85rem;">No tyre pressure logs recorded.</p>';
-
-      tyres.forEach(log => {
-        const item = document.createElement('div');
-        item.className = 'log-item';
-        item.innerHTML = `
-          <div style="display:flex; justify-content:space-between;">
-            <div>
-              <strong>${log.date} ${log.odo ? `— ${log.odo} Km` : ''}</strong>
-              <div style="font-size:0.85rem; margin-top:2px;">Front: <b>${log.front} PSI</b> | Rear: <b>${log.rear} PSI</b></div>
-            </div>
-          </div>
-        `;
-        container.appendChild(item);
-      });
-    }
-
-    // REMINDERS
-    function openReminderModal() {
-      document.getElementById('rTitle').value = '';
-      document.getElementById('rDueDate').value = '';
-      document.getElementById('rDueOdo').value = '';
-      document.getElementById('reminderModal').classList.remove('hidden');
-    }
-
-    async function saveReminder(e) {
-      e.preventDefault();
-      if (!activeVehicleKey) return;
-
-      const title = document.getElementById('rTitle').value.trim();
-      const dueDate = document.getElementById('rDueDate').value || null;
-      const dueOdo = document.getElementById('rDueOdo').value ? parseFloat(document.getElementById('rDueOdo').value) : null;
-
-      await db.ref(`garages/${activeGarage}/reminders`).push().set({
-        vehicleId: activeVehicleKey, title, dueDate, dueOdo, completed: false
-      });
-
-      closeModal('reminderModal');
-    }
-
-    function renderReminders() {
-      const container = document.getElementById('reminderList');
-      container.innerHTML = '';
-
-      const list = Object.entries(storeData.reminders || {})
-        .map(([key, val]) => ({ key, ...val }))
-        .filter(r => r && r.vehicleId === activeVehicleKey);
-
-      if (list.length === 0) return container.innerHTML = '<p style="color:var(--text-muted); font-size:0.85rem;">No reminders set.</p>';
-
-      list.forEach(r => {
-        const item = document.createElement('div');
-        item.className = 'log-item flex-center';
-        item.innerHTML = `
-          <div>
-            <strong>🔔 ${r.title}</strong>
-            <div style="font-size:0.8rem; color:var(--text-muted);">
-              ${r.dueDate ? `Due Date: ${r.dueDate} ` : ''}
-              ${r.dueOdo ? `• Due Odo: ${r.dueOdo} Km` : ''}
-            </div>
-          </div>
-          <button class="outline" style="width:auto; padding:4px 8px; font-size:0.75rem;" onclick="deleteReminder('${r.key}')">Done / Clear</button>
-        `;
-        container.appendChild(item);
-      });
-    }
-
-    async function deleteReminder(key) {
-      await db.ref(`garages/${activeGarage}/reminders/${key}`).remove();
-    }
-
-    // EXPORT TO CSV
-    function exportGarageToCSV() {
-      if (!storeData.vehicles) return alert("No data to export.");
-
-      let csv = "";
-      Object.entries(storeData.vehicles).forEach(([vKey, v]) => {
-        csv += `=== VEHICLE: ${v.name} (${v.model || ''}) - ${v.type || '2wheeler'} ===\n`;
-        csv += `Type, Date, Odometer, Quantity (L), Unit Price, Total Cost, Full Tank, Missed Previous, Remarks\n`;
-        csv += `--- FUEL LOGS ---\n`;
-
-        const fuels = Object.values(storeData.fuelLogs || {})
-          .filter(f => f && f.vehicleId === vKey)
-          .sort((a, b) => parseFloat(a.odo) - parseFloat(b.odo));
-
-        fuels.forEach(f => {
-          csv += `Fuel, ${f.date}, ${f.odo}, ${f.liters}, ${f.unitPrice || ''}, ${f.cost}, ${f.isFull !== false}, ${f.missedPrevious || false}, "${f.remarks || ''}"\n`;
-        });
-
-        csv += `\n`;
-      });
-
-      const blob = new Blob([csv], { type: 'text/csv' });
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.setAttribute('href', url);
-      a.setAttribute('download', `${activeGarage}_garage_export.csv`);
-      a.click();
-    }
-
-    // IMPORT CSV
-    function triggerFileInput() { document.getElementById('importCsvInput').click(); }
-
-    async function processCleanCSVImport(e) {
-      const file = e.target.files[0];
-      if (!file) return;
-
-      const reader = new FileReader();
-      reader.onload = async function(evt) {
-        const text = evt.target.result;
-        const sections = text.split('=== VEHICLE:');
-        
-        await db.ref(`garages/${activeGarage}/vehicles`).remove();
-        await db.ref(`garages/${activeGarage}/fuelLogs`).remove();
-
-        for (let s = 1; s < sections.length; s++) {
-          const lines = sections[s].split(/\r\n|\n/);
-          const header = lines[0].trim();
-          
-          let name = header.split('(')[0].trim();
-          let model = header.includes('(') ? header.split('(')[1].split(')')[0].trim() : '';
-          let cleanKey = "v_" + name.toLowerCase().replace(/[^a-z0-9]/g, "_");
-
-          await db.ref(`garages/${activeGarage}/vehicles/${cleanKey}`).set({
-            name, model, type: 'Motorcycle', tankCapacity: name.includes('Classic') ? 13.5 : 5.0
-          });
-
-          let isFuel = false;
-          for (let i = 1; i < lines.length; i++) {
-            const line = lines[i].trim();
-            if (line.includes('--- FUEL LOGS ---')) { isFuel = true; continue; }
-            if (line.startsWith('---')) { isFuel = false; continue; }
-
-            if (isFuel && line.startsWith('Fuel,')) {
-              const parts = line.split(',').map(p => p.replace(/"/g, '').trim());
-              if (parts.length >= 6) {
-                let date = parts[1];
-                let odo = parseFloat(parts[2]) || 0;
-                let liters = parseFloat(parts[3]) || 0;
-                let unitPrice = parseFloat(parts[4]) || 0;
-                let cost = parseFloat(parts[5]) || 0;
-
-                if (odo > 0) {
-                  await db.ref(`garages/${activeGarage}/fuelLogs`).push().set({
-                    vehicleId: cleanKey, date, odo, liters, unitPrice, cost, isFull: true, missedPrevious: false
-                  });
-                }
-              }
-            }
-          }
-        }
-        alert("Garage synced and updated!");
-      };
-      reader.readAsText(file);
-    }
-
-    // UTILS & UI CONTROLS
-    function closeModal(id) { document.getElementById(id).classList.add('hidden'); }
-
-    function showTab(tabName) {
-      ['dash', 'fuel', 'service', 'tyre', 'reminder'].forEach(tab => {
-        document.getElementById(tab + 'Section').classList.add('hidden');
-        document.getElementById(tab + 'TabBtn').classList.remove('active');
-      });
-      document.getElementById(tabName + 'Section').classList.remove('hidden');
-      document.getElementById(tabName + 'TabBtn').classList.add('active');
-    }
-
-    function toggleTheme() {
-      const body = document.body;
-      body.setAttribute('data-theme', body.getAttribute('data-theme') === 'dark' ? 'light' : 'dark');
-    }
-
-    window.addEventListener('DOMContentLoaded', () => {
-      const savedGarage = localStorage.getItem('activeGarage');
-      if (savedGarage) {
-        document.getElementById('loginGarageName').value = savedGarage;
-      }
-    });
-  </script>
-</body>
-</html>
+### Example Schema / Logic Flow
+1. **Fetch:** When the user clicks **Edit**, fetch the specific log record using its ID and populate an edit modal/form with the current values.
+2. **Submit:** When submitted, execute an `UPDATE` query (or API request):
+   ```sql
+   UPDATE maintenance_logs 
+   SET service_date = '2026-07-30', pressure_psi = 33, notes = 'Rotated tyres'
+   WHERE log_id = 101;
