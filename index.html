@@ -333,17 +333,34 @@
     let activeGarage = null;
     let garageData = {};
 
+    // Check localStorage on startup for seamless login
+    window.addEventListener('DOMContentLoaded', () => {
+      const savedGarage = localStorage.getItem('garageId');
+      const savedPin = localStorage.getItem('garagePin');
+      if (savedGarage && savedPin) {
+        document.getElementById('loginGarageName').value = savedGarage;
+        document.getElementById('loginPin').value = savedPin;
+        // Auto-login attempt
+        verifyAndLogin(savedGarage, savedPin, true);
+      }
+    });
+
     function handlePinLogin(e) {
       e.preventDefault();
       const garageName = document.getElementById('loginGarageName').value.trim().toLowerCase();
       const pin = document.getElementById('loginPin').value.trim();
+      verifyAndLogin(garageName, pin, false);
+    }
+
+    function verifyAndLogin(garageName, pin, isAutoLogin) {
       const errorEl = document.getElementById('loginError');
+      if (errorEl) errorEl.innerText = "Connecting...";
 
       db.ref(`garages/${garageName}`).once('value')
         .then(snapshot => {
           const val = snapshot.val();
           if (!val) {
-            errorEl.innerText = "Garage ID not found. Initializing new garage...";
+            // If garage doesn't exist yet, create default
             const defaultData = {
               pin: pin,
               activeVehicle: "v_classic_350",
@@ -353,21 +370,33 @@
               }
             };
             db.ref(`garages/${garageName}`).set(defaultData).then(() => {
-              activeGarage = garageName;
-              initApp();
+              completeLogin(garageName, pin);
+            }).catch(err => {
+              if (errorEl) errorEl.innerText = "Write permission denied. Check Firebase Rules.";
+              if (isAutoLogin) localStorage.clear();
             });
             return;
           }
+
           if (val.pin !== pin) {
-            errorEl.innerText = "Incorrect Security PIN.";
+            if (errorEl) errorEl.innerText = "Incorrect Security PIN.";
+            if (isAutoLogin) localStorage.clear();
             return;
           }
-          activeGarage = garageName;
-          initApp();
+
+          completeLogin(garageName, pin);
         })
         .catch(err => {
-          errorEl.innerText = "Connection error: " + err.message;
+          if (errorEl) errorEl.innerText = "Connection error. Check Firebase Rules / Internet.";
+          if (isAutoLogin) localStorage.clear();
         });
+    }
+
+    function completeLogin(garageName, pin) {
+      activeGarage = garageName;
+      localStorage.setItem('garageId', garageName);
+      localStorage.setItem('garagePin', pin);
+      initApp();
     }
 
     function initApp() {
@@ -378,10 +407,13 @@
     }
 
     function lockApp() {
+      localStorage.removeItem('garageId');
+      localStorage.removeItem('garagePin');
       activeGarage = null;
       document.getElementById('appInterface').classList.add('hidden');
       document.getElementById('loginModal').classList.remove('hidden');
       document.getElementById('loginPin').value = '';
+      document.getElementById('loginError').innerText = '';
     }
 
     function toggleTheme() {
@@ -460,4 +492,366 @@
       const editKey = document.getElementById('editVehicleKey').value;
       const name = document.getElementById('newVehName').value.trim();
       const model = document.getElementById('newVehModel').value.trim();
-  
+      const tankCapacity = parseFloat(document.getElementById('newVehTank').value) || 5;
+
+      const updates = {};
+      if (editKey) {
+        updates[`vehicles/${editKey}/name`] = name;
+        updates[`vehicles/${editKey}/model`] = model;
+        updates[`vehicles/${editKey}/tankCapacity`] = tankCapacity;
+      } else {
+        const vKey = 'v_' + name.toLowerCase().replace(/[^a-z0-9]/g, '_') + '_' + Math.random().toString(36).substring(2, 5);
+        updates[`vehicles/${vKey}`] = { name, model, tankCapacity };
+        updates[`activeVehicle`] = vKey;
+      }
+
+      db.ref(`garages/${activeGarage}`).update(updates).then(() => {
+        document.getElementById('vehicleModal').classList.add('hidden');
+        e.target.reset();
+      });
+    }
+
+    function deleteActiveVehicle() {
+      const activeId = garageData.activeVehicle;
+      if (!activeId) return;
+      if (!confirm("Are you sure you want to delete this vehicle and all its logs?")) return;
+      db.ref(`garages/${activeGarage}/vehicles/${activeId}`).remove().then(() => {
+        const remaining = Object.keys(garageData.vehicles || {}).filter(k => k !== activeId);
+        if (remaining.length > 0) {
+          db.ref(`garages/${activeGarage}/activeVehicle`).set(remaining[0]);
+        }
+      });
+    }
+
+    function showTab(tab) {
+      document.getElementById('dashSection').classList.toggle('hidden', tab !== 'dash');
+      document.getElementById('logsSection').classList.toggle('hidden', tab !== 'logs');
+      document.getElementById('remSection').classList.toggle('hidden', tab !== 'rem');
+      document.getElementById('toolsSection').classList.toggle('hidden', tab !== 'tools');
+
+      document.getElementById('dashTabBtn').classList.toggle('active', tab === 'dash');
+      document.getElementById('logsTabBtn').classList.toggle('active', tab === 'logs');
+      document.getElementById('remTabBtn').classList.toggle('active', tab === 'rem');
+      document.getElementById('toolsTabBtn').classList.toggle('active', tab === 'tools');
+    }
+
+    function openAddLogModal(type) {
+      document.getElementById('editLogId').value = '';
+      document.getElementById('logModalTitle').innerText = 'Add ' + type.toUpperCase() + ' Log';
+      document.getElementById('logType').value = type;
+      document.getElementById('logType').disabled = false;
+      document.getElementById('logForm').reset();
+      document.getElementById('logDate').valueAsDate = new Date();
+      toggleLogFields();
+      document.getElementById('logModal').classList.remove('hidden');
+    }
+
+    function closeLogModal() {
+      document.getElementById('logModal').classList.add('hidden');
+    }
+
+    function toggleLogFields() {
+      const type = document.getElementById('logType').value;
+      document.getElementById('fuelFields').classList.toggle('hidden', type !== 'fuel');
+      document.getElementById('serviceFields').classList.toggle('hidden', type !== 'service');
+      document.getElementById('tyreFields').classList.toggle('hidden', type !== 'tyre');
+    }
+
+    function calculateFuelCost() {
+      const liters = parseFloat(document.getElementById('logLiters').value) || 0;
+      const price = parseFloat(document.getElementById('logUnitPrice').value) || 0;
+      if (liters > 0 && price > 0) {
+        document.getElementById('logCost').value = (liters * price).toFixed(2);
+      }
+    }
+
+    function saveLog(e) {
+      e.preventDefault();
+      const activeVehicle = garageData.activeVehicle;
+      if (!activeVehicle) {
+        alert("Please select or add a vehicle first.");
+        return;
+      }
+      const editId = document.getElementById('editLogId').value;
+      const type = document.getElementById('logType').value;
+      const date = document.getElementById('logDate').value;
+      const odometer = parseFloat(document.getElementById('logOdo').value) || 0;
+      const remarks = document.getElementById('logRemarks').value.trim();
+
+      const logData = { type, date, odometer, remarks };
+
+      if (type === 'fuel') {
+        logData.liters = parseFloat(document.getElementById('logLiters').value) || 0;
+        logData.unitPrice = parseFloat(document.getElementById('logUnitPrice').value) || 0;
+        logData.cost = parseFloat(document.getElementById('logCost').value) || 0;
+        logData.isFull = document.getElementById('logIsFull').checked;
+        logData.missedPrev = document.getElementById('logMissedPrev').checked;
+      } else if (type === 'service') {
+        logData.title = document.getElementById('logServiceTitle').value.trim();
+        logData.cost = parseFloat(document.getElementById('logServiceCost').value) || 0;
+      } else if (type === 'tyre') {
+        logData.frontPsi = parseFloat(document.getElementById('logTyreFront').value) || 0;
+        logData.rearPsi = parseFloat(document.getElementById('logTyreRear').value) || 0;
+      }
+
+      const logId = editId || 'log_' + Date.now();
+      db.ref(`garages/${activeGarage}/vehicles/${activeVehicle}/logs/${logId}`).set(logData).then(() => {
+        closeLogModal();
+      });
+    }
+
+    function editLog(logId) {
+      const activeVehicle = garageData.activeVehicle;
+      const logs = garageData.vehicles?.[activeVehicle]?.logs || {};
+      const log = logs[logId];
+      if (!log) return;
+
+      document.getElementById('editLogId').value = logId;
+      document.getElementById('logModalTitle').innerText = 'Edit Log Entry';
+      document.getElementById('logType').value = log.type;
+      document.getElementById('logType').disabled = true;
+      document.getElementById('logDate').value = log.date || '';
+      document.getElementById('logOdo').value = log.odometer || '';
+      document.getElementById('logRemarks').value = log.remarks || '';
+
+      if (log.type === 'fuel') {
+        document.getElementById('logLiters').value = log.liters || '';
+        document.getElementById('logUnitPrice').value = log.unitPrice || '';
+        document.getElementById('logCost').value = log.cost || '';
+        document.getElementById('logIsFull').checked = !!log.isFull;
+        document.getElementById('logMissedPrev').checked = !!log.missedPrev;
+      } else if (log.type === 'service') {
+        document.getElementById('logServiceTitle').value = log.title || '';
+        document.getElementById('logServiceCost').value = log.cost || '';
+      } else if (log.type === 'tyre') {
+        document.getElementById('logTyreFront').value = log.frontPsi || '';
+        document.getElementById('logTyreRear').value = log.rearPsi || '';
+      }
+
+      toggleLogFields();
+      document.getElementById('logModal').classList.remove('hidden');
+    }
+
+    function deleteLog(logId) {
+      if (!confirm("Are you sure you want to delete this log entry?")) return;
+      const activeVehicle = garageData.activeVehicle;
+      db.ref(`garages/${activeGarage}/vehicles/${activeVehicle}/logs/${logId}`).remove();
+    }
+
+    function getSortedLogs() {
+      const activeVehicle = garageData.activeVehicle;
+      const logsObj = garageData.vehicles?.[activeVehicle]?.logs || {};
+      return Object.keys(logsObj).map(id => ({ id, ...logsObj[id] })).sort((a, b) => new Date(a.date) - new Date(b.date));
+    }
+
+    function renderLogs() {
+      const container = document.getElementById('logsContainer');
+      const sorted = getSortedLogs().reverse();
+
+      if (sorted.length === 0) {
+        container.innerHTML = '<p style="color:var(--text-muted); text-align:center; font-size:0.85rem; padding:10px;">No logs recorded yet.</p>';
+        return;
+      }
+
+      const chrono = [...sorted].reverse();
+      let lastFullOdo = null;
+      const computedMap = {};
+
+      chrono.forEach(l => {
+        if (l.type === 'fuel') {
+          if (lastFullOdo !== null && l.odometer > lastFullOdo) {
+            const dist = l.odometer - lastFullOdo;
+            computedMap[l.id] = { distance: dist, mileage: l.liters > 0 ? (dist / l.liters).toFixed(2) : null };
+          }
+          if (l.isFull && !l.missedPrev) {
+            lastFullOdo = l.odometer;
+          } else if (l.missedPrev) {
+            lastFullOdo = l.odometer;
+          }
+        }
+      });
+
+      let html = '';
+      sorted.forEach(l => {
+        let badgeClass = 'badge-fuel';
+        let title = 'Fuel Log';
+        let details = '';
+
+        if (l.type === 'service') {
+          badgeClass = 'badge-service';
+          title = l.title || 'Service';
+          details = `Cost: ₹${l.cost || 0}`;
+        } else if (l.type === 'tyre') {
+          badgeClass = 'badge-tyre';
+          title = 'Tyre Pressure';
+          details = `Front: ${l.frontPsi || '--'} PSI | Rear: ${l.rearPsi || '--'} PSI`;
+        } else {
+          const comp = computedMap[l.id];
+          details = `Liters: ${l.liters}L | Cost: ₹${l.cost} ${l.isFull ? '(Full)' : ''}`;
+          if (comp) {
+            details += `<br><b>Distance:</b> ${comp.distance} Km | <b>Mileage:</b> ${comp.mileage} Km/L`;
+          }
+        }
+
+        html += `
+          <div class="item-card">
+            <div class="flex-center" style="margin-bottom:4px;">
+              <span class="badge ${badgeClass}">${l.type}</span>
+              <small style="color:var(--text-muted);">${l.date} • ${l.odometer} Km</small>
+            </div>
+            <div style="font-size:0.9rem; font-weight:bold; margin-bottom:2px;">${title}</div>
+            <div style="font-size:0.8rem; color:var(--text-muted); margin-bottom:6px;">${details} ${l.remarks ? '• ' + l.remarks : ''}</div>
+            <div style="display:flex; gap:6px;">
+              <button class="outline btn-sm" onclick="editLog('${l.id}')">Edit</button>
+              <button class="danger-outline btn-sm" onclick="deleteLog('${l.id}')">Delete</button>
+            </div>
+          </div>
+        `;
+      });
+      container.innerHTML = html;
+    }
+
+    function renderDashboard() {
+      const activeVehicle = garageData.activeVehicle;
+      const vData = garageData.vehicles?.[activeVehicle] || {};
+      document.getElementById('vehicleProfileDisplay').innerHTML = `
+        <h2 style="font-size:1.1rem; color:var(--primary);">${vData.name || 'Vehicle'}</h2>
+        <p style="font-size:0.8rem; color:var(--text-muted);">${vData.model || ''} • Tank: ${vData.tankCapacity || '--'}L</p>
+      `;
+
+      const filterPeriod = document.getElementById('statFilterPeriod').value;
+      const sorted = getSortedLogs();
+      const now = new Date();
+      const currentYear = now.getFullYear();
+      const currentMonth = now.getMonth();
+
+      let totalSpent = 0;
+      let fuelSpent = 0;
+      let serviceSpent = 0;
+      let totalDist = 0;
+      let totalLiters = 0;
+
+      let lastFullOdo = null;
+      let lastOdo = sorted.length > 0 ? sorted[0].odometer : 0;
+      let firstOdo = sorted.length > 0 ? sorted[sorted.length - 1].odometer : 0;
+
+      sorted.forEach(l => {
+        const cost = parseFloat(l.cost) || 0;
+        if (l.type === 'fuel' || l.type === 'service') {
+          const d = new Date(l.date);
+          let matchPeriod = true;
+          if (filterPeriod === 'monthly') {
+            matchPeriod = (d.getFullYear() === currentYear && d.getMonth() === currentMonth);
+          } else if (filterPeriod === 'yearly') {
+            matchPeriod = (d.getFullYear() === currentYear);
+          }
+
+          if (matchPeriod) {
+            totalSpent += cost;
+            if (l.type === 'fuel') fuelSpent += cost;
+            if (l.type === 'service') serviceSpent += cost;
+          }
+        }
+
+        if (l.type === 'fuel') {
+          totalLiters += parseFloat(l.liters) || 0;
+          if (lastFullOdo !== null && l.odometer > lastFullOdo) {
+            totalDist += (l.odometer - lastFullOdo);
+          }
+          if (l.isFull && !l.missedPrev) {
+            lastFullOdo = l.odometer;
+          } else if (l.missedPrev) {
+            lastFullOdo = l.odometer;
+          }
+        }
+      });
+
+      const avgMileage = totalLiters > 0 && totalDist > 0 ? (totalDist / totalLiters).toFixed(2) : 0;
+      const overallDist = Math.max(0, lastOdo - firstOdo);
+      const costPerKm = overallDist > 0 ? (totalSpent / overallDist).toFixed(2) : 0;
+
+      let distToRefill = '--';
+      if (avgMileage > 0 && vData.tankCapacity) {
+        distToRefill = (vData.tankCapacity * avgMileage).toFixed(0);
+      }
+
+      document.getElementById('statTotalSpent').innerText = `₹${totalSpent.toFixed(2)}`;
+      document.getElementById('statFuelSpent').innerText = `₹${fuelSpent.toFixed(2)}`;
+      document.getElementById('statServiceSpent').innerText = `₹${serviceSpent.toFixed(2)}`;
+      document.getElementById('statAvgMileage').innerText = `${avgMileage} Km/L`;
+      document.getElementById('statCostPerKm').innerText = `₹${costPerKm}/Km`;
+      document.getElementById('statDistToRefill').innerText = `${distToRefill} Km`;
+    }
+
+    function saveReminder(e) {
+      e.preventDefault();
+      const activeVehicle = garageData.activeVehicle;
+      if (!activeVehicle) return;
+
+      const title = document.getElementById('remTitle').value.trim();
+      const date = document.getElementById('remDate').value;
+      const odometer = document.getElementById('remOdo').value;
+
+      const remId = 'rem_' + Date.now();
+      db.ref(`garages/${activeGarage}/vehicles/${activeVehicle}/reminders/${remId}`).set({
+        title, date, odometer: odometer ? parseFloat(odometer) : null
+      }).then(() => {
+        e.target.reset();
+      });
+    }
+
+    function deleteReminder(remId) {
+      const activeVehicle = garageData.activeVehicle;
+      db.ref(`garages/${activeGarage}/vehicles/${activeVehicle}/reminders/${remId}`).remove();
+    }
+
+    function renderReminders() {
+      const container = document.getElementById('remindersContainer');
+      const activeVehicle = garageData.activeVehicle;
+      const rems = garageData.vehicles?.[activeVehicle]?.reminders || {};
+      const keys = Object.keys(rems);
+
+      if (keys.length === 0) {
+        container.innerHTML = '<p style="color:var(--text-muted); text-align:center; font-size:0.85rem; padding:10px;">No reminders set.</p>';
+        return;
+      }
+
+      let html = '';
+      keys.forEach(k => {
+        const r = rems[k];
+        html += `
+          <div class="item-card flex-center">
+            <div>
+              <div style="font-size:0.9rem; font-weight:bold;">${r.title}</div>
+              <small style="color:var(--text-muted);">Due: ${r.date} ${r.odometer ? '• ' + r.odometer + ' Km' : ''}</small>
+            </div>
+            <button class="danger-outline btn-sm" onclick="deleteReminder('${k}')">Done</button>
+          </div>
+        `;
+      });
+      container.innerHTML = html;
+    }
+
+    function exportGarageToCSV() {
+      const activeVehicle = garageData.activeVehicle;
+      const sorted = getSortedLogs();
+      if (sorted.length === 0) {
+        alert("No logs to export.");
+        return;
+      }
+
+      let csv = "Type,Date,Odometer,Liters,UnitPrice,Cost,Remarks\n";
+      sorted.forEach(l => {
+        csv += `"${l.type}","${l.date}",${l.odometer},${l.liters || 0},${l.unitPrice || 0},${l.cost || 0},"${l.remarks || ''}"\n`;
+      });
+
+      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${activeVehicle}_logs.csv`;
+      a.click();
+    }
+  </script>
+</body>
+</html>
