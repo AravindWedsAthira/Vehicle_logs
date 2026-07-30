@@ -61,6 +61,7 @@
     .badge-gray { background: #f1f5f9; color: #64748b; }
     .badge-warning { background: #fef3c7; color: #92400e; }
     .badge-danger { background: #fee2e2; color: #991b1b; }
+    .badge-success { background: #dcfce7; color: #166534; }
     .flex { display: flex; gap: 8px; }
     .actions { display: flex; gap: 6px; margin-top: 6px; }
     .checkbox-container { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; margin-top: 4px; }
@@ -70,6 +71,7 @@
     .stat-box small { color: var(--text-muted); display: block; font-size: 0.7rem; }
     .stat-box strong { font-size: 1rem; color: var(--primary); }
     .vehicle-profile { text-align: center; margin-bottom: 12px; }
+    .vehicle-icon-display { font-size: 3rem; margin-bottom: 4px; }
     .remarks-text { color: var(--text-muted); font-style: italic; font-size: 0.85rem; margin-top: 4px; }
     
     .tyre-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 6px; }
@@ -133,7 +135,7 @@
   <div id="appInterface" class="hidden">
     <header>
       <div>
-        <h1>🚗 Garage Tracker</h1>
+        <h1><span id="appHeaderIcon">🚗</span> Garage Tracker</h1>
         <small style="color: var(--text-muted); font-size: 0.75rem;">Garage ID: <b id="activeGarageLabel" style="color: var(--primary);">--</b></small>
       </div>
       <div style="display: flex; gap: 6px;">
@@ -299,21 +301,21 @@
               <small id="labelFL">Front Left (FL)</small>
               <input type="number" step="0.5" id="tyreFL" placeholder="e.g. 33" required>
             </div>
-            <div>
+            <div id="tyreFRContainer">
               <small id="labelFR">Front Right (FR)</small>
-              <input type="number" step="0.5" id="tyreFR" placeholder="e.g. 33" required>
+              <input type="number" step="0.5" id="tyreFR" placeholder="e.g. 33">
             </div>
             <div id="tyreRLContainer">
-              <small>Rear Left (RL)</small>
+              <small id="labelRL">Rear Left (RL)</small>
               <input type="number" step="0.5" id="tyreRL" placeholder="e.g. 33">
             </div>
             <div id="tyreRRContainer">
-              <small>Rear Right (RR)</small>
+              <small id="labelRR">Rear Right (RR)</small>
               <input type="number" step="0.5" id="tyreRR" placeholder="e.g. 33">
             </div>
           </div>
 
-          <div>
+          <div id="tyreSpareContainer">
             <small>Spare Tyre (Optional)</small>
             <input type="number" step="0.5" id="tyreSpare" placeholder="e.g. 35">
           </div>
@@ -401,7 +403,6 @@
         <button class="secondary" style="flex: 1; font-size: 0.85rem;" onclick="exportCSV()">📊 Export CSV</button>
         <button class="secondary" style="flex: 1; font-size: 0.85rem;" onclick="triggerCSVImport()">📥 Import CSV</button>
       </div>
-      <!-- Hidden File Input for Clean UI -->
       <input type="file" id="importCsvInput" accept=".csv" class="hidden" onchange="processCSVImport(event)">
     </div>
 
@@ -419,10 +420,12 @@
 
         <div class="flex">
           <div style="flex:1;">
-            <label>Vehicle Type</label>
+            <label>Vehicle Category & Logo</label>
             <select id="modalVehicleType" onchange="toggleVehicleModalTypeFields()">
-              <option value="4wheeler">🚗 4-Wheeler (Car/SUV)</option>
-              <option value="2wheeler">🛵 2-Wheeler (Bike/Scooter)</option>
+              <option value="car">🚗 Car / SUV</option>
+              <option value="scooter">🛵 Scooter</option>
+              <option value="motorcycle">🏍️ Motorcycle / Bike</option>
+              <option value="truck">🛻 Truck / Pickup / Commercial</option>
             </select>
           </div>
           <div style="flex:1;">
@@ -437,21 +440,21 @@
             <small id="modalLabelFront">Front / FL PSI</small>
             <input type="number" step="0.5" id="modalRecFront" placeholder="e.g. 33">
           </div>
-          <div id="modalRecRearCol">
-            <small id="modalLabelRear">Rear / FR PSI</small>
-            <input type="number" step="0.5" id="modalRecRear" placeholder="e.g. 33">
+          <div id="modalRecFRCol">
+            <small id="modalLabelFR">Front Right (FR) PSI</small>
+            <input type="number" step="0.5" id="modalRecFR" placeholder="e.g. 33">
           </div>
           <div id="modalRecRLCol">
-            <small>Rear-Left PSI</small>
+            <small id="modalLabelRear">Rear / RL PSI</small>
             <input type="number" step="0.5" id="modalRecRL" placeholder="e.g. 33">
           </div>
           <div id="modalRecRRCol">
-            <small>Rear-Right PSI</small>
+            <small>Rear-Right (RR) PSI</small>
             <input type="number" step="0.5" id="modalRecRR" placeholder="e.g. 33">
           </div>
         </div>
 
-        <div>
+        <div id="modalRecSpareContainer">
           <small>Spare Tyre PSI</small>
           <input type="number" step="0.5" id="modalRecSpare" placeholder="e.g. 35">
         </div>
@@ -467,1193 +470,963 @@
   </div>
 
   <script>
+    // Config Firebase Placeholder (Configure Realtime Database if syncing online)
     const firebaseConfig = {
-      databaseURL: "https://mygaragetracker-default-rtdb.asia-southeast1.firebasedatabase.app"
+      apiKey: "YOUR_API_KEY",
+      authDomain: "YOUR_PROJECT.firebaseapp.com",
+      databaseURL: "https://YOUR_PROJECT.firebaseio.com",
+      projectId: "YOUR_PROJECT",
+      storageBucket: "YOUR_PROJECT.appspot.app",
+      messagingSenderId: "YOUR_SENDER_ID",
+      appId: "YOUR_APP_ID"
     };
 
-    if (!firebase.apps.length) {
-      firebase.initializeApp(firebaseConfig);
-    }
-    const realtimeDb = firebase.database();
+    let db = null;
+    try {
+      if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
+      db = firebase.database();
+    } catch(e) { console.log("Firebase initialized in local-fallback mode."); }
 
-    let db = {
-      vehicles: [],
-      activeVehicle: '',
-      vehicleProfiles: {},
-      fuel: {},
-      tyre: {},
-      service: {},
-      reminders: {}
+    let garageData = {
+      vehicles: {},
+      activeVehicleId: null
     };
 
-    let activeGarageName = '';
-    let activePin = '';
+    let activeGarageId = null;
     let mileageChartInstance = null;
 
-    function toggleTheme() {
-      const current = document.body.getAttribute('data-theme');
-      const next = current === 'dark' ? 'light' : 'dark';
-      document.body.setAttribute('data-theme', next);
-      localStorage.setItem('garage_theme', next);
-    }
+    const VEHICLE_LOGOS = {
+      car: '🚗',
+      scooter: '🛵',
+      motorcycle: '🏍️',
+      truck: '🛻'
+    };
 
-    // Load saved theme setting
-    const savedTheme = localStorage.getItem('garage_theme') || 'light';
-    document.body.setAttribute('data-theme', savedTheme);
+    // Initialize Default Dates
+    document.addEventListener("DOMContentLoaded", () => {
+      const today = new Date().toISOString().split('T')[0];
+      document.getElementById("fuelDate").value = today;
+      document.getElementById("tyreDate").value = today;
+      document.getElementById("serviceDate").value = today;
+      
+      const savedGarage = localStorage.getItem("garage_id");
+      if (savedGarage) {
+        document.getElementById("loginGarageName").value = savedGarage;
+      }
+    });
 
-    async function handlePinLogin(e) {
+    function handlePinLogin(e) {
       e.preventDefault();
-      
-      const rawName = document.getElementById('loginGarageName').value.trim();
-      const name = rawName.toLowerCase().replace(/[^a-z0-9]/g, '_');
-      const pin = document.getElementById('loginPin').value.trim();
-      const errDiv = document.getElementById('loginError');
-      const btn = document.getElementById('unlockBtn');
-      
-      errDiv.textContent = '';
-      if (!name || !pin) return;
+      const garageName = document.getElementById("loginGarageName").value.trim().toLowerCase();
+      const pin = document.getElementById("loginPin").value.trim();
 
-      btn.textContent = "Unlocking...";
-      btn.disabled = true;
+      if (!garageName || !pin) return;
 
-      try {
-        const snapshot = await realtimeDb.ref('garages/' + name).once('value');
-        if (snapshot.exists()) {
-          const cloudData = snapshot.val();
-          if (cloudData.pin !== pin) {
-            errDiv.textContent = '❌ Incorrect PIN for this Garage Name!';
-            btn.textContent = "Unlock Garage";
-            btn.disabled = false;
-            return;
+      activeGarageId = `${garageName}_${pin}`;
+      localStorage.setItem("garage_id", garageName);
+
+      if (db) {
+        db.ref('garages/' + activeGarageId).once('value', (snapshot) => {
+          const val = snapshot.val();
+          if (val) {
+            garageData = val;
+          } else {
+            initDefaultGarage();
           }
-          if (cloudData.data) db = cloudData.data;
+          onLoginSuccess();
+        });
+      } else {
+        const local = localStorage.getItem("garage_data_" + activeGarageId);
+        if (local) {
+          garageData = JSON.parse(local);
         } else {
-          await realtimeDb.ref('garages/' + name).set({ pin: pin, data: db });
+          initDefaultGarage();
         }
-
-        activeGarageName = name;
-        activePin = pin;
-
-        unlockApp();
-        listenForLiveSync();
-      } catch (err) {
-        console.error('Firebase Error:', err);
-        errDiv.textContent = 'Connection error. Please try again.';
-      } finally {
-        btn.textContent = "Unlock Garage";
-        btn.disabled = false;
+        onLoginSuccess();
       }
     }
 
-    function unlockApp() {
-      document.getElementById('loginModal').classList.add('hidden');
-      document.getElementById('appInterface').classList.remove('hidden');
-      document.getElementById('activeGarageLabel').textContent = activeGarageName;
-      init();
+    function initDefaultGarage() {
+      const defaultId = "v1_" + Date.now();
+      garageData = {
+        vehicles: {
+          [defaultId]: {
+            id: defaultId,
+            name: "Primary Vehicle",
+            model: "Standard",
+            type: "car",
+            tankCapacity: 40,
+            recTyreFront: 33,
+            recTyreRear: 33,
+            recTyreSpare: 33,
+            fuelLogs: [],
+            tyreLogs: [],
+            serviceLogs: [],
+            reminders: []
+          }
+        },
+        activeVehicleId: defaultId
+      };
+      saveGarageData();
+    }
+
+    function onLoginSuccess() {
+      document.getElementById("loginModal").classList.add("hidden");
+      document.getElementById("appInterface").classList.remove("hidden");
+      document.getElementById("activeGarageLabel").innerText = document.getElementById("loginGarageName").value;
+      populateVehicleSelect();
+      renderDashboard();
+    }
+
+    function saveGarageData() {
+      if (db && activeGarageId) {
+        db.ref('garages/' + activeGarageId).set(garageData);
+      }
+      if (activeGarageId) {
+        localStorage.setItem("garage_data_" + activeGarageId, JSON.stringify(garageData));
+      }
     }
 
     function lockApp() {
-      activeGarageName = '';
-      activePin = '';
-      document.getElementById('loginGarageName').value = '';
-      document.getElementById('loginPin').value = '';
-      document.getElementById('loginModal').classList.remove('hidden');
-      document.getElementById('appInterface').classList.add('hidden');
-      hideVehicleModal();
+      document.getElementById("loginModal").classList.remove("hidden");
+      document.getElementById("appInterface").classList.add("hidden");
+      document.getElementById("loginPin").value = "";
     }
 
-    function listenForLiveSync() {
-      if (!activeGarageName) return;
-      realtimeDb.ref('garages/' + activeGarageName + '/data').on('value', (snapshot) => {
-        if (snapshot.exists()) {
-          db = snapshot.val() || db;
-          if (!db.vehicles) db.vehicles = [];
-          if (!db.vehicleProfiles) db.vehicleProfiles = {};
-          if (!db.fuel) db.fuel = {};
-          if (!db.tyre) db.tyre = {};
-          if (!db.service) db.service = {};
-          if (!db.reminders) db.reminders = {};
-          
-          if (db.vehicles.length > 0 && !db.vehicles.includes(db.activeVehicle)) {
-            db.activeVehicle = db.vehicles[0];
-          }
-          renderVehicleDropdown();
-          renderDashboard();
-          renderLogs();
-          adjustTyreFormFields();
-        }
-      });
+    function toggleTheme() {
+      const body = document.body;
+      const current = body.getAttribute("data-theme");
+      const next = current === "light" ? "dark" : "light";
+      body.setAttribute("data-theme", next);
     }
 
-    function saveData() {
-      if (!activeGarageName) return;
-      realtimeDb.ref('garages/' + activeGarageName + '/data').set(db);
-    }
-
-    function init() {
-      const today = new Date().toISOString().split('T')[0];
-      document.getElementById('fuelDate').value = today;
-      document.getElementById('tyreDate').value = today;
-      document.getElementById('serviceDate').value = today;
-
-      if (!db.vehicleProfiles) db.vehicleProfiles = {};
-      if (!db.fuel) db.fuel = {};
-      if (!db.tyre) db.tyre = {};
-      if (!db.service) db.service = {};
-      if (!db.reminders) db.reminders = {};
-
-      if (!activeGarageName) return;
-
-      if (!db.vehicles || db.vehicles.length === 0) {
-        openVehicleModal('add');
-      } else {
-        renderVehicleDropdown();
-        renderDashboard();
-        renderLogs();
-        adjustTyreFormFields();
+    function getActiveVehicle() {
+      if (!garageData.activeVehicleId || !garageData.vehicles[garageData.activeVehicleId]) {
+        const keys = Object.keys(garageData.vehicles);
+        if (keys.length > 0) garageData.activeVehicleId = keys[0];
+        else return null;
       }
+      return garageData.vehicles[garageData.activeVehicleId];
     }
 
-    function toggleVehicleModalTypeFields() {
-      const type = document.getElementById('modalVehicleType').value;
-      const is2W = type === '2wheeler';
-
-      document.getElementById('modalLabelFront').textContent = is2W ? 'Front Tyre PSI' : 'Front Left (FL) PSI';
-      document.getElementById('modalLabelRear').textContent = is2W ? 'Rear Tyre PSI' : 'Front Right (FR) PSI';
-
-      document.getElementById('modalRecRLCol').style.display = is2W ? 'none' : 'block';
-      document.getElementById('modalRecRRCol').style.display = is2W ? 'none' : 'block';
-    }
-
-    function openVehicleModal(mode = 'add') {
-      const modal = document.getElementById('vehicleModal');
-      const title = document.getElementById('modalTitle');
-      const modeInput = document.getElementById('modalMode');
-      const deleteBtn = document.getElementById('modalDeleteBtn');
-      const nameInput = document.getElementById('modalVehicleName');
-      const modelInput = document.getElementById('modalVehicleModel');
-      const typeInput = document.getElementById('modalVehicleType');
-      const tankInput = document.getElementById('modalTankCapacity');
-      
-      const recFront = document.getElementById('modalRecFront');
-      const recRear = document.getElementById('modalRecRear');
-      const recRL = document.getElementById('modalRecRL');
-      const recRR = document.getElementById('modalRecRR');
-      const recSpare = document.getElementById('modalRecSpare');
-
-      modeInput.value = mode;
-
-      if (mode === 'edit' && db.activeVehicle) {
-        title.textContent = '✏️ Edit Vehicle Details';
-        nameInput.value = db.activeVehicle;
-        deleteBtn.classList.remove('hidden');
-
-        const profile = db.vehicleProfiles[db.activeVehicle] || {};
-        modelInput.value = profile.model || '';
-        typeInput.value = profile.type || '4wheeler';
-        tankInput.value = profile.tankCapacity || '';
-
-        const rec = profile.recTyre || {};
-        recFront.value = rec.fl || rec.front || '';
-        recRear.value = rec.fr || rec.rear || '';
-        recRL.value = rec.rl || '';
-        recRR.value = rec.rr || '';
-        recSpare.value = rec.spare || '';
-      } else {
-        title.textContent = '🚗 Add New Vehicle';
-        nameInput.value = '';
-        modelInput.value = '';
-        typeInput.value = '4wheeler';
-        tankInput.value = '';
-        recFront.value = '';
-        recRear.value = '';
-        recRL.value = '';
-        recRR.value = '';
-        recSpare.value = '';
-        deleteBtn.classList.add('hidden');
-      }
-
-      toggleVehicleModalTypeFields();
-      modal.classList.remove('hidden');
-    }
-
-    function hideVehicleModal() {
-      document.getElementById('vehicleModal').classList.add('hidden');
-      document.getElementById('vehicleForm').reset();
-    }
-
-    function saveVehicleProfile(e) {
-      e.preventDefault();
-      const newName = document.getElementById('modalVehicleName').value.trim();
-      const newModel = document.getElementById('modalVehicleModel').value.trim();
-      const newType = document.getElementById('modalVehicleType').value;
-      const tankCap = parseFloat(document.getElementById('modalTankCapacity').value) || null;
-
-      const mode = document.getElementById('modalMode').value;
-      const oldName = db.activeVehicle;
-
-      if (!newName) return;
-
-      if (mode === 'edit' && oldName && oldName !== newName) {
-        const index = db.vehicles.indexOf(oldName);
-        if (index !== -1) db.vehicles[index] = newName;
-
-        db.fuel[newName] = db.fuel[oldName] || [];
-        delete db.fuel[oldName];
-
-        db.tyre[newName] = db.tyre[oldName] || [];
-        delete db.tyre[oldName];
-
-        db.service[newName] = db.service[oldName] || [];
-        delete db.service[oldName];
-
-        db.reminders[newName] = db.reminders[oldName] || [];
-        delete db.reminders[oldName];
-
-        db.vehicleProfiles[newName] = db.vehicleProfiles[oldName] || {};
-        delete db.vehicleProfiles[oldName];
-      } else if (mode === 'add' && !db.vehicles.includes(newName)) {
-        db.vehicles.push(newName);
-      }
-
-      db.activeVehicle = newName;
-      if (!db.vehicleProfiles[newName]) db.vehicleProfiles[newName] = {};
-
-      const is2W = newType === '2wheeler';
-      db.vehicleProfiles[newName] = {
-        model: newModel,
-        type: newType,
-        tankCapacity: tankCap,
-        recTyre: {
-          front: is2W ? parseFloat(document.getElementById('modalRecFront').value) || null : null,
-          rear: is2W ? parseFloat(document.getElementById('modalRecRear').value) || null : null,
-          fl: !is2W ? parseFloat(document.getElementById('modalRecFront').value) || null : null,
-          fr: !is2W ? parseFloat(document.getElementById('modalRecRear').value) || null : null,
-          rl: !is2W ? parseFloat(document.getElementById('modalRecRL').value) || null : null,
-          rr: !is2W ? parseFloat(document.getElementById('modalRecRR').value) || null : null,
-          spare: parseFloat(document.getElementById('modalRecSpare').value) || null
-        }
-      };
-
-      saveData();
-      hideVehicleModal();
-      renderVehicleDropdown();
-      renderDashboard();
-      renderLogs();
-      adjustTyreFormFields();
-    }
-
-    function deleteCurrentVehicle() {
-      const v = db.activeVehicle;
-      if (!v) return;
-
-      if (confirm(`Are you sure you want to delete "${v}" and all of its associated logs?`)) {
-        db.vehicles = db.vehicles.filter(item => item !== v);
-        delete db.fuel[v];
-        delete db.tyre[v];
-        delete db.service[v];
-        delete db.reminders[v];
-        if (db.vehicleProfiles) delete db.vehicleProfiles[v];
-
-        db.activeVehicle = db.vehicles.length > 0 ? db.vehicles[0] : '';
-        saveData();
-        hideVehicleModal();
-
-        if (db.vehicles.length === 0) {
-          openVehicleModal('add');
-        } else {
-          renderVehicleDropdown();
-          renderDashboard();
-          renderLogs();
-          adjustTyreFormFields();
-        }
-      }
-    }
-
-    function renderVehicleDropdown() {
-      const select = document.getElementById('vehicleSelect');
-      select.innerHTML = '';
-      (db.vehicles || []).forEach(v => {
-        const opt = document.createElement('option');
-        opt.value = v;
-        opt.textContent = v;
-        if (v === db.activeVehicle) opt.selected = true;
+    function populateVehicleSelect() {
+      const select = document.getElementById("vehicleSelect");
+      select.innerHTML = "";
+      Object.values(garageData.vehicles).forEach(v => {
+        const opt = document.createElement("option");
+        opt.value = v.id;
+        const logo = VEHICLE_LOGOS[v.type || 'car'] || '🚗';
+        opt.innerText = `${logo} ${v.name} (${v.model || 'N/A'})`;
+        if (v.id === garageData.activeVehicleId) opt.selected = true;
         select.appendChild(opt);
       });
     }
 
-    function adjustTyreFormFields() {
-      const v = db.activeVehicle;
-      const profile = (db.vehicleProfiles && db.vehicleProfiles[v]) || {};
-      const is2W = profile.type === '2wheeler';
-
-      document.getElementById('labelFL').textContent = is2W ? 'Front Tyre (PSI)' : 'Front Left (FL)';
-      document.getElementById('labelFR').textContent = is2W ? 'Rear Tyre (PSI)' : 'Front Right (FR)';
-
-      document.getElementById('tyreRLContainer').style.display = is2W ? 'none' : 'block';
-      document.getElementById('tyreRRContainer').style.display = is2W ? 'none' : 'block';
-      
-      document.getElementById('tyreRL').required = !is2W;
-      document.getElementById('tyreRR').required = !is2W;
-    }
-
     function switchVehicle() {
-      db.activeVehicle = document.getElementById('vehicleSelect').value;
-      saveData();
-      cancelFuelEdit();
-      cancelTyreEdit();
-      cancelServiceEdit();
+      garageData.activeVehicleId = document.getElementById("vehicleSelect").value;
+      saveGarageData();
       renderDashboard();
-      renderLogs();
-      adjustTyreFormFields();
+      if (!document.getElementById("fuelSection").classList.contains("hidden")) renderFuelHistory();
+      if (!document.getElementById("tyreSection").classList.contains("hidden")) renderTyreHistory();
+      if (!document.getElementById("serviceSection").classList.contains("hidden")) renderServiceHistory();
+      if (!document.getElementById("reminderSection").classList.contains("hidden")) renderReminders();
     }
 
     function showTab(tab) {
-      document.getElementById('dashSection').classList.toggle('hidden', tab !== 'dash');
-      document.getElementById('fuelSection').classList.toggle('hidden', tab !== 'fuel');
-      document.getElementById('tyreSection').classList.toggle('hidden', tab !== 'tyre');
-      document.getElementById('serviceSection').classList.toggle('hidden', tab !== 'service');
-      document.getElementById('reminderSection').classList.toggle('hidden', tab !== 'reminder');
-      
-      document.getElementById('dashTabBtn').classList.toggle('active', tab === 'dash');
-      document.getElementById('fuelTabBtn').classList.toggle('active', tab === 'fuel');
-      document.getElementById('tyreTabBtn').classList.toggle('active', tab === 'tyre');
-      document.getElementById('serviceTabBtn').classList.toggle('active', tab === 'service');
-      document.getElementById('reminderTabBtn').classList.toggle('active', tab === 'reminder');
+      ['dash', 'fuel', 'tyre', 'service', 'reminder'].forEach(t => {
+        document.getElementById(t + 'Section').classList.add('hidden');
+        document.getElementById(t + 'TabBtn').classList.remove('active');
+      });
+      document.getElementById(tab + 'Section').classList.remove('hidden');
+      document.getElementById(tab + 'TabBtn').classList.add('active');
 
       if (tab === 'dash') renderDashboard();
+      if (tab === 'fuel') renderFuelHistory();
+      if (tab === 'tyre') renderTyreHistory();
+      if (tab === 'service') renderServiceHistory();
+      if (tab === 'reminder') renderReminders();
     }
 
-    function calcFuelCost() {
-      const unit = parseFloat(document.getElementById('fuelUnitPrice').value);
-      const liters = parseFloat(document.getElementById('fuelLiters').value);
-      if (unit && liters) {
-        document.getElementById('fuelCost').value = (unit * liters).toFixed(2);
-      }
-    }
+    // Dynamic Icon & Form Handling based on Vehicle Type
+    function toggleVehicleModalTypeFields() {
+      const type = document.getElementById("modalVehicleType").value;
+      const isTwoWheeler = type === "scooter" || type === "motorcycle";
 
-    function calcFuelLiters() {
-      const unit = parseFloat(document.getElementById('fuelUnitPrice').value);
-      const cost = parseFloat(document.getElementById('fuelCost').value);
-      if (unit && cost) {
-        document.getElementById('fuelLiters').value = (cost / unit).toFixed(2);
-      }
-    }
-
-    function saveFuel(e) {
-      e.preventDefault();
-      const v = db.activeVehicle;
-      if (!v) return alert('Please add a vehicle first!');
-      if (!db.fuel[v]) db.fuel[v] = [];
-
-      const editIndex = parseInt(document.getElementById('fuelEditIndex').value);
-
-      const newLog = {
-        date: document.getElementById('fuelDate').value,
-        odo: parseFloat(document.getElementById('fuelOdo').value),
-        liters: parseFloat(document.getElementById('fuelLiters').value),
-        cost: parseFloat(document.getElementById('fuelCost').value),
-        unitPrice: parseFloat(document.getElementById('fuelUnitPrice').value) || 0,
-        remarks: document.getElementById('fuelRemarks').value.trim(),
-        fullTank: document.getElementById('isFullTank').checked,
-        missedPrevious: document.getElementById('missedPrevious').checked
-      };
-
-      if (editIndex >= 0) {
-        db.fuel[v][editIndex] = newLog;
+      if (isTwoWheeler) {
+        document.getElementById("modalLabelFront").innerText = "Front Tyre PSI";
+        document.getElementById("modalLabelRear").innerText = "Rear Tyre PSI";
+        document.getElementById("modalRecFRCol").classList.add("hidden");
+        document.getElementById("modalRecRRCol").classList.add("hidden");
+        document.getElementById("modalRecSpareContainer").classList.add("hidden");
       } else {
-        db.fuel[v].push(newLog);
-      }
-
-      db.fuel[v].sort((a,b) => b.odo - a.odo);
-      saveData();
-      cancelFuelEdit();
-      init();
-    }
-
-    function editFuel(index) {
-      const v = db.activeVehicle;
-      const item = db.fuel[v][index];
-      if (!item) return;
-
-      document.getElementById('fuelEditIndex').value = index;
-      document.getElementById('fuelDate').value = item.date;
-      document.getElementById('fuelOdo').value = item.odo;
-      document.getElementById('fuelLiters').value = item.liters;
-      document.getElementById('fuelCost').value = item.cost;
-      document.getElementById('fuelUnitPrice').value = item.unitPrice || '';
-      document.getElementById('fuelRemarks').value = item.remarks || '';
-      document.getElementById('isFullTank').checked = item.fullTank !== false;
-      document.getElementById('missedPrevious').checked = item.missedPrevious === true;
-
-      document.getElementById('fuelFormTitle').textContent = '✏️ Edit Fuel Fill-up';
-      document.getElementById('fuelSubmitBtn').textContent = 'Update Fuel Log';
-      document.getElementById('fuelCancelBtn').classList.remove('hidden');
-
-      window.scrollTo({ top: 0, behavior: 'smooth' });
-    }
-
-    function cancelFuelEdit() {
-      document.getElementById('fuelForm').reset();
-      document.getElementById('fuelEditIndex').value = "-1";
-      document.getElementById('fuelFormTitle').textContent = 'Add Fuel Fill-up';
-      document.getElementById('fuelSubmitBtn').textContent = 'Save Fuel Log';
-      document.getElementById('fuelCancelBtn').classList.add('hidden');
-      document.getElementById('fuelDate').value = new Date().toISOString().split('T')[0];
-    }
-
-    function deleteFuel(index) {
-      const v = db.activeVehicle;
-      if (confirm("Are you sure you want to delete this fuel record?")) {
-        db.fuel[v].splice(index, 1);
-        saveData();
-        renderDashboard();
-        renderLogs();
+        document.getElementById("modalLabelFront").innerText = "Front Left (FL) PSI";
+        document.getElementById("modalLabelFR").innerText = "Front Right (FR) PSI";
+        document.getElementById("modalLabelRear").innerText = "Rear Left (RL) PSI";
+        document.getElementById("modalRecFRCol").classList.remove("hidden");
+        document.getElementById("modalRecRRCol").classList.remove("hidden");
+        document.getElementById("modalRecSpareContainer").classList.remove("hidden");
       }
     }
 
-    function saveTyrePressure(e) {
-      e.preventDefault();
-      const v = db.activeVehicle;
-      if (!v) return alert('Please add a vehicle first!');
-      if (!db.tyre) db.tyre = {};
-      if (!db.tyre[v]) db.tyre[v] = [];
-
-      const profile = (db.vehicleProfiles && db.vehicleProfiles[v]) || {};
-      const is2W = profile.type === '2wheeler';
-      const editIndex = parseInt(document.getElementById('tyreEditIndex').value);
-
-      const newLog = {
-        date: document.getElementById('tyreDate').value,
-        odo: parseFloat(document.getElementById('tyreOdo').value) || null,
-        airType: document.getElementById('tyreAirType').value,
-        fl: parseFloat(document.getElementById('tyreFL').value),
-        fr: parseFloat(document.getElementById('tyreFR').value),
-        rl: !is2W ? parseFloat(document.getElementById('tyreRL').value) : null,
-        rr: !is2W ? parseFloat(document.getElementById('tyreRR').value) : null,
-        spare: parseFloat(document.getElementById('tyreSpare').value) || null,
-        remarks: document.getElementById('tyreRemarks').value.trim()
-      };
-
-      if (editIndex >= 0) {
-        db.tyre[v][editIndex] = newLog;
+    function updateTyreFormUIForVehicle(vehicle) {
+      const isTwoWheeler = vehicle.type === "scooter" || vehicle.type === "motorcycle";
+      if (isTwoWheeler) {
+        document.getElementById("labelFL").innerText = "Front Tyre (PSI)";
+        document.getElementById("labelRL").innerText = "Rear Tyre (PSI)";
+        document.getElementById("tyreFRContainer").classList.add("hidden");
+        document.getElementById("tyreRRContainer").classList.add("hidden");
+        document.getElementById("tyreSpareContainer").classList.add("hidden");
       } else {
-        db.tyre[v].push(newLog);
-      }
-
-      db.tyre[v].sort((a,b) => new Date(b.date) - new Date(a.date));
-      saveData();
-      cancelTyreEdit();
-      renderLogs();
-    }
-
-    function editTyre(index) {
-      const v = db.activeVehicle;
-      const item = db.tyre[v][index];
-      if (!item) return;
-
-      document.getElementById('tyreEditIndex').value = index;
-      document.getElementById('tyreDate').value = item.date;
-      document.getElementById('tyreOdo').value = item.odo || '';
-      document.getElementById('tyreAirType').value = item.airType || 'Normal Air';
-      document.getElementById('tyreFL').value = item.fl;
-      document.getElementById('tyreFR').value = item.fr;
-      document.getElementById('tyreRL').value = item.rl || '';
-      document.getElementById('tyreRR').value = item.rr || '';
-      document.getElementById('tyreSpare').value = item.spare || '';
-      document.getElementById('tyreRemarks').value = item.remarks || '';
-
-      document.getElementById('tyreFormTitle').textContent = '✏️ Edit Pressure Record';
-      document.getElementById('tyreSubmitBtn').textContent = 'Update Pressure Log';
-      document.getElementById('tyreCancelBtn').classList.remove('hidden');
-
-      window.scrollTo({ top: 0, behavior: 'smooth' });
-    }
-
-    function cancelTyreEdit() {
-      document.getElementById('tyreForm').reset();
-      document.getElementById('tyreEditIndex').value = "-1";
-      document.getElementById('tyreFormTitle').textContent = 'Record Tyre Pressure Fill';
-      document.getElementById('tyreSubmitBtn').textContent = 'Save Pressure Log';
-      document.getElementById('tyreCancelBtn').classList.add('hidden');
-      document.getElementById('tyreDate').value = new Date().toISOString().split('T')[0];
-    }
-
-    function deleteTyre(index) {
-      const v = db.activeVehicle;
-      if (confirm("Are you sure you want to delete this tyre pressure record?")) {
-        db.tyre[v].splice(index, 1);
-        saveData();
-        renderLogs();
+        document.getElementById("labelFL").innerText = "Front Left (FL)";
+        document.getElementById("labelFR").innerText = "Front Right (FR)";
+        document.getElementById("labelRL").innerText = "Rear Left (RL)";
+        document.getElementById("labelRR").innerText = "Rear Right (RR)";
+        document.getElementById("tyreFRContainer").classList.remove("hidden");
+        document.getElementById("tyreRRContainer").classList.remove("hidden");
+        document.getElementById("tyreSpareContainer").classList.remove("hidden");
       }
     }
 
-    function saveService(e) {
-      e.preventDefault();
-      const v = db.activeVehicle;
-      if (!v) return alert('Please add a vehicle first!');
-      if (!db.service[v]) db.service[v] = [];
+    /* ================= DISTANCE BETWEEN REFILLS & FUEL CALCULATIONS ================= */
+    function getProcessedFuelLogs(vehicle) {
+      if (!vehicle || !vehicle.fuelLogs || vehicle.fuelLogs.length === 0) return [];
+      
+      // Sort fuel logs ascending by odometer
+      const sorted = [...vehicle.fuelLogs].sort((a, b) => parseFloat(a.odo) - parseFloat(b.odo));
+      
+      return sorted.map((log, idx) => {
+        let distanceTraveled = 0;
+        let mileage = null;
 
-      const editIndex = parseInt(document.getElementById('serviceEditIndex').value);
+        if (idx > 0) {
+          const prevLog = sorted[idx - 1];
+          distanceTraveled = parseFloat(log.odo) - parseFloat(prevLog.odo);
 
-      const newLog = {
-        date: document.getElementById('serviceDate').value,
-        odo: parseFloat(document.getElementById('serviceOdo').value),
-        cost: parseFloat(document.getElementById('serviceCost').value),
-        type: document.getElementById('serviceType').value,
-        remarks: document.getElementById('serviceRemarks').value.trim()
-      };
-
-      if (editIndex >= 0) {
-        db.service[v][editIndex] = newLog;
-      } else {
-        db.service[v].push(newLog);
-      }
-
-      db.service[v].sort((a,b) => b.odo - a.odo);
-      saveData();
-      cancelServiceEdit();
-      init();
-    }
-
-    function editService(index) {
-      const v = db.activeVehicle;
-      const item = db.service[v][index];
-      if (!item) return;
-
-      document.getElementById('serviceEditIndex').value = index;
-      document.getElementById('serviceDate').value = item.date;
-      document.getElementById('serviceOdo').value = item.odo;
-      document.getElementById('serviceCost').value = item.cost;
-      document.getElementById('serviceType').value = item.type;
-      document.getElementById('serviceRemarks').value = item.remarks || '';
-
-      document.getElementById('serviceFormTitle').textContent = '✏️ Edit Service Record';
-      document.getElementById('serviceSubmitBtn').textContent = 'Update Service Log';
-      document.getElementById('serviceCancelBtn').classList.remove('hidden');
-
-      window.scrollTo({ top: 0, behavior: 'smooth' });
-    }
-
-    function cancelServiceEdit() {
-      document.getElementById('serviceForm').reset();
-      document.getElementById('serviceEditIndex').value = "-1";
-      document.getElementById('serviceFormTitle').textContent = 'Add Service Record';
-      document.getElementById('serviceSubmitBtn').textContent = 'Save Service Log';
-      document.getElementById('serviceCancelBtn').classList.add('hidden');
-      document.getElementById('serviceDate').value = new Date().toISOString().split('T')[0];
-    }
-
-    function deleteService(index) {
-      const v = db.activeVehicle;
-      if (confirm("Are you sure you want to delete this service record?")) {
-        db.service[v].splice(index, 1);
-        saveData();
-        renderDashboard();
-        renderLogs();
-      }
-    }
-
-    function saveReminder(e) {
-      e.preventDefault();
-      const v = db.activeVehicle;
-      if (!v) return alert('Please select a vehicle first!');
-      if (!db.reminders[v]) db.reminders[v] = [];
-
-      const newRem = {
-        title: document.getElementById('remTitle').value.trim(),
-        dueDate: document.getElementById('remDueDate').value || null,
-        dueOdo: parseFloat(document.getElementById('remDueOdo').value) || null
-      };
-
-      db.reminders[v].push(newRem);
-      saveData();
-      document.getElementById('reminderForm').reset();
-      renderLogs();
-      renderDashboard();
-    }
-
-    function deleteReminder(index) {
-      const v = db.activeVehicle;
-      if (confirm("Delete this reminder?")) {
-        db.reminders[v].splice(index, 1);
-        saveData();
-        renderLogs();
-        renderDashboard();
-      }
-    }
-
-    function calculateMileages(fuelList) {
-      const sorted = [...fuelList].sort((a,b) => a.odo - b.odo);
-      const results = {};
-
-      let lastFullOdo = null;
-      let accumulatedLiters = 0;
-
-      for (let i = 0; i < sorted.length; i++) {
-        const entry = sorted[i];
-
-        if (entry.missedPrevious) {
-          lastFullOdo = entry.fullTank ? entry.odo : null;
-          accumulatedLiters = 0;
-          continue;
-        }
-
-        if (lastFullOdo !== null) {
-          accumulatedLiters += entry.liters;
-          if (entry.fullTank) {
-            const dist = entry.odo - lastFullOdo;
-            if (dist > 0 && accumulatedLiters > 0) {
-              results[entry.odo] = (dist / accumulatedLiters).toFixed(2);
-            }
-            lastFullOdo = entry.odo;
-            accumulatedLiters = 0;
-          }
-        } else {
-          if (entry.fullTank) {
-            lastFullOdo = entry.odo;
-            accumulatedLiters = 0;
+          // Calculate mileage only if full tank and didn't miss previous log
+          if (log.isFullTank && !log.missedPrevious && distanceTraveled > 0) {
+            mileage = (distanceTraveled / parseFloat(log.liters)).toFixed(2);
           }
         }
-      }
-      return results;
+
+        return {
+          ...log,
+          distanceTraveled: distanceTraveled > 0 ? distanceTraveled : 0,
+          calculatedMileage: mileage
+        };
+      });
     }
 
-    function getMaxLoggedOdometer(v) {
-      const fuels = db.fuel[v] || [];
-      const services = db.service[v] || [];
-      const tyres = db.tyre[v] || [];
-
-      let max = 0;
-      fuels.forEach(item => { if (item.odo > max) max = item.odo; });
-      services.forEach(item => { if (item.odo > max) max = item.odo; });
-      tyres.forEach(item => { if (item.odo && item.odo > max) max = item.odo; });
-
-      return max;
-    }
-
-    function getMinLoggedOdometer(v) {
-      const fuels = db.fuel[v] || [];
-      const services = db.service[v] || [];
-
-      let min = Infinity;
-      fuels.forEach(item => { if (item.odo < min) min = item.odo; });
-      services.forEach(item => { if (item.odo < min) min = item.odo; });
-
-      return min === Infinity ? 0 : min;
-    }
-
+    /* ================= DASHBOARD & METRICS ================= */
     function renderDashboard() {
-      const v = db.activeVehicle;
+      const v = getActiveVehicle();
       if (!v) return;
 
-      const profileContainer = document.getElementById('vehicleProfileDisplay');
-      const profile = (db.vehicleProfiles && db.vehicleProfiles[v]) || {};
-      const is2W = profile.type === '2wheeler';
-      const rec = profile.recTyre || {};
+      const logo = VEHICLE_LOGOS[v.type || 'car'] || '🚗';
+      document.getElementById("appHeaderIcon").innerText = logo;
 
-      let tyreRecStr = '';
-      if (is2W) {
-        if (rec.front || rec.rear) {
-          tyreRecStr = `Recommended PSI: Front ${rec.front || '--'} | Rear ${rec.rear || '--'}`;
-        }
+      // Render Profile Card
+      let recPressureText = "";
+      if (v.type === "scooter" || v.type === "motorcycle") {
+        recPressureText = `Front: ${v.recTyreFront || '--'} | Rear: ${v.recTyreRear || '--'} PSI`;
       } else {
-        if (rec.fl || rec.fr || rec.rl || rec.rr) {
-          tyreRecStr = `Recommended PSI: FL ${rec.fl || '--'}, FR ${rec.fr || '--'}, RL ${rec.rl || '--'}, RR ${rec.rr || '--'}`;
-        }
+        recPressureText = `Front: ${v.recTyreFront || '--'} | Rear: ${v.recTyreRear || '--'} | Spare: ${v.recTyreSpare || '--'} PSI`;
       }
 
-      profileContainer.innerHTML = `
-        <h2 style="font-size: 1.4rem;">${v} ${is2W ? '🛵' : '🚗'}</h2>
-        ${profile.model ? `<p style="color: var(--text-muted); font-size: 0.9rem; margin-top: 2px;">${profile.model}</p>` : ''}
-        ${tyreRecStr ? `<p style="color: var(--primary); font-size: 0.8rem; margin-top: 4px; font-weight: 500;">${tyreRecStr}</p>` : ''}
+      document.getElementById("vehicleProfileDisplay").innerHTML = `
+        <div class="vehicle-icon-display">${logo}</div>
+        <h2>${v.name}</h2>
+        <p style="color:var(--text-muted); font-size:0.85rem;">${v.model || 'Model N/A'} • Tank: ${v.tankCapacity || '--'} L</p>
+        <p style="font-size:0.75rem; color:var(--text-muted); margin-top:2px;">Rec Pressure: <b>${recPressureText}</b></p>
       `;
 
-      const fuels = db.fuel[v] || [];
-      const services = db.service[v] || [];
+      updateTyreFormUIForVehicle(v);
 
-      const mileages = calculateMileages(fuels);
-      const mileageValues = Object.values(mileages).map(val => parseFloat(val));
+      // Process Metrics
+      const processedFuel = getProcessedFuelLogs(v);
+      const validMileages = processedFuel.filter(f => f.calculatedMileage !== null).map(f => parseFloat(f.calculatedMileage));
       
-      let avgKmL = null;
-      if (mileageValues.length > 0) {
-        const sum = mileageValues.reduce((a, b) => a + b, 0);
-        avgKmL = (sum / mileageValues.length).toFixed(2);
-      }
+      const avgMileage = validMileages.length > 0 
+        ? (validMileages.reduce((a, b) => a + b, 0) / validMileages.length).toFixed(2)
+        : "--";
 
-      document.getElementById('avgMileage').textContent = avgKmL ? `${avgKmL} Km/L` : '-- Km/L';
+      document.getElementById("avgMileage").innerText = avgMileage !== "--" ? `${avgMileage} Km/L` : "-- Km/L";
 
-      // Cost per Km calculation
-      const maxOdo = getMaxLoggedOdometer(v);
-      const minOdo = getMinLoggedOdometer(v);
-      const totalDist = maxOdo - minOdo;
+      // Expenses & Cost per Km
+      let totalFuelCost = (v.fuelLogs || []).reduce((acc, curr) => acc + (parseFloat(curr.cost) || 0), 0);
+      let totalServiceCost = (v.serviceLogs || []).reduce((acc, curr) => acc + (parseFloat(curr.cost) || 0), 0);
+      let totalExpenses = totalFuelCost + totalServiceCost;
 
-      let totalSpent = 0;
-      fuels.forEach(f => totalSpent += f.cost);
-      services.forEach(s => totalSpent += s.cost);
+      document.getElementById("totalExpenses").innerText = `₹${totalExpenses.toLocaleString('en-IN')}`;
 
-      if (totalDist > 0 && totalSpent > 0) {
-        const costPerKmVal = (totalSpent / totalDist).toFixed(2);
-        document.getElementById('costPerKm').textContent = `₹${costPerKmVal} / Km`;
-      } else {
-        document.getElementById('costPerKm').textContent = `₹-- / Km`;
-      }
-
-      // Smart Refuel Recommendation Logic
-      const recContainer = document.getElementById('refuelRecommendation');
-      recContainer.innerHTML = '';
-
-      if (fuels.length > 0) {
-        const lastLog = [...fuels].sort((a,b) => b.odo - a.odo)[0];
-        const tankCap = profile.tankCapacity;
-
-        if (avgKmL && tankCap) {
-          const estimatedRange = parseFloat(avgKmL) * tankCap;
-          const refuelAtOdo = Math.round(lastLog.odo + estimatedRange);
-          const safeRefuelAtOdo = Math.round(lastLog.odo + (estimatedRange * 0.85));
-
-          recContainer.innerHTML = `
-            <div class="recommend-box">
-              ⛽ <b>Refuel Recommendation:</b><br>
-              Based on tank capacity (<b>${tankCap}L</b>) & avg mileage (<b>${avgKmL} Km/L</b>):<br>
-              • Refuel around <b>${safeRefuelAtOdo} Km</b> odometer reading.<br>
-              <small>(Est max range: ~${refuelAtOdo} Km)</small>
-            </div>
-          `;
-        } else if (!tankCap) {
-          recContainer.innerHTML = `
-            <div class="recommend-box" style="background:var(--bg); border-color:var(--border); color:var(--text-muted);">
-              💡 Add <b>Tank Capacity</b> in <i>Edit Active Vehicle</i> to enable smart refuel recommendations!
-            </div>
-          `;
+      if (processedFuel.length > 1) {
+        const firstOdo = parseFloat(processedFuel[0].odo);
+        const lastOdo = parseFloat(processedFuel[processedFuel.length - 1].odo);
+        const totalDist = lastOdo - firstOdo;
+        if (totalDist > 0) {
+          const cpk = (totalExpenses / totalDist).toFixed(2);
+          document.getElementById("costPerKm").innerText = `₹${cpk} / Km`;
+        } else {
+          document.getElementById("costPerKm").innerText = `₹-- / Km`;
         }
+      } else {
+        document.getElementById("costPerKm").innerText = `₹-- / Km`;
       }
 
-      // Active Service Reminders Banner
-      const remContainer = document.getElementById('reminderAlertBox');
-      remContainer.innerHTML = '';
-      const remList = db.reminders[v] || [];
-      const today = new Date().toISOString().split('T')[0];
+      renderAlertsAndRecommendations(v, processedFuel, avgMileage);
+      renderMileageChart(processedFuel);
+      renderExpenseBreakdown(v);
+    }
 
-      let dueReminders = [];
-      remList.forEach(r => {
+    function renderAlertsAndRecommendations(v, processedFuel, avgMileage) {
+      // 1. Reminders Alert Box
+      const alertBox = document.getElementById("reminderAlertBox");
+      alertBox.innerHTML = "";
+      
+      let currentOdo = 0;
+      if (processedFuel.length > 0) currentOdo = parseFloat(processedFuel[processedFuel.length - 1].odo);
+
+      (v.reminders || []).forEach(r => {
         let isDue = false;
-        if (r.dueDate && r.dueDate <= today) isDue = true;
-        if (r.dueOdo && maxOdo >= r.dueOdo) isDue = true;
+        if (r.dueDate && new Date(r.dueDate) <= new Date()) isDue = true;
+        if (r.dueOdo && currentOdo >= parseFloat(r.dueOdo)) isDue = true;
 
         if (isDue) {
-          dueReminders.push(r.title);
+          alertBox.innerHTML += `
+            <div class="recommend-box" style="background:#fee2e2; border-color:#fca5a5; color:#991b1b;">
+              <b>⚠️ Reminder Due:</b> ${r.title} ${r.dueOdo ? `(At ${r.dueOdo} Km)` : ''}
+            </div>
+          `;
         }
       });
 
-      if (dueReminders.length > 0) {
-        remContainer.innerHTML = `
-          <div class="recommend-box" style="background:#fee2e2; border-color:#f87171; color:#991b1b;">
-            🔔 <b>Service Due Alert:</b><br>
-            ${dueReminders.map(t => `• ${t}`).join('<br>')}
+      // 2. Refuel Recommendation
+      const refuelBox = document.getElementById("refuelRecommendation");
+      refuelBox.innerHTML = "";
+
+      if (processedFuel.length > 0 && v.tankCapacity && avgMileage !== "--") {
+        const lastLog = processedFuel[processedFuel.length - 1];
+        const estRange = (parseFloat(v.tankCapacity) * parseFloat(avgMileage)).toFixed(0);
+        
+        refuelBox.innerHTML = `
+          <div class="recommend-box">
+            <b>💡 Refuel Range Insight:</b> Full tank provides ~<b>${estRange} Km</b> range.
+            Last log at <b>${lastLog.odo} Km</b>. Recommended refuel near <b>${parseFloat(lastLog.odo) + parseFloat(estRange)} Km</b>.
           </div>
         `;
       }
-
-      // Expense Report Table
-      const period = document.getElementById('expensePeriod').value;
-      const catFilter = document.getElementById('expenseCategoryFilter').value;
-
-      const expenses = {};
-      let overallTotal = 0;
-
-      if (catFilter === 'all' || catFilter === 'fuel') {
-        fuels.forEach(item => {
-          const key = period === 'month' ? item.date.substring(0, 7) : item.date.substring(0, 4);
-          if (!expenses[key]) expenses[key] = { fuel: 0, service: 0 };
-          expenses[key].fuel += item.cost;
-          overallTotal += item.cost;
-        });
-      }
-
-      if (catFilter === 'all' || catFilter === 'service') {
-        services.forEach(item => {
-          const key = period === 'month' ? item.date.substring(0, 7) : item.date.substring(0, 4);
-          if (!expenses[key]) expenses[key] = { fuel: 0, service: 0 };
-          expenses[key].service += item.cost;
-          overallTotal += item.cost;
-        });
-      }
-
-      document.getElementById('totalExpenses').textContent = `₹${overallTotal.toLocaleString()}`;
-
-      const sortedKeys = Object.keys(expenses).sort().reverse();
-      const reportContainer = document.getElementById('expenseReport');
-      
-      if (sortedKeys.length === 0) {
-        reportContainer.innerHTML = '<p style="color:var(--text-muted); margin-top:10px;">No expense records found.</p>';
-      } else {
-        reportContainer.innerHTML = `
-          <table style="width:100%; border-collapse:collapse; margin-top:10px; font-size:0.9rem;">
-            <thead>
-              <tr style="border-bottom:2px solid var(--border); text-align:left;">
-                <th style="padding:6px;">${period === 'month' ? 'Month' : 'Year'}</th>
-                ${catFilter !== 'service' ? '<th style="padding:6px;">Fuel</th>' : ''}
-                ${catFilter !== 'fuel' ? '<th style="padding:6px;">Service</th>' : ''}
-                <th style="padding:6px;">Total</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${sortedKeys.map(k => {
-                const f = expenses[k].fuel || 0;
-                const s = expenses[k].service || 0;
-                return `
-                  <tr style="border-bottom:1px solid var(--border);">
-                    <td style="padding:6px;"><b>${k}</b></td>
-                    ${catFilter !== 'service' ? `<td style="padding:6px;">₹${f.toFixed(0)}</td>` : ''}
-                    ${catFilter !== 'fuel' ? `<td style="padding:6px;">₹${s.toFixed(0)}</td>` : ''}
-                    <td style="padding:6px;"><b>₹${(f + s).toFixed(0)}</b></td>
-                  </tr>
-                `;
-              }).join('')}
-            </tbody>
-          </table>
-        `;
-      }
-
-      renderChart(v);
     }
 
-    function renderChart(v) {
-      const fuels = db.fuel[v] || [];
-      const mileages = calculateMileages(fuels);
-      const sortedOdos = Object.keys(mileages).sort((a,b) => parseFloat(a) - parseFloat(b));
+    function renderMileageChart(processedFuel) {
+      const ctx = document.getElementById("mileageChart").getContext("2d");
+      const validLogs = processedFuel.filter(f => f.calculatedMileage !== null);
 
-      const labels = sortedOdos.map(odo => `${odo} Km`);
-      const data = sortedOdos.map(odo => parseFloat(mileages[odo]));
-
-      const ctx = document.getElementById('mileageChart').getContext('2d');
-
-      if (mileageChartInstance) {
-        mileageChartInstance.destroy();
-      }
+      if (mileageChartInstance) mileageChartInstance.destroy();
 
       mileageChartInstance = new Chart(ctx, {
         type: 'line',
         data: {
-          labels: labels,
+          labels: validLogs.map(l => l.date),
           datasets: [{
             label: 'Mileage (Km/L)',
-            data: data,
+            data: validLogs.map(l => l.calculatedMileage),
             borderColor: '#2563eb',
             backgroundColor: 'rgba(37, 99, 235, 0.1)',
             fill: true,
-            tension: 0.3,
-            pointRadius: 4
+            tension: 0.3
           }]
         },
         options: {
           responsive: true,
           maintainAspectRatio: false,
           scales: {
-            y: {
-              beginAtZero: false,
-              grid: { color: 'rgba(150,150,150,0.1)' }
-            },
-            x: {
-              grid: { color: 'rgba(150,150,150,0.1)' }
-            }
+            y: { beginAtZero: false }
           }
         }
       });
     }
 
-    function checkTyrePressureWarning(v, item) {
-      const profile = (db.vehicleProfiles && db.vehicleProfiles[v]) || {};
-      const is2W = profile.type === '2wheeler';
-      const rec = profile.recTyre || {};
+    function renderExpenseBreakdown(v) {
+      const period = document.getElementById("expensePeriod").value;
+      const category = document.getElementById("expenseCategoryFilter").value;
+      const reportDiv = document.getElementById("expenseReport");
 
-      let warnings = [];
-
-      if (is2W) {
-        if (rec.front && Math.abs(item.fl - rec.front) >= 3) warnings.push(`Front (${item.fl} PSI vs rec ${rec.front})`);
-        if (rec.rear && Math.abs(item.fr - rec.rear) >= 3) warnings.push(`Rear (${item.fr} PSI vs rec ${rec.rear})`);
-      } else {
-        if (rec.fl && Math.abs(item.fl - rec.fl) >= 3) warnings.push(`FL (${item.fl} vs rec ${rec.fl})`);
-        if (rec.fr && Math.abs(item.fr - rec.fr) >= 3) warnings.push(`FR (${item.fr} vs rec ${rec.fr})`);
-        if (rec.rl && item.rl && Math.abs(item.rl - rec.rl) >= 3) warnings.push(`RL (${item.rl} vs rec ${rec.rl})`);
-        if (rec.rr && item.rr && Math.abs(item.rr - rec.rr) >= 3) warnings.push(`RR (${item.rr} vs rec ${rec.rr})`);
+      let items = [];
+      if (category === 'all' || category === 'fuel') {
+        (v.fuelLogs || []).forEach(f => items.push({ date: f.date, cost: parseFloat(f.cost), type: 'Fuel' }));
+      }
+      if (category === 'all' || category === 'service') {
+        (v.serviceLogs || []).forEach(s => items.push({ date: s.date, cost: parseFloat(s.cost), type: 'Service' }));
       }
 
-      return warnings;
+      const grouped = {};
+      items.forEach(item => {
+        let key = item.date.substring(0, 7); // YYYY-MM
+        if (period === 'year') key = item.date.substring(0, 4); // YYYY
+        
+        grouped[key] = (grouped[key] || 0) + item.cost;
+      });
+
+      let html = '<div style="margin-top:10px;">';
+      const keys = Object.keys(grouped).sort().reverse();
+      if (keys.length === 0) {
+        html += '<p style="color:var(--text-muted); font-size:0.85rem;">No expense logs available.</p>';
+      } else {
+        keys.forEach(k => {
+          html += `
+            <div style="display:flex; justify-content:space-between; padding:6px 0; border-bottom:1px solid var(--border);">
+              <span><b>${k}</b></span>
+              <span style="color:var(--primary); font-weight:bold;">₹${grouped[k].toLocaleString('en-IN')}</span>
+            </div>
+          `;
+        });
+      }
+      html += '</div>';
+      reportDiv.innerHTML = html;
     }
 
-    function renderLogs() {
-      const v = db.activeVehicle;
+    /* ================= FUEL LOG MANAGEMENT ================= */
+    function calcFuelCost() {
+      const unit = parseFloat(document.getElementById("fuelUnitPrice").value);
+      const liters = parseFloat(document.getElementById("fuelLiters").value);
+      if (unit && liters) {
+        document.getElementById("fuelCost").value = (unit * liters).toFixed(2);
+      }
+    }
+
+    function calcFuelLiters() {
+      const unit = parseFloat(document.getElementById("fuelUnitPrice").value);
+      const cost = parseFloat(document.getElementById("fuelCost").value);
+      if (unit && cost) {
+        document.getElementById("fuelLiters").value = (cost / unit).toFixed(2);
+      }
+    }
+
+    function saveFuel(e) {
+      e.preventDefault();
+      const v = getActiveVehicle();
       if (!v) return;
 
-      const profile = (db.vehicleProfiles && db.vehicleProfiles[v]) || {};
-      const is2W = profile.type === '2wheeler';
-      
-      // Render Fuel Logs
-      const fuelList = db.fuel[v] || [];
-      const mileages = calculateMileages(fuelList);
-      const fuelContainer = document.getElementById('fuelHistory');
+      if (!v.fuelLogs) v.fuelLogs = [];
 
-      if (fuelList.length === 0) {
-        fuelContainer.innerHTML = '<p style="color:var(--text-muted)">No fuel entries yet.</p>';
+      const editIdx = parseInt(document.getElementById("fuelEditIndex").value);
+      const log = {
+        date: document.getElementById("fuelDate").value,
+        odo: document.getElementById("fuelOdo").value,
+        unitPrice: document.getElementById("fuelUnitPrice").value,
+        liters: document.getElementById("fuelLiters").value,
+        cost: document.getElementById("fuelCost").value,
+        remarks: document.getElementById("fuelRemarks").value,
+        isFullTank: document.getElementById("isFullTank").checked,
+        missedPrevious: document.getElementById("missedPrevious").checked
+      };
+
+      if (editIdx >= 0) {
+        v.fuelLogs[editIdx] = log;
       } else {
-        fuelContainer.innerHTML = fuelList.map((item, index) => {
-          const kmL = mileages[item.odo];
-          let mileageBadge = '';
-
-          if (item.missedPrevious) {
-            mileageBadge = `<span class="badge badge-warning">Missed Previous</span>`;
-          } else if (kmL) {
-            mileageBadge = `<span class="badge">${kmL} Km/L</span>`;
-          } else {
-            mileageBadge = item.fullTank ? `<span class="badge badge-gray">Full Tank</span>` : `<span class="badge badge-gray">Partial Fill</span>`;
-          }
-
-          return `
-            <div class="log-item">
-              <div style="display:flex; justify-content:space-between; align-items:center;">
-                <b>${item.date}</b>
-                ${mileageBadge}
-              </div>
-              <small>Odometer: ${item.odo} Km | ${item.liters} L @ ₹${item.unitPrice || '--'}/L</small><br>
-              <small><b>Total Cost: ₹${item.cost}</b></small>
-              ${item.remarks ? `<div class="remarks-text">📝 ${item.remarks}</div>` : ''}
-              <div class="actions">
-                <button class="secondary btn-small" onclick="editFuel(${index})">✏️ Edit</button>
-                <button class="danger btn-small" onclick="deleteFuel(${index})">🗑️ Delete</button>
-              </div>
-            </div>
-          `;
-        }).join('');
+        v.fuelLogs.push(log);
       }
 
-      // Render Tyre Logs
-      const tyreList = (db.tyre && db.tyre[v]) || [];
-      const tyreContainer = document.getElementById('tyreHistory');
-
-      if (tyreList.length === 0) {
-        tyreContainer.innerHTML = '<p style="color:var(--text-muted)">No tyre pressure entries yet.</p>';
-      } else {
-        tyreContainer.innerHTML = tyreList.map((item, index) => {
-          const warnings = checkTyrePressureWarning(v, item);
-          const hasWarning = warnings.length > 0;
-
-          return `
-            <div class="log-item">
-              <div style="display:flex; justify-content:space-between; align-items:center;">
-                <b>${item.date}</b>
-                <span class="badge ${hasWarning ? 'badge-danger' : ''}">${item.airType || 'Normal Air'}</span>
-              </div>
-              ${item.odo ? `<small>Odometer: ${item.odo} Km</small><br>` : ''}
-              ${is2W ? `
-                <small>Front: <b>${item.fl} PSI</b> | Rear: <b>${item.fr} PSI</b></small>
-              ` : `
-                <small>FL: <b>${item.fl} PSI</b> | FR: <b>${item.fr} PSI</b></small><br>
-                <small>RL: <b>${item.rl || '--'} PSI</b> | RR: <b>${item.rr || '--'} PSI</b></small>
-              `}
-              ${item.spare ? `<br><small>Spare: <b>${item.spare} PSI</b></small>` : ''}
-              ${hasWarning ? `<div style="color:var(--danger); font-size:0.75rem; margin-top:4px;">⚠️ Pressure Variance: ${warnings.join(', ')}</div>` : ''}
-              ${item.remarks ? `<div class="remarks-text">📝 ${item.remarks}</div>` : ''}
-              <div class="actions">
-                <button class="secondary btn-small" onclick="editTyre(${index})">✏️ Edit</button>
-                <button class="danger btn-small" onclick="deleteTyre(${index})">🗑️ Delete</button>
-              </div>
-            </div>
-          `;
-        }).join('');
-      }
-
-      // Render Service Logs
-      const serviceList = db.service[v] || [];
-      const serviceContainer = document.getElementById('serviceHistory');
-      if (serviceList.length === 0) {
-        serviceContainer.innerHTML = '<p style="color:var(--text-muted)">No service entries yet.</p>';
-      } else {
-        serviceContainer.innerHTML = serviceList.map((item, index) => `
-          <div class="log-item">
-            <div style="display:flex; justify-content:space-between;">
-              <b>${item.type}</b>
-              <b>₹${item.cost}</b>
-            </div>
-            <small>Date: ${item.date} | Odometer: ${item.odo} Km</small>
-            ${item.remarks ? `<div class="remarks-text">📝 ${item.remarks}</div>` : ''}
-            <div class="actions">
-              <button class="secondary btn-small" onclick="editService(${index})">✏️ Edit</button>
-              <button class="danger btn-small" onclick="deleteService(${index})">🗑️ Delete</button>
-            </div>
-          </div>
-        `).join('');
-      }
-
-      // Render Reminders Log
-      const remList = db.reminders[v] || [];
-      const remContainer = document.getElementById('reminderList');
-      const maxOdo = getMaxLoggedOdometer(v);
-      const today = new Date().toISOString().split('T')[0];
-
-      if (remList.length === 0) {
-        remContainer.innerHTML = '<p style="color:var(--text-muted)">No reminders configured.</p>';
-      } else {
-        remContainer.innerHTML = remList.map((item, index) => {
-          let isOverdue = false;
-          if (item.dueDate && item.dueDate <= today) isOverdue = true;
-          if (item.dueOdo && maxOdo >= item.dueOdo) isOverdue = true;
-
-          return `
-            <div class="log-item">
-              <div style="display:flex; justify-content:space-between; align-items:center;">
-                <b>${item.title}</b>
-                <span class="badge ${isOverdue ? 'badge-danger' : 'badge-gray'}">${isOverdue ? 'DUE / OVERDUE' : 'UPCOMING'}</span>
-              </div>
-              ${item.dueDate ? `<small>Due Date: <b>${item.dueDate}</b></small><br>` : ''}
-              ${item.dueOdo ? `<small>Due Odometer: <b>${item.dueOdo} Km</b></small>` : ''}
-              <div class="actions">
-                <button class="danger btn-small" onclick="deleteReminder(${index})">🗑️ Remove</button>
-              </div>
-            </div>
-          `;
-        }).join('');
-      }
+      saveGarageData();
+      cancelFuelEdit();
+      renderFuelHistory();
     }
 
-    function exportCSV() {
-      let csvContent = "data:text/csv;charset=utf-8,";
+    function renderFuelHistory() {
+      const v = getActiveVehicle();
+      const div = document.getElementById("fuelHistory");
+      if (!v || !v.fuelLogs || v.fuelLogs.length === 0) {
+        div.innerHTML = "<p style='color:var(--text-muted); font-size:0.85rem;'>No fuel records yet.</p>";
+        return;
+      }
+
+      const processed = getProcessedFuelLogs(v).reverse(); // Newest first
+
+      let html = "";
+      processed.forEach((f, idx) => {
+        const originalIdx = v.fuelLogs.findIndex(item => item.odo === f.odo && item.date === f.date);
+        
+        html += `
+          <div class="log-item">
+            <div style="display:flex; justify-content:space-between; align-items:center;">
+              <div>
+                <b>${f.date}</b> • <span>${f.odo} Km</span>
+                ${f.distanceTraveled > 0 ? `<span class="badge badge-gray" style="margin-left:4px;">+${f.distanceTraveled} Km distance</span>` : ''}
+              </div>
+              <strong style="color:var(--primary);">₹${f.cost}</strong>
+            </div>
+            <div style="font-size:0.85rem; color:var(--text-muted); margin-top:4px;">
+              ${f.liters} L @ ₹${f.unitPrice || '--'}/L
+              ${f.calculatedMileage ? `<span class="badge badge-success" style="margin-left:6px;">${f.calculatedMileage} Km/L</span>` : ''}
+              ${!f.isFullTank ? `<span class="badge badge-warning">Partial Fill</span>` : ''}
+            </div>
+            ${f.remarks ? `<div class="remarks-text">"${f.remarks}"</div>` : ''}
+            <div class="actions">
+              <button class="secondary btn-small" onclick="editFuel(${originalIdx})">✏️ Edit</button>
+              <button class="danger btn-small" onclick="deleteFuel(${originalIdx})">🗑️ Delete</button>
+            </div>
+          </div>
+        `;
+      });
+      div.innerHTML = html;
+    }
+
+    function editFuel(index) {
+      const v = getActiveVehicle();
+      const log = v.fuelLogs[index];
+      document.getElementById("fuelEditIndex").value = index;
+      document.getElementById("fuelDate").value = log.date;
+      document.getElementById("fuelOdo").value = log.odo;
+      document.getElementById("fuelUnitPrice").value = log.unitPrice || '';
+      document.getElementById("fuelLiters").value = log.liters;
+      document.getElementById("fuelCost").value = log.cost;
+      document.getElementById("fuelRemarks").value = log.remarks || '';
+      document.getElementById("isFullTank").checked = log.isFullTank !== false;
+      document.getElementById("missedPrevious").checked = log.missedPrevious === true;
+
+      document.getElementById("fuelFormTitle").innerText = "Edit Fuel Record";
+      document.getElementById("fuelSubmitBtn").innerText = "Update Fuel Log";
+      document.getElementById("fuelCancelBtn").classList.remove("hidden");
+    }
+
+    function cancelFuelEdit() {
+      document.getElementById("fuelForm").reset();
+      document.getElementById("fuelEditIndex").value = "-1";
+      document.getElementById("fuelFormTitle").innerText = "Add Fuel Fill-up";
+      document.getElementById("fuelSubmitBtn").innerText = "Save Fuel Log";
+      document.getElementById("fuelCancelBtn").classList.add("hidden");
+      document.getElementById("fuelDate").value = new Date().toISOString().split('T')[0];
+    }
+
+    function deleteFuel(index) {
+      if (!confirm("Delete this fuel log?")) return;
+      const v = getActiveVehicle();
+      v.fuelLogs.splice(index, 1);
+      saveGarageData();
+      renderFuelHistory();
+    }
+
+    /* ================= TYRE PRESSURE LOGS ================= */
+    function saveTyrePressure(e) {
+      e.preventDefault();
+      const v = getActiveVehicle();
+      if (!v) return;
+
+      if (!v.tyreLogs) v.tyreLogs = [];
+
+      const editIdx = parseInt(document.getElementById("tyreEditIndex").value);
+      const log = {
+        date: document.getElementById("tyreDate").value,
+        odo: document.getElementById("tyreOdo").value,
+        airType: document.getElementById("tyreAirType").value,
+        fl: document.getElementById("tyreFL").value,
+        fr: document.getElementById("tyreFR").value,
+        rl: document.getElementById("tyreRL").value,
+        rr: document.getElementById("tyreRR").value,
+        spare: document.getElementById("tyreSpare").value,
+        remarks: document.getElementById("tyreRemarks").value
+      };
+
+      if (editIdx >= 0) {
+        v.tyreLogs[editIdx] = log;
+      } else {
+        v.tyreLogs.push(log);
+      }
+
+      saveGarageData();
+      cancelTyreEdit();
+      renderTyreHistory();
+    }
+
+    function renderTyreHistory() {
+      const v = getActiveVehicle();
+      const div = document.getElementById("tyreHistory");
+      if (!v || !v.tyreLogs || v.tyreLogs.length === 0) {
+        div.innerHTML = "<p style='color:var(--text-muted); font-size:0.85rem;'>No tyre pressure logs recorded.</p>";
+        return;
+      }
+
+      const isTwoWheeler = v.type === "scooter" || v.type === "motorcycle";
+      let html = "";
       
-      (db.vehicles || []).forEach(v => {
-        const profile = (db.vehicleProfiles && db.vehicleProfiles[v]) || {};
-        csvContent += `=== VEHICLE: ${v} (${profile.model || 'N/A'}) - ${profile.type || '4wheeler'} ===\n`;
+      [...v.tyreLogs].reverse().forEach((t, idx) => {
+        const originalIdx = v.tyreLogs.length - 1 - idx;
         
-        csvContent += "--- FUEL LOGS ---\n";
-        csvContent += "Type,Date,Odometer (Km),Liters,Price/L,Total Cost (INR),Full Tank,Missed Prev Fueling,Remarks\n";
-        const fuels = db.fuel[v] || [];
-        fuels.forEach(f => {
-          csvContent += `Fuel,${f.date},${f.odo},${f.liters},${f.unitPrice || ''},${f.cost},${f.fullTank ? 'Yes' : 'No'},${f.missedPrevious ? 'Yes' : 'No'},"${(f.remarks || '').replace(/"/g, '""')}"\n`;
-        });
+        let pressureDisplay = "";
+        if (isTwoWheeler) {
+          pressureDisplay = `Front: <b>${t.fl}</b> | Rear: <b>${t.rl || '--'}</b> PSI`;
+        } else {
+          pressureDisplay = `FL: <b>${t.fl}</b> | FR: <b>${t.fr || '--'}</b> | RL: <b>${t.rl || '--'}</b> | RR: <b>${t.rr || '--'}</b> PSI`;
+          if (t.spare) pressureDisplay += ` | Spare: <b>${t.spare}</b>`;
+        }
 
-        csvContent += "\n--- TYRE PRESSURE LOGS ---\n";
-        csvContent += "Type,Date,Odometer (Km),Air Type,FL/Front (PSI),FR/Rear (PSI),RL (PSI),RR (PSI),Spare (PSI),Remarks\n";
-        const tyres = (db.tyre && db.tyre[v]) || [];
-        tyres.forEach(t => {
-          csvContent += `Tyre,${t.date},${t.odo || ''},${t.airType || 'Normal Air'},${t.fl},${t.fr},${t.rl || ''},${t.rr || ''},${t.spare || ''},"${(t.remarks || '').replace(/"/g, '""')}"\n`;
-        });
+        html += `
+          <div class="log-item">
+            <div style="display:flex; justify-content:space-between; align-items:center;">
+              <div><b>${t.date}</b> ${t.odo ? `• ${t.odo} Km` : ''}</div>
+              <span class="badge badge-gray">${t.airType}</span>
+            </div>
+            <div style="font-size:0.85rem; margin-top:4px;">${pressureDisplay}</div>
+            ${t.remarks ? `<div class="remarks-text">"${t.remarks}"</div>` : ''}
+            <div class="actions">
+              <button class="secondary btn-small" onclick="editTyre(${originalIdx})">✏️ Edit</button>
+              <button class="danger btn-small" onclick="deleteTyre(${originalIdx})">🗑️ Delete</button>
+            </div>
+          </div>
+        `;
+      });
+      div.innerHTML = html;
+    }
 
-        csvContent += "\n--- SERVICE LOGS ---\n";
-        csvContent += "Type,Date,Odometer (Km),Cost (INR),Service Details,Remarks\n";
-        const services = db.service[v] || [];
-        services.forEach(s => {
-          csvContent += `Service,${s.date},${s.odo},${s.cost},"${s.type.replace(/"/g, '""')}","${(s.remarks || '').replace(/"/g, '""')}"\n`;
-        });
-        
-        csvContent += "\n\n";
+    function editTyre(index) {
+      const v = getActiveVehicle();
+      const log = v.tyreLogs[index];
+      document.getElementById("tyreEditIndex").value = index;
+      document.getElementById("tyreDate").value = log.date;
+      document.getElementById("tyreOdo").value = log.odo || '';
+      document.getElementById("tyreAirType").value = log.airType || 'Normal Air';
+      document.getElementById("tyreFL").value = log.fl || '';
+      document.getElementById("tyreFR").value = log.fr || '';
+      document.getElementById("tyreRL").value = log.rl || '';
+      document.getElementById("tyreRR").value = log.rr || '';
+      document.getElementById("tyreSpare").value = log.spare || '';
+      document.getElementById("tyreRemarks").value = log.remarks || '';
+
+      document.getElementById("tyreFormTitle").innerText = "Edit Tyre Pressure Log";
+      document.getElementById("tyreSubmitBtn").innerText = "Update Pressure Log";
+      document.getElementById("tyreCancelBtn").classList.remove("hidden");
+    }
+
+    function cancelTyreEdit() {
+      document.getElementById("tyreForm").reset();
+      document.getElementById("tyreEditIndex").value = "-1";
+      document.getElementById("tyreFormTitle").innerText = "Record Tyre Pressure Fill";
+      document.getElementById("tyreSubmitBtn").innerText = "Save Pressure Log";
+      document.getElementById("tyreCancelBtn").classList.add("hidden");
+      document.getElementById("tyreDate").value = new Date().toISOString().split('T')[0];
+    }
+
+    function deleteTyre(index) {
+      if (!confirm("Delete this tyre log?")) return;
+      const v = getActiveVehicle();
+      v.tyreLogs.splice(index, 1);
+      saveGarageData();
+      renderTyreHistory();
+    }
+
+    /* ================= SERVICE LOGS ================= */
+    function saveService(e) {
+      e.preventDefault();
+      const v = getActiveVehicle();
+      if (!v) return;
+
+      if (!v.serviceLogs) v.serviceLogs = [];
+
+      const editIdx = parseInt(document.getElementById("serviceEditIndex").value);
+      const log = {
+        date: document.getElementById("serviceDate").value,
+        odo: document.getElementById("serviceOdo").value,
+        cost: document.getElementById("serviceCost").value,
+        type: document.getElementById("serviceType").value,
+        remarks: document.getElementById("serviceRemarks").value
+      };
+
+      if (editIdx >= 0) {
+        v.serviceLogs[editIdx] = log;
+      } else {
+        v.serviceLogs.push(log);
+      }
+
+      saveGarageData();
+      cancelServiceEdit();
+      renderServiceHistory();
+    }
+
+    function renderServiceHistory() {
+      const v = getActiveVehicle();
+      const div = document.getElementById("serviceHistory");
+      if (!v || !v.serviceLogs || v.serviceLogs.length === 0) {
+        div.innerHTML = "<p style='color:var(--text-muted); font-size:0.85rem;'>No service records added.</p>";
+        return;
+      }
+
+      let html = "";
+      [...v.serviceLogs].reverse().forEach((s, idx) => {
+        const originalIdx = v.serviceLogs.length - 1 - idx;
+        html += `
+          <div class="log-item">
+            <div style="display:flex; justify-content:space-between;">
+              <div><b>${s.date}</b> • ${s.odo} Km</div>
+              <strong style="color:var(--primary);">₹${s.cost}</strong>
+            </div>
+            <div style="font-weight:bold; font-size:0.9rem; margin-top:2px;">${s.type}</div>
+            ${s.remarks ? `<div class="remarks-text">"${s.remarks}"</div>` : ''}
+            <div class="actions">
+              <button class="secondary btn-small" onclick="editService(${originalIdx})">✏️ Edit</button>
+              <button class="danger btn-small" onclick="deleteService(${originalIdx})">🗑️ Delete</button>
+            </div>
+          </div>
+        `;
+      });
+      div.innerHTML = html;
+    }
+
+    function editService(index) {
+      const v = getActiveVehicle();
+      const log = v.serviceLogs[index];
+      document.getElementById("serviceEditIndex").value = index;
+      document.getElementById("serviceDate").value = log.date;
+      document.getElementById("serviceOdo").value = log.odo;
+      document.getElementById("serviceCost").value = log.cost;
+      document.getElementById("serviceType").value = log.type;
+      document.getElementById("serviceRemarks").value = log.remarks || '';
+
+      document.getElementById("serviceFormTitle").innerText = "Edit Service Record";
+      document.getElementById("serviceSubmitBtn").innerText = "Update Service Log";
+      document.getElementById("serviceCancelBtn").classList.remove("hidden");
+    }
+
+    function cancelServiceEdit() {
+      document.getElementById("serviceForm").reset();
+      document.getElementById("serviceEditIndex").value = "-1";
+      document.getElementById("serviceFormTitle").innerText = "Add Service Record";
+      document.getElementById("serviceSubmitBtn").innerText = "Save Service Log";
+      document.getElementById("serviceCancelBtn").classList.add("hidden");
+      document.getElementById("serviceDate").value = new Date().toISOString().split('T')[0];
+    }
+
+    function deleteService(index) {
+      if (!confirm("Delete this service record?")) return;
+      const v = getActiveVehicle();
+      v.serviceLogs.splice(index, 1);
+      saveGarageData();
+      renderServiceHistory();
+    }
+
+    /* ================= REMINDERS ================= */
+    function saveReminder(e) {
+      e.preventDefault();
+      const v = getActiveVehicle();
+      if (!v) return;
+
+      if (!v.reminders) v.reminders = [];
+
+      v.reminders.push({
+        id: "rem_" + Date.now(),
+        title: document.getElementById("remTitle").value,
+        dueDate: document.getElementById("remDueDate").value || null,
+        dueOdo: document.getElementById("remDueOdo").value || null
+      });
+
+      saveGarageData();
+      document.getElementById("reminderForm").reset();
+      renderReminders();
+    }
+
+    function renderReminders() {
+      const v = getActiveVehicle();
+      const div = document.getElementById("reminderList");
+      if (!v || !v.reminders || v.reminders.length === 0) {
+        div.innerHTML = "<p style='color:var(--text-muted); font-size:0.85rem;'>No active reminders set.</p>";
+        return;
+      }
+
+      let html = "";
+      v.reminders.forEach((r, idx) => {
+        html += `
+          <div class="log-item" style="display:flex; justify-content:space-between; align-items:center;">
+            <div>
+              <b>${r.title}</b>
+              <div style="font-size:0.75rem; color:var(--text-muted);">
+                ${r.dueDate ? `Due Date: ${r.dueDate} ` : ''}
+                ${r.dueOdo ? `Due Odometer: ${r.dueOdo} Km` : ''}
+              </div>
+            </div>
+            <button class="danger btn-small" onclick="deleteReminder(${idx})">Done / Dismiss</button>
+          </div>
+        `;
+      });
+      div.innerHTML = html;
+    }
+
+    function deleteReminder(idx) {
+      const v = getActiveVehicle();
+      v.reminders.splice(idx, 1);
+      saveGarageData();
+      renderReminders();
+    }
+
+    /* ================= VEHICLE CREATION / EDIT MODAL ================= */
+    function openVehicleModal(mode) {
+      document.getElementById("vehicleModal").classList.remove("hidden");
+      document.getElementById("modalMode").value = mode;
+
+      if (mode === 'edit') {
+        const v = getActiveVehicle();
+        document.getElementById("modalTitle").innerText = "Edit Vehicle Profile";
+        document.getElementById("modalVehicleName").value = v.name;
+        document.getElementById("modalVehicleModel").value = v.model || '';
+        document.getElementById("modalVehicleType").value = v.type || 'car';
+        document.getElementById("modalTankCapacity").value = v.tankCapacity || '';
+        document.getElementById("modalRecFront").value = v.recTyreFront || '';
+        document.getElementById("modalRecFR").value = v.recTyreFR || '';
+        document.getElementById("modalRecRL").value = v.recTyreRear || '';
+        document.getElementById("modalRecRR").value = v.recTyreRR || '';
+        document.getElementById("modalRecSpare").value = v.recTyreSpare || '';
+        document.getElementById("modalDeleteBtn").classList.remove("hidden");
+      } else {
+        document.getElementById("modalTitle").innerText = "Add New Vehicle";
+        document.getElementById("vehicleForm").reset();
+        document.getElementById("modalDeleteBtn").classList.add("hidden");
+      }
+
+      toggleVehicleModalTypeFields();
+    }
+
+    function hideVehicleModal() {
+      document.getElementById("vehicleModal").classList.add("hidden");
+    }
+
+    function saveVehicleProfile(e) {
+      e.preventDefault();
+      const mode = document.getElementById("modalMode").value;
+      const name = document.getElementById("modalVehicleName").value.trim();
+      const model = document.getElementById("modalVehicleModel").value.trim();
+      const type = document.getElementById("modalVehicleType").value;
+      const tankCapacity = document.getElementById("modalTankCapacity").value;
+      const recFront = document.getElementById("modalRecFront").value;
+      const recFR = document.getElementById("modalRecFR").value;
+      const recRear = document.getElementById("modalRecRL").value;
+      const recRR = document.getElementById("modalRecRR").value;
+      const recSpare = document.getElementById("modalRecSpare").value;
+
+      if (mode === 'add') {
+        const newId = "v_" + Date.now();
+        garageData.vehicles[newId] = {
+          id: newId,
+          name,
+          model,
+          type,
+          tankCapacity,
+          recTyreFront: recFront,
+          recTyreFR: recFR,
+          recTyreRear: recRear,
+          recTyreRR: recRR,
+          recTyreSpare: recSpare,
+          fuelLogs: [],
+          tyreLogs: [],
+          serviceLogs: [],
+          reminders: []
+        };
+        garageData.activeVehicleId = newId;
+      } else {
+        const v = getActiveVehicle();
+        v.name = name;
+        v.model = model;
+        v.type = type;
+        v.tankCapacity = tankCapacity;
+        v.recTyreFront = recFront;
+        v.recTyreFR = recFR;
+        v.recTyreRear = recRear;
+        v.recTyreRR = recRR;
+        v.recTyreSpare = recSpare;
+      }
+
+      saveGarageData();
+      populateVehicleSelect();
+      hideVehicleModal();
+      renderDashboard();
+    }
+
+    function deleteCurrentVehicle() {
+      if (Object.keys(garageData.vehicles).length <= 1) {
+        alert("You must keep at least one vehicle in your garage!");
+        return;
+      }
+      if (!confirm("Are you sure you want to delete this vehicle and all its history?")) return;
+
+      delete garageData.vehicles[garageData.activeVehicleId];
+      garageData.activeVehicleId = Object.keys(garageData.vehicles)[0];
+      saveGarageData();
+      populateVehicleSelect();
+      hideVehicleModal();
+      renderDashboard();
+    }
+
+    /* ================= CSV EXPORT / IMPORT ================= */
+    function exportCSV() {
+      const v = getActiveVehicle();
+      if (!v) return;
+
+      let csvContent = "data:text/csv;charset=utf-8,";
+      csvContent += "Category,Date,Odometer,Distance Between Refills (Km),Price/L,Liters,Cost,Type/Details,Remarks\n";
+
+      const processedFuel = getProcessedFuelLogs(v);
+      processedFuel.forEach(f => {
+        csvContent += `Fuel,${f.date},${f.odo},${f.distanceTraveled || 0},${f.unitPrice || ''},${f.liters},${f.cost},,${f.remarks || ''}\n`;
+      });
+
+      (v.serviceLogs || []).forEach(s => {
+        csvContent += `Service,${s.date},${s.odo},,,${s.cost},"${s.type}","${s.remarks || ''}"\n`;
       });
 
       const encodedUri = encodeURI(csvContent);
       const link = document.createElement("a");
       link.setAttribute("href", encodedUri);
-      link.setAttribute("download", `vehicle_tracker_export_${new Date().toISOString().split('T')[0]}.csv`);
+      link.setAttribute("download", `${v.name.replace(/\s+/g, '_')}_data.csv`);
       document.body.appendChild(link);
       link.click();
-      link.remove();
+      document.body.removeChild(link);
     }
 
-    /* ================= IMPORT CSV LOGIC ================= */
     function triggerCSVImport() {
-      document.getElementById('importCsvInput').click();
+      document.getElementById("importCsvInput").click();
     }
 
-    function processCSVImport(event) {
-      const file = event.target.files[0];
+    function processCSVImport(e) {
+      const file = e.target.files[0];
       if (!file) return;
 
       const reader = new FileReader();
-      reader.onload = function(e) {
-        const text = e.target.result;
-        try {
-          parseCSVAndMerge(text);
-          alert('✅ Data imported successfully!');
-          saveData();
-          init();
-        } catch (err) {
-          console.error(err);
-          alert('❌ Error parsing CSV file. Make sure it matches the exported format.');
+      reader.onload = function(evt) {
+        const text = evt.target.result;
+        const lines = text.split("\n");
+        const v = getActiveVehicle();
+        if (!v) return;
+
+        if (!v.fuelLogs) v.fuelLogs = [];
+        if (!v.serviceLogs) v.serviceLogs = [];
+
+        for (let i = 1; i < lines.length; i++) {
+          const line = lines[i].trim();
+          if (!line) continue;
+          const cols = line.split(",");
+
+          if (cols[0] === 'Fuel') {
+            v.fuelLogs.push({
+              date: cols[1],
+              odo: cols[2],
+              unitPrice: cols[4],
+              liters: cols[5],
+              cost: cols[6],
+              remarks: cols[8] || '',
+              isFullTank: true
+            });
+          } else if (cols[0] === 'Service') {
+            v.serviceLogs.push({
+              date: cols[1],
+              odo: cols[2],
+              cost: cols[5],
+              type: cols[6] || 'Imported Service',
+              remarks: cols[7] || ''
+            });
+          }
         }
+
+        saveGarageData();
+        alert("CSV Data Imported Successfully!");
+        renderDashboard();
       };
       reader.readAsText(file);
-      event.target.value = ''; // Clear file input selection
-    }
-
-    function parseCSVAndMerge(csvText) {
-      const lines = csvText.split('\n');
-      let currentVehicle = db.activeVehicle || 'Default Vehicle';
-
-      lines.forEach(line => {
-        const trimmed = line.trim();
-        if (!trimmed) return;
-
-        // Check for Vehicle Header
-        if (trimmed.startsWith('=== VEHICLE:')) {
-          const match = trimmed.match(/=== VEHICLE:\s*([^(\n]+)/);
-          if (match && match[1]) {
-            currentVehicle = match[1].trim();
-            if (!db.vehicles.includes(currentVehicle)) {
-              db.vehicles.push(currentVehicle);
-            }
-            if (!db.fuel[currentVehicle]) db.fuel[currentVehicle] = [];
-            if (!db.tyre[currentVehicle]) db.tyre[currentVehicle] = [];
-            if (!db.service[currentVehicle]) db.service[currentVehicle] = [];
-            if (!db.reminders[currentVehicle]) db.reminders[currentVehicle] = [];
-            if (!db.vehicleProfiles[currentVehicle]) db.vehicleProfiles[currentVehicle] = { type: '4wheeler' };
-          }
-          return;
-        }
-
-        // Parse Standard Row Items
-        const parts = trimmed.split(',').map(p => p.replace(/^"|"$/g, '').trim());
-        const recordType = parts[0];
-
-        if (recordType === 'Fuel' && parts.length >= 6) {
-          const newFuel = {
-            date: parts[1],
-            odo: parseFloat(parts[2]),
-            liters: parseFloat(parts[3]),
-            unitPrice: parseFloat(parts[4]) || 0,
-            cost: parseFloat(parts[5]),
-            fullTank: parts[6] === 'Yes',
-            missedPrevious: parts[7] === 'Yes',
-            remarks: parts[8] || ''
-          };
-          if (!db.fuel[currentVehicle]) db.fuel[currentVehicle] = [];
-          db.fuel[currentVehicle].push(newFuel);
-          db.fuel[currentVehicle].sort((a,b) => b.odo - a.odo);
-        } else if (recordType === 'Tyre' && parts.length >= 6) {
-          const newTyre = {
-            date: parts[1],
-            odo: parseFloat(parts[2]) || null,
-            airType: parts[3] || 'Normal Air',
-            fl: parseFloat(parts[4]),
-            fr: parseFloat(parts[5]),
-            rl: parseFloat(parts[6]) || null,
-            rr: parseFloat(parts[7]) || null,
-            spare: parseFloat(parts[8]) || null,
-            remarks: parts[9] || ''
-          };
-          if (!db.tyre[currentVehicle]) db.tyre[currentVehicle] = [];
-          db.tyre[currentVehicle].push(newTyre);
-          db.tyre[currentVehicle].sort((a,b) => new Date(b.date) - new Date(a.date));
-        } else if (recordType === 'Service' && parts.length >= 5) {
-          const newService = {
-            date: parts[1],
-            odo: parseFloat(parts[2]),
-            cost: parseFloat(parts[3]),
-            type: parts[4],
-            remarks: parts[5] || ''
-          };
-          if (!db.service[currentVehicle]) db.service[currentVehicle] = [];
-          db.service[currentVehicle].push(newService);
-          db.service[currentVehicle].sort((a,b) => b.odo - a.odo);
-        }
-      });
     }
   </script>
 </body>
