@@ -57,19 +57,22 @@
     .tab-btn.active { background: var(--primary); color: white; }
     
     .hidden { display: none !important; }
-    .log-item { border-bottom: 1px solid var(--border); padding: 10px 0; }
+    .log-item { border-bottom: 1px solid var(--border); padding: 12px 0; }
     .log-item:last-child { border-bottom: none; }
     
     .flex { display: flex; gap: 8px; }
     .flex-center { display: flex; align-items: center; justify-content: space-between; }
     
-    .stat-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; margin-bottom: 12px; }
-    .stat-box { background: var(--bg); border: 1px solid var(--border); padding: 10px 6px; border-radius: 8px; text-align: center; }
-    .stat-box small { color: var(--text-muted); display: block; font-size: 0.7rem; }
-    .stat-box strong { font-size: 1rem; color: var(--primary); }
+    .stat-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin-bottom: 12px; }
+    .stat-box { background: var(--bg); border: 1px solid var(--border); padding: 12px 8px; border-radius: 10px; text-align: center; }
+    .stat-box small { color: var(--text-muted); display: block; font-size: 0.72rem; text-transform: uppercase; font-weight: 600; margin-bottom: 2px; }
+    .stat-box strong { font-size: 1.1rem; color: var(--primary); }
     
-    .badge { background: rgba(37, 99, 235, 0.15); color: var(--primary); font-weight: bold; padding: 2px 6px; border-radius: 4px; font-size: 0.75rem; display: inline-block; margin-top: 4px; }
+    .badge { background: rgba(37, 99, 235, 0.15); color: var(--primary); font-weight: bold; padding: 2px 6px; border-radius: 4px; font-size: 0.75rem; display: inline-block; }
     .badge-success { background: rgba(16, 185, 129, 0.15); color: var(--success); }
+    .badge-info { background: rgba(99, 102, 241, 0.15); color: #6366f1; }
+
+    .expense-breakdown { font-size: 0.8rem; color: var(--text-muted); margin-top: 6px; display: flex; justify-content: space-around; background: var(--bg); padding: 8px; border-radius: 6px; border: 1px dashed var(--border); }
     
     .modal-overlay { position: fixed; inset: 0; background: rgba(15, 23, 42, 0.85); backdrop-filter: blur(4px); z-index: 1000; display: flex; align-items: center; justify-content: center; padding: 16px; }
     .modal-card { background: var(--card); padding: 20px; border-radius: 16px; width: 100%; max-width: 420px; max-height: 90vh; overflow-y: auto; }
@@ -79,6 +82,7 @@
     .checkbox-group label { font-size: 0.85rem; }
 
     .btn-sm { width: auto; padding: 4px 10px; font-size: 0.75rem; margin: 0; }
+    .filter-select { width: auto; margin: 0; padding: 4px 8px; font-size: 0.8rem; }
   </style>
 </head>
 <body data-theme="light">
@@ -127,7 +131,7 @@
       <select id="vehicleSelect" onchange="switchVehicle()"></select>
       
       <div class="flex" style="margin-top: -4px;">
-        <button class="outline" style="padding: 6px; font-size: 0.8rem;" onclick="openEditVehicleModal()">✏️ Edit Active Vehicle</button>
+        <button class="outline" style="padding: 6px; font-size: 0.8rem;" onclick="openEditVehicleModal()">✏️ Edit Vehicle Profile</button>
       </div>
     </div>
 
@@ -145,7 +149,7 @@
       <div class="card">
         <div id="vehicleProfileDisplay" style="text-align:center; margin-bottom:12px;"></div>
 
-        <h3>Performance & Predictions</h3>
+        <h3>Performance Stats</h3>
         <div class="stat-grid" style="margin-top:10px;">
           <div class="stat-box">
             <small>Avg Mileage</small>
@@ -163,16 +167,42 @@
             <small>Next Refuel Odo</small>
             <strong id="nextRefuelOdo">-- Km</strong>
           </div>
-          <div class="stat-box" style="grid-column: span 2;">
-            <small>Total Tracked Expenses</small>
-            <strong id="totalExpenses">₹0</strong>
+        </div>
+
+        <!-- EXPENSE FILTER & BREAKDOWN -->
+        <div style="margin-top: 14px; border-top: 1px solid var(--border); padding-top: 12px;">
+          <div class="flex-center" style="margin-bottom: 8px;">
+            <h3>Expenses Summary</h3>
+            <select id="expenseTimeFilter" class="filter-select" onchange="renderDashboard()">
+              <option value="all">All Time</option>
+              <option value="year" selected>This Year</option>
+              <option value="month">This Month</option>
+            </select>
+          </div>
+
+          <div class="stat-box" style="margin-bottom: 6px;">
+            <small>Total Filtered Expense</small>
+            <strong id="totalExpenses" style="font-size: 1.3rem;">₹0</strong>
+          </div>
+
+          <div class="expense-breakdown">
+            <span>⛽ Fuel: <b id="fuelExpenseSum">₹0</b></span>
+            <span>🔧 Service: <b id="serviceExpenseSum">₹0</b></span>
           </div>
         </div>
       </div>
 
+      <!-- CHART SECTION -->
       <div class="card">
-        <h3>Mileage Trend Chart</h3>
-        <div style="position: relative; height:200px; width:100%; margin-top:10px;">
+        <div class="flex-center" style="margin-bottom: 10px;">
+          <h3>Mileage Trend</h3>
+          <select id="chartRangeFilter" class="filter-select" onchange="renderDashboard()">
+            <option value="6m" selected>Last 6 Months</option>
+            <option value="1y">This Year</option>
+            <option value="all">All Time</option>
+          </select>
+        </div>
+        <div style="position: relative; height:200px; width:100%;">
           <canvas id="mileageChart"></canvas>
         </div>
       </div>
@@ -227,7 +257,7 @@
     <div class="card">
       <h3 style="font-size: 0.95rem; margin-bottom: 8px;">Backup & Data Tools</h3>
       <div class="flex">
-        <button style="flex:1; padding: 10px; font-size: 0.85rem;" onclick="exportGarageToCSV()">📤 Export Garage Data (CSV)</button>
+        <button style="flex:1; padding: 10px; font-size: 0.85rem;" onclick="exportGarageToCSV()">📤 Export Garage CSV</button>
         <button class="secondary" style="flex:1; padding: 10px; font-size: 0.85rem;" onclick="triggerFileInput()">📥 Import CSV</button>
       </div>
       <input type="file" id="importCsvInput" style="display: none;" onchange="processCleanCSVImport(event)">
@@ -484,29 +514,17 @@
     }
 
     function listenToData() {
-      // 1. Vehicle profile & active vehicle
       db.ref(`garages/${currentGarageId}/data`).on("value", (snapshot) => {
         const data = snapshot.val() || {};
         activeVehicleName = data.activeVehicle || "";
         vehiclesData = data.vehicleProfiles || data.vehicles || {};
-
-        // Backward compatibility if vehicles were stored under root fuelLogs or root structures
         renderVehicleDropdown();
       });
 
-      // 2. Fuel Logs (Check root fuelLogs or nested under vehicle)
       db.ref(`garages/${currentGarageId}`).on("value", (snapshot) => {
         const root = snapshot.val() || {};
         
-        // Handle migration / fallback mapping
-        if (root.fuelLogs) {
-          fuelLogsData = root.fuelLogs;
-        } else if (root.data && root.data.fuel) {
-          fuelLogsData = root.data.fuel;
-        } else {
-          fuelLogsData = {};
-        }
-
+        fuelLogsData = root.fuelLogs || (root.data && root.data.fuel) || {};
         serviceLogsData = root.serviceLogs || (root.data && root.data.service) || {};
         tyreLogsData = root.tyreLogs || (root.data && root.data.tyre) || {};
         remindersData = root.reminders || (root.data && root.data.reminders) || {};
@@ -521,7 +539,6 @@
 
       const keys = Object.keys(vehiclesData);
       if (keys.length === 0) {
-        // Fallback default if database doesn't have profiles yet
         const defaultVehicle = activeVehicleName || "Classic 350";
         select.innerHTML = `<option value="${defaultVehicle}">${defaultVehicle}</option>`;
         activeVehicleName = defaultVehicle;
@@ -557,72 +574,106 @@
       renderReminders();
     }
 
-    function renderDashboard() {
-      const profileContainer = document.getElementById("vehicleProfileDisplay");
-      let activeProfile = null;
+    // Process fuel logs to calculate leg distances and mileages
+    function getProcessedFuelLogs() {
+      const rawLogs = Object.keys(fuelLogsData)
+        .map(key => ({ key, ...fuelLogsData[key] }))
+        .filter(l => !l.vehicle || l.vehicle === activeVehicleName);
 
-      Object.values(vehiclesData).forEach(v => {
-        if (v.name === activeVehicleName) activeProfile = v;
+      // Sort chronological (Oldest first) to compute leg distances correctly
+      rawLogs.sort((a, b) => {
+        const dA = new Date(a.date || 0);
+        const dB = new Date(b.date || 0);
+        if (dA - dB !== 0) return dA - dB;
+        return parseFloat(a.odo || 0) - parseFloat(b.odo || 0);
       });
 
-      if (activeProfile) {
-        profileContainer.innerHTML = `
-          <h2 style="font-size:1.1rem;">${activeProfile.name}</h2>
-          <span class="badge">${activeProfile.type || 'Vehicle'}</span> 
-          <small style="color:var(--text-muted); font-weight:bold;">${activeProfile.model || ''}</small>
-        `;
-      } else {
-        profileContainer.innerHTML = `<h2 style="font-size:1.1rem;">${activeVehicleName}</h2>`;
-      }
-
-      // Filter logs for active vehicle
-      const logs = Object.values(fuelLogsData).filter(l => !l.vehicle || l.vehicle === activeVehicleName);
-      logs.sort((a, b) => parseFloat(a.odo) - parseFloat(b.odo));
-
-      let totalKm = 0;
-      let totalLiters = 0;
-      let totalFuelCost = 0;
-      let calculatedMileages = [];
-      let chartLabels = [];
-      let chartData = [];
-
-      for (let i = 1; i < logs.length; i++) {
-        const prev = logs[i - 1];
-        const curr = logs[i];
-
-        if (!curr.missedPrevious && prev.odo && curr.odo) {
+      for (let i = 0; i < rawLogs.length; i++) {
+        if (i === 0 || rawLogs[i].missedPrevious) {
+          rawLogs[i].legDistance = null;
+          rawLogs[i].legMileage = null;
+        } else {
+          const prev = rawLogs[i - 1];
+          const curr = rawLogs[i];
           const dist = parseFloat(curr.odo) - parseFloat(prev.odo);
           const liters = parseFloat(curr.liters);
+
           if (dist > 0 && liters > 0) {
-            const mileage = dist / liters;
-            calculatedMileages.push(mileage);
-            chartLabels.push(curr.date || `Log ${i}`);
-            chartData.push(mileage.toFixed(1));
-            totalKm += dist;
-            totalLiters += liters;
+            rawLogs[i].legDistance = dist;
+            rawLogs[i].legMileage = (dist / liters);
+          } else {
+            rawLogs[i].legDistance = null;
+            rawLogs[i].legMileage = null;
           }
         }
       }
 
-      Object.values(fuelLogsData).forEach(l => {
-        if (!l.vehicle || l.vehicle === activeVehicleName) {
-          totalFuelCost += parseFloat(l.cost || 0);
+      return rawLogs;
+    }
+
+    function renderDashboard() {
+      const profileContainer = document.getElementById("vehicleProfileDisplay");
+      let activeProfile = Object.values(vehiclesData).find(v => v.name === activeVehicleName);
+
+      profileContainer.innerHTML = activeProfile ? `
+        <h2 style="font-size:1.15rem;">${activeProfile.name}</h2>
+        <span class="badge">${activeProfile.type || 'Vehicle'}</span> 
+        <small style="color:var(--text-muted); font-weight:bold;">${activeProfile.model || ''}</small>
+      ` : `<h2 style="font-size:1.15rem;">${activeVehicleName}</h2>`;
+
+      const logs = getProcessedFuelLogs();
+
+      let totalKm = 0;
+      let totalLiters = 0;
+      const mileages = [];
+
+      logs.forEach(l => {
+        if (l.legDistance && l.legMileage) {
+          totalKm += l.legDistance;
+          totalLiters += parseFloat(l.liters);
+          mileages.push(l.legMileage);
         }
       });
 
-      let totalServiceCost = 0;
+      const avgMileage = totalLiters > 0 ? (totalKm / totalLiters) : 0;
+
+      // Filtered Expenses Logic
+      const expFilter = document.getElementById("expenseTimeFilter").value;
+      const now = new Date();
+      const currentYear = now.getFullYear();
+      const currentMonth = now.getMonth();
+
+      const filterByTime = (itemDate) => {
+        if (!itemDate || expFilter === "all") return true;
+        const d = new Date(itemDate);
+        if (expFilter === "year") return d.getFullYear() === currentYear;
+        if (expFilter === "month") return d.getFullYear() === currentYear && d.getMonth() === currentMonth;
+        return true;
+      };
+
+      let fuelExpenseSum = 0;
+      logs.forEach(l => {
+        if (filterByTime(l.date)) {
+          fuelExpenseSum += parseFloat(l.cost || 0);
+        }
+      });
+
+      let serviceExpenseSum = 0;
       Object.values(serviceLogsData).forEach(s => {
-        if (!s.vehicle || s.vehicle === activeVehicleName) {
-          totalServiceCost += parseFloat(s.cost || 0);
+        if ((!s.vehicle || s.vehicle === activeVehicleName) && filterByTime(s.date)) {
+          serviceExpenseSum += parseFloat(s.cost || 0);
         }
       });
 
-      const avgMileage = calculatedMileages.length > 0 ? (totalKm / totalLiters) : 0;
-      const costPerKm = totalKm > 0 ? (totalFuelCost / totalKm) : 0;
+      const totalFilteredExpense = fuelExpenseSum + serviceExpenseSum;
+      const costPerKm = totalKm > 0 ? (fuelExpenseSum / totalKm) : 0;
 
       document.getElementById("avgMileage").innerText = avgMileage > 0 ? `${avgMileage.toFixed(2)} Km/L` : "-- Km/L";
       document.getElementById("costPerKm").innerText = costPerKm > 0 ? `₹${costPerKm.toFixed(2)} / Km` : "₹-- / Km";
-      document.getElementById("totalExpenses").innerText = `₹${(totalFuelCost + totalServiceCost).toLocaleString('en-IN')}`;
+      
+      document.getElementById("totalExpenses").innerText = `₹${totalFilteredExpense.toLocaleString('en-IN')}`;
+      document.getElementById("fuelExpenseSum").innerText = `₹${fuelExpenseSum.toLocaleString('en-IN')}`;
+      document.getElementById("serviceExpenseSum").innerText = `₹${serviceExpenseSum.toLocaleString('en-IN')}`;
 
       // Range estimate
       const tankCap = activeProfile ? parseFloat(activeProfile.tank) : 13.5;
@@ -639,7 +690,21 @@
         document.getElementById("nextRefuelOdo").innerText = "-- Km";
       }
 
-      renderChart(chartLabels, chartData);
+      // Filtered Graph Logic
+      const chartRange = document.getElementById("chartRangeFilter").value;
+      const chartLogs = logs.filter(l => {
+        if (!l.legMileage || !l.date) return false;
+        const d = new Date(l.date);
+        if (chartRange === "6m") {
+          const sixMonthsAgo = new Date();
+          sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
+          return d >= sixMonthsAgo;
+        }
+        if (chartRange === "1y") return d.getFullYear() === currentYear;
+        return true;
+      });
+
+      renderChart(chartLogs.map(l => l.date), chartLogs.map(l => l.legMileage.toFixed(1)));
     }
 
     function renderChart(labels, data) {
@@ -656,44 +721,57 @@
             borderColor: '#2563eb',
             backgroundColor: 'rgba(37, 99, 235, 0.1)',
             fill: true,
-            tension: 0.3
+            tension: 0.3,
+            pointRadius: 4,
+            pointBackgroundColor: '#2563eb'
           }]
         },
         options: {
           responsive: true,
           maintainAspectRatio: false,
+          plugins: {
+            legend: { display: false }
+          },
           scales: {
-            y: { beginAtZero: false }
+            y: { beginAtZero: false, grid: { color: 'rgba(0,0,0,0.05)' } },
+            x: { grid: { display: false } }
           }
         }
       });
     }
 
+    // Renders fuel logs sorted latest on top, displaying leg distance and mileage
     function renderFuelLogs() {
       const container = document.getElementById("fuelHistory");
       container.innerHTML = "";
 
-      const keys = Object.keys(fuelLogsData).filter(k => {
-        const l = fuelLogsData[k];
-        return !l.vehicle || l.vehicle === activeVehicleName;
-      });
+      const logs = getProcessedFuelLogs();
 
-      if (keys.length === 0) {
+      if (logs.length === 0) {
         container.innerHTML = "<p style='color:var(--text-muted); font-size:0.85rem;'>No fuel logs recorded.</p>";
         return;
       }
 
-      keys.reverse().forEach(key => {
-        const log = fuelLogsData[key];
+      // Sort Latest First for UI display
+      logs.reverse().forEach(log => {
         const item = document.createElement("div");
         item.className = "log-item flex-center";
+        
+        const mileageBadge = log.legMileage 
+          ? `<span class="badge badge-success" style="margin-left:4px;">⚡ ${log.legMileage.toFixed(1)} Km/L</span>` 
+          : '';
+          
+        const distBadge = log.legDistance 
+          ? `<span class="badge badge-info" style="margin-left:4px;">📍 +${log.legDistance.toFixed(1)} Km</span>` 
+          : '';
+
         item.innerHTML = `
           <div>
-            <strong>${log.date || 'N/A'}</strong> - <b>${log.odo || 0} Km</b><br>
-            <small style="color:var(--text-muted);">${log.liters || 0}L | ₹${log.cost || 0} ${log.isFull ? '• <span class="badge badge-success">Full Tank</span>' : ''}</small>
+            <strong>${log.date || 'N/A'}</strong> - <b>${log.odo || 0} Km</b> ${distBadge}${mileageBadge}<br>
+            <small style="color:var(--text-muted);">${log.liters || 0}L | ₹${log.cost || 0} ${log.isFull ? '• <span class="badge badge-success">Full</span>' : ''}</small>
             ${log.remarks ? `<br><small style="color:var(--text-muted); font-style:italic;">"${log.remarks}"</small>` : ''}
           </div>
-          <button class="outline btn-sm" onclick="editFuelLog('${key}')">✏️ Edit</button>
+          <button class="outline btn-sm" onclick="editFuelLog('${log.key}')">✏️ Edit</button>
         `;
         container.appendChild(item);
       });
@@ -762,6 +840,7 @@
       closeModal("fuelModal");
     }
 
+    // Renders service logs sorted latest on top
     function renderServiceLogs() {
       const container = document.getElementById("serviceHistory");
       container.innerHTML = "";
@@ -776,7 +855,10 @@
         return;
       }
 
-      keys.reverse().forEach(key => {
+      // Sort Latest First
+      keys.sort((a, b) => new Date(serviceLogsData[b].date || 0) - new Date(serviceLogsData[a].date || 0));
+
+      keys.forEach(key => {
         const s = serviceLogsData[key];
         const item = document.createElement("div");
         item.className = "log-item flex-center";
@@ -836,6 +918,7 @@
       closeModal("serviceModal");
     }
 
+    // Renders tyre logs sorted latest on top
     function renderTyreLogs() {
       const container = document.getElementById("tyreHistory");
       const recContainer = document.getElementById("tyreRecommendedDisplay");
@@ -858,7 +941,10 @@
         return;
       }
 
-      keys.reverse().forEach(key => {
+      // Sort Latest First
+      keys.sort((a, b) => new Date(tyreLogsData[b].date || 0) - new Date(tyreLogsData[a].date || 0));
+
+      keys.forEach(key => {
         const t = tyreLogsData[key];
         const item = document.createElement("div");
         item.className = "log-item flex-center";
