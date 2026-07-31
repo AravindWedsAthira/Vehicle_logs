@@ -283,7 +283,7 @@
           <div class="stat-box"><small>Avg Mileage</small><strong id="statAvgMileage">0 Km/L</strong></div>
           <div class="stat-box"><small>Fuel Cost per Km</small><strong id="statCostPerKm">₹0/Km</strong></div>
           <div class="stat-box"><small>All-Time Total</small><strong id="statAllTimeTotal">₹0</strong></div>
-          <div class="stat-box"><small>Est. Dist. to Refill</small><strong id="statDistToRefill">-- Km</strong></div>
+          <div class="stat-box"><small>Est. Odo to Refill</small><strong id="statDistToRefill">-- Km</strong></div>
         </div>
 
         <div style="margin-top: 20px;">
@@ -495,6 +495,7 @@
         renderVehicles();
         renderDashboard();
         renderLogs();
+        renderReminders();
       });
     }
 
@@ -766,6 +767,7 @@
       let litersSinceLastFull = 0;
       let sumMileage = 0;
       let mileageCount = 0;
+      let lastFillOdo = 0;
 
       sorted.forEach(l => {
         if (l.type === 'fuel') {
@@ -786,6 +788,7 @@
           } else {
             litersSinceLastFull += Number(l.liters || 0);
           }
+          lastFillOdo = Number(l.odometer);
         } else if (l.type === 'service') {
           totalCostAllTime += l.cost || 0;
         }
@@ -805,7 +808,9 @@
       document.getElementById('statAvgMileage').innerText = `${avgMileage} Km/L`;
       document.getElementById('statCostPerKm').innerText = `₹${costPerKm}/Km`;
       document.getElementById('statAllTimeTotal').innerText = `₹${totalCostAllTime.toFixed(0)}`;
-      document.getElementById('statDistToRefill').innerText = vehicle.tankCapacity && avgMileage > 0 ? `${(vehicle.tankCapacity * avgMileage).toFixed(0)} Km` : '-- Km';
+      
+      const estOdoToRefill = (vehicle.tankCapacity && avgMileage > 0 && lastFillOdo > 0) ? Math.round(lastFillOdo + (vehicle.tankCapacity * Number(avgMileage))) : '--';
+      document.getElementById('statDistToRefill').innerText = estOdoToRefill !== '--' ? `${estOdoToRefill} Km` : '-- Km';
 
       // Expense Breakdown Table Handling
       const yearsSet = new Set();
@@ -973,12 +978,85 @@
 
     function saveReminder(e) {
       e.preventDefault();
-      alert("Reminder saved successfully!");
-      e.target.reset();
+      const activeVehId = garageData.activeVehicle;
+      if (!activeVehId) return;
+
+      const remId = 'rem_' + Date.now();
+      const remData = {
+        title: document.getElementById('remTitle').value,
+        date: document.getElementById('remDate').value,
+        odometer: parseFloat(document.getElementById('remOdo').value) || 0
+      };
+
+      db.ref(`garages/${activeGarage}/vehicles/${activeVehId}/reminders/${remId}`).set(remData)
+        .then(() => {
+          e.target.reset();
+          renderReminders();
+        });
+    }
+
+    function deleteReminder(remId) {
+      const activeVehId = garageData.activeVehicle;
+      db.ref(`garages/${activeGarage}/vehicles/${activeVehId}/reminders/${remId}`).remove();
+    }
+
+    function renderReminders() {
+      const container = document.getElementById('remindersContainer');
+      const activeVehId = garageData.activeVehicle;
+      const reminders = (garageData.vehicles && garageData.vehicles[activeVehId] && garageData.vehicles[activeVehId].reminders) || {};
+      
+      const sorted = Object.keys(reminders).map(id => ({ id, ...reminders[id] })).sort((a,b) => new Date(a.date) - new Date(b.date));
+
+      if (sorted.length === 0) {
+        container.innerHTML = '<p style="color:var(--text-muted); text-align:center; font-size:0.85rem; padding:10px;">No reminders set.</p>';
+        return;
+      }
+
+      let html = '';
+      sorted.forEach(r => {
+        html += `
+          <div class="item-card">
+            <div class="flex-center" style="margin-bottom:6px;">
+              <span class="badge" style="background: var(--warning); color: #fff;">Reminder</span>
+              <small style="color:var(--text-muted); font-weight: 600;">Due: ${r.date} ${r.odometer ? '• ' + r.odometer + ' Km' : ''}</small>
+            </div>
+            <div style="font-size:0.95rem; font-weight:700; margin-bottom:8px;">${r.title}</div>
+            <div>
+              <button class="danger-outline btn-sm" onclick="deleteReminder('${r.id}')">Delete</button>
+            </div>
+          </div>
+        `;
+      });
+      container.innerHTML = html;
     }
 
     function exportGarageToCSV() {
-      alert("Export feature placeholder.");
+      const activeVehId = garageData.activeVehicle;
+      const vehicle = garageData.vehicles && garageData.vehicles[activeVehId];
+      if (!vehicle || !vehicle.logs) {
+        alert("No logs available to export.");
+        return;
+      }
+
+      let csvContent = "data:text/csv;charset=utf-8,Type,Date,Odometer,Liters,Cost,Details,Remarks\n";
+      Object.values(vehicle.logs).forEach(l => {
+        const type = l.type || '';
+        const date = l.date || '';
+        const odo = l.odometer || '';
+        const liters = l.liters || '';
+        const cost = l.cost || '';
+        const details = l.title || (l.frontPsi ? `Front: ${l.frontPsi}, Rear: ${l.rearPsi}` : '');
+        const remarks = (l.remarks || '').replace(/,/g, ' ');
+        csvContent += `${type},${date},${odo},${liters},${cost},"${details}","${remarks}"\n`;
+      });
+
+      const encodedUri = encodeURI(csvContent);
+      const link = document.createElement("a");
+      link.setAttribute("href", encodedUri);
+      link.setAttribute("download", `${vehicle.name}_logs.csv`);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
     }
   </script>
 </body>
